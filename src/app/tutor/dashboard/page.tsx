@@ -28,9 +28,9 @@ export default async function DashboardPage() {
         <h2 className="font-semibold text-stone-700 mb-4">Быстрые действия</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <QuickAction icon="➕" label="Добавить ученика" href="/tutor/students/new" />
-          <QuickAction icon="📅" label="Запланировать урок" href="/tutor/schedule/new" />
+          <QuickAction icon="📅" label="Запланировать урок" href="/tutor/schedule" />
           <QuickAction icon="📝" label="Дать задание" href="/tutor/homework/new" />
-          <QuickAction icon="📂" label="Добавить материал" href="/tutor/vocabulary" />
+          <QuickAction icon="📂" label="Добавить материал" href="/tutor/materials/new" />
         </div>
       </div>
     </div>
