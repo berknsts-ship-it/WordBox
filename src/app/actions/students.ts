@@ -33,6 +33,13 @@ export async function addStudent(formData: FormData) {
   redirect(`/tutor/students/${data.id}`);
 }
 
+export async function updateCanvasUrl(id: string, formData: FormData) {
+  const supabase = await createClient();
+  const canvas_url = (formData.get("canvas_url") as string) || null;
+  await supabase.from("students").update({ canvas_url }).eq("id", id);
+  revalidatePath(`/tutor/students/${id}`);
+}
+
 export async function deleteStudent(id: string) {
   const supabase = await createClient();
   await supabase.from("students").delete().eq("id", id);

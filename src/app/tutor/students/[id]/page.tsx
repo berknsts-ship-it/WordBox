@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { updateCanvasUrl } from "@/app/actions/students";
 import TutorLessonsTab from "@/components/tutor/tabs/LessonsTab";
 import TutorHomeworkTab from "@/components/tutor/tabs/HomeworkTab";
 import TutorMaterialsTab from "@/components/tutor/tabs/MaterialsTab";
@@ -29,7 +30,7 @@ export default async function StudentDetailPage({
   const supabase = await createClient();
   const { data: student } = await supabase
     .from("students")
-    .select("id, name, email, access_code, notes")
+    .select("id, name, email, access_code, notes, canvas_url")
     .eq("id", id)
     .single();
 
@@ -67,6 +68,27 @@ export default async function StudentDetailPage({
           📋 {student.notes}
         </div>
       )}
+
+      {/* Холст */}
+      <div className="bg-white/80 rounded-2xl border px-4 py-3 mb-6 flex items-center gap-3"
+        style={{ borderColor: "var(--brown-pale)" }}>
+        <span className="text-lg shrink-0">🎨</span>
+        <form action={updateCanvasUrl.bind(null, id)} className="flex gap-2 flex-1 min-w-0">
+          <input
+            name="canvas_url"
+            type="url"
+            defaultValue={student.canvas_url ?? ""}
+            placeholder="Ссылка на холст (Miro, Figma, Notion...)"
+            className="flex-1 min-w-0 rounded-xl px-3 py-2 text-sm focus:outline-none"
+            style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
+          />
+          <button type="submit"
+            className="shrink-0 rounded-xl px-4 py-2 text-sm font-semibold text-white hover:opacity-80 transition-opacity"
+            style={{ background: "var(--brown-mid)" }}>
+            Сохранить
+          </button>
+        </form>
+      </div>
 
       {/* Вкладки */}
       <div className="flex gap-2 overflow-x-auto pb-1 mb-6">

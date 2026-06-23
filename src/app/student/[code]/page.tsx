@@ -24,11 +24,17 @@ export default async function StudentCabinetPage({
   const supabase = await createClient();
   const { data: student } = await supabase
     .from("students")
-    .select("id, name")
+    .select("id, name, canvas_url")
     .eq("access_code", code)
     .single();
 
   if (!student) notFound();
+
+  const { count: pendingCount } = await supabase
+    .from("homework")
+    .select("id", { count: "exact", head: true })
+    .eq("student_id", student.id)
+    .eq("status", "pending");
 
   return (
     <div>
@@ -39,7 +45,23 @@ export default async function StudentCabinetPage({
         </p>
       </div>
 
-      <TabNav code={code} activeTab={activeTab} />
+      {/* Холст — всегда виден */}
+      {student.canvas_url && (
+        <div className="mb-6 rounded-3xl overflow-hidden border" style={{ borderColor: "var(--brown-pale)" }}>
+          <div className="px-4 py-2.5 flex items-center gap-2 border-b" style={{ background: "var(--brown-pale)", borderColor: "var(--brown-pale)" }}>
+            <span>🎨</span>
+            <span className="text-sm font-semibold" style={{ color: "var(--brown-dark)" }}>Наш холст</span>
+          </div>
+          <iframe
+            src={student.canvas_url}
+            className="w-full"
+            style={{ height: "65vh", border: "none", display: "block" }}
+            allowFullScreen
+          />
+        </div>
+      )}
+
+      <TabNav code={code} activeTab={activeTab} pendingHomework={pendingCount ?? 0} />
 
       <div className="mt-6">
         {activeTab === "schedule"  && <ScheduleTab  studentId={student.id} />}
