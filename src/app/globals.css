@@ -52,6 +52,7 @@ h1, h2, h3, h4 {
 
 /* Фон в виде страницы школьного дневника */
 .diary-bg {
+  position: relative;
   background-color: #fef9ef;
   background-image:
     repeating-linear-gradient(
@@ -69,4 +70,31 @@ h1, h2, h3, h4 {
       transparent 62px
     );
   background-size: 100% 32px, 100% 100%;
+}
+
+.diary-bg::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(
+    to right,
+    #fef9ef 0%,
+    transparent 12%,
+    transparent 88%,
+    #fef9ef 100%
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+.diary-bg::after {
+  content: '';
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 180px;
+  background: linear-gradient(to bottom, transparent, #fef9ef);
+  pointer-events: none;
+  z-index: 1;
 }
