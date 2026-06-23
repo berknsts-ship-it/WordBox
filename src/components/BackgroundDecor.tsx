@@ -1,96 +1,127 @@
+function LetterBlock({ x, y, letter, rotate = 0, size = 64 }: {
+  x: number; y: number; letter: string; rotate?: number; size?: number;
+}) {
+  const r = size * 0.13;
+  const fontSize = size * 0.52;
+  return (
+    <g transform={`translate(${x}, ${y}) rotate(${rotate})`} opacity="0.75">
+      <rect x={0} y={0} width={size} height={size} rx={r} fill="#e8d5b7" stroke="#b8956a" strokeWidth="2.5" />
+      <text
+        x={size / 2} y={size * 0.72}
+        fontSize={fontSize}
+        textAnchor="middle"
+        fill="#7c5c3e"
+        fontFamily="Georgia, serif"
+        fontStyle="italic"
+      >{letter}</text>
+    </g>
+  );
+}
+
+function Book({ x, y, rotate = 0, scale = 1 }: { x: number; y: number; rotate?: number; scale?: number }) {
+  return (
+    <g transform={`translate(${x}, ${y}) rotate(${rotate}) scale(${scale})`} opacity="0.72">
+      <rect x="0" y="0" width="44" height="56" rx="4" fill="#b8956a" />
+      <rect x="6" y="0" width="38" height="56" rx="3" fill="#e8d5b7" />
+      <line x1="10" y1="12" x2="38" y2="12" stroke="#b8956a" strokeWidth="1.8" />
+      <line x1="10" y1="20" x2="38" y2="20" stroke="#b8956a" strokeWidth="1.8" />
+      <line x1="10" y1="28" x2="30" y2="28" stroke="#b8956a" strokeWidth="1.8" />
+      <line x1="10" y1="36" x2="34" y2="36" stroke="#b8956a" strokeWidth="1.8" />
+    </g>
+  );
+}
+
+function Pencil({ x, y, rotate = 0 }: { x: number; y: number; rotate?: number }) {
+  return (
+    <g transform={`translate(${x}, ${y}) rotate(${rotate})`} opacity="0.68">
+      <rect x="0" y="0" width="13" height="70" rx="3" fill="#b8956a" />
+      <polygon points="0,70 13,70 6.5,88" fill="#e8d5b7" />
+      <rect x="0" y="0" width="13" height="13" rx="2" fill="#7c5c3e" />
+      <line x1="0" y1="13" x2="13" y2="13" stroke="#7c5c3e" strokeWidth="1.5" />
+    </g>
+  );
+}
+
+function Star({ x, y, size = 1 }: { x: number; y: number; size?: number }) {
+  const s = size;
+  return (
+    <polygon
+      points={`${x},${y - 14 * s} ${x + 4 * s},${y - 4 * s} ${x + 14 * s},${y - 4 * s} ${x + 6 * s},${y + 3 * s} ${x + 9 * s},${y + 13 * s} ${x},${y + 7 * s} ${x - 9 * s},${y + 13 * s} ${x - 6 * s},${y + 3 * s} ${x - 14 * s},${y - 4 * s} ${x - 4 * s},${y - 4 * s}`}
+      fill="#b8956a"
+      opacity="0.65"
+    />
+  );
+}
+
 export default function BackgroundDecor() {
   return (
     <svg
       className="fixed inset-0 w-full h-full pointer-events-none"
-      style={{ zIndex: 0, opacity: 0.18 }}
+      style={{ zIndex: 0, opacity: 0.22 }}
       viewBox="0 0 1440 900"
       preserveAspectRatio="xMidYMid slice"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
     >
-      {/* Буква A — левый верх */}
-      <text x="40" y="110" fontSize="96" fill="#7c5c3e" fontFamily="Georgia, serif" fontStyle="italic" opacity="0.7">A</text>
+      {/* Верхний левый */}
+      <LetterBlock x={40} y={30} letter="A" rotate={-12} size={72} />
+      <LetterBlock x={140} y={20} letter="B" rotate={8} size={60} />
+      <Star x={250} y={80} size={1.1} />
 
-      {/* Буква B — правый верх */}
-      <text x="1300" y="90" fontSize="80" fill="#b8956a" fontFamily="Georgia, serif" fontStyle="italic">B</text>
+      {/* Верхний центр */}
+      <LetterBlock x={660} y={18} letter="C" rotate={-6} size={68} />
+      <Star x={790} y={55} size={0.9} />
 
-      {/* Буква c — центр низ */}
-      <text x="680" y="870" fontSize="100" fill="#7c5c3e" fontFamily="Georgia, serif" fontStyle="italic" opacity="0.5">c</text>
+      {/* Верхний правый */}
+      <Book x={1260} y={20} rotate={-8} scale={1.6} />
+      <Pencil x={1400} y={15} rotate={-35} />
 
-      {/* Буква d — левый низ */}
-      <text x="30" y="870" fontSize="80" fill="#b8956a" fontFamily="Georgia, serif" fontStyle="italic" opacity="0.55">d</text>
-
-      {/* Книжка — левый низ */}
-      <g transform="translate(40, 660) scale(1.8)" opacity="0.75">
-        <rect x="0" y="0" width="28" height="36" rx="3" fill="#b8956a" />
-        <rect x="4" y="0" width="24" height="36" rx="2" fill="#e8d5b7" />
-        <line x1="6" y1="8" x2="24" y2="8" stroke="#b8956a" strokeWidth="1.2" />
-        <line x1="6" y1="14" x2="24" y2="14" stroke="#b8956a" strokeWidth="1.2" />
-        <line x1="6" y1="20" x2="20" y2="20" stroke="#b8956a" strokeWidth="1.2" />
+      {/* Левый край */}
+      <Star x={55} y={320} size={1.3} />
+      <LetterBlock x={18} y={460} letter="D" rotate={15} size={66} />
+      <g stroke="#e8d5b7" strokeWidth="2" opacity="0.9">
+        <line x1="0" y1="560" x2="130" y2="560" />
+        <line x1="0" y1="578" x2="100" y2="578" />
+        <line x1="0" y1="596" x2="140" y2="596" />
       </g>
 
-      {/* Книжка — правый низ */}
-      <g transform="translate(1340, 750) rotate(10) scale(1.5)" opacity="0.65">
-        <rect x="0" y="0" width="28" height="36" rx="3" fill="#b8956a" />
-        <rect x="4" y="0" width="24" height="36" rx="2" fill="#e8d5b7" />
-        <line x1="6" y1="8" x2="24" y2="8" stroke="#b8956a" strokeWidth="1.2" />
-        <line x1="6" y1="14" x2="24" y2="14" stroke="#b8956a" strokeWidth="1.2" />
-        <line x1="6" y1="20" x2="18" y2="20" stroke="#b8956a" strokeWidth="1.2" />
+      {/* Правый край */}
+      <LetterBlock x={1358} y={300} letter="E" rotate={-14} size={66} />
+      <Star x={1390} y={460} size={1.2} />
+      <g stroke="#e8d5b7" strokeWidth="2" opacity="0.9">
+        <line x1="1310" y1="540" x2="1440" y2="540" />
+        <line x1="1340" y1="558" x2="1440" y2="558" />
+        <line x1="1300" y1="576" x2="1440" y2="576" />
       </g>
 
-      {/* Карандаш — правый верх */}
-      <g transform="translate(1370, 120) rotate(-30)" opacity="0.75">
-        <rect x="0" y="0" width="10" height="56" rx="2" fill="#b8956a" />
-        <polygon points="0,56 10,56 5,72" fill="#e8d5b7" />
-        <rect x="0" y="0" width="10" height="10" rx="1" fill="#7c5c3e" />
-        <line x1="0" y1="10" x2="10" y2="10" stroke="#7c5c3e" strokeWidth="1" />
-      </g>
+      {/* Центр левый */}
+      <Book x={320} y={680} rotate={-10} scale={2} />
+      <Star x={480} y={780} size={1.0} />
 
-      {/* Карандаш — левый середина */}
-      <g transform="translate(55, 440) rotate(18)" opacity="0.6">
-        <rect x="0" y="0" width="8" height="46" rx="2" fill="#b8956a" />
-        <polygon points="0,46 8,46 4,60" fill="#e8d5b7" />
-        <rect x="0" y="0" width="8" height="8" rx="1" fill="#7c5c3e" />
-      </g>
+      {/* Центр */}
+      <LetterBlock x={660} y={790} letter="F" rotate={5} size={64} />
+      <Star x={780} y={820} size={0.85} />
 
-      {/* Звёздочка — левый верх */}
-      <polygon
-        points="180,55 184,68 197,68 187,77 191,90 180,81 169,90 173,77 163,68 176,68"
-        fill="#b8956a" opacity="0.6"
-      />
+      {/* Центр правый */}
+      <Star x={960} y={760} size={1.0} />
+      <Book x={1060} y={690} rotate={12} scale={2} />
 
-      {/* Звёздочка — правый середина */}
-      <polygon
-        points="1260,380 1263,390 1273,390 1265,397 1268,407 1260,400 1252,407 1255,397 1247,390 1257,390"
-        fill="#b8956a" opacity="0.55"
-      />
+      {/* Нижний левый */}
+      <Pencil x={60} y={720} rotate={22} />
+      <LetterBlock x={20} y={820} letter="G" rotate={-8} size={60} />
 
-      {/* Маленькие звёздочки */}
-      <text x="870" y="55" fontSize="22" fill="#b8956a" opacity="0.75">✦</text>
-      <text x="200" y="480" fontSize="16" fill="#b8956a" opacity="0.5">✦</text>
-      <text x="1180" y="820" fontSize="20" fill="#b8956a" opacity="0.6">✦</text>
+      {/* Нижний правый */}
+      <LetterBlock x={1350} y={800} letter="H" rotate={10} size={64} />
+      <Pencil x={1220} y={760} rotate={-18} />
 
-      {/* Линованные строчки — левый край */}
-      <g stroke="#e8d5b7" strokeWidth="1.5" opacity="0.9">
-        <line x1="0" y1="310" x2="110" y2="310" />
-        <line x1="0" y1="326" x2="85" y2="326" />
-        <line x1="0" y1="342" x2="120" y2="342" />
-      </g>
+      {/* Рассыпанные кружки */}
+      <circle cx="420" cy="50" r="7" fill="#b8956a" opacity="0.5" />
+      <circle cx="438" cy="50" r="7" fill="#b8956a" opacity="0.4" />
+      <circle cx="456" cy="50" r="7" fill="#b8956a" opacity="0.3" />
 
-      {/* Линованные строчки — правый край */}
-      <g stroke="#e8d5b7" strokeWidth="1.5" opacity="0.9">
-        <line x1="1330" y1="490" x2="1440" y2="490" />
-        <line x1="1355" y1="506" x2="1440" y2="506" />
-        <line x1="1320" y1="522" x2="1440" y2="522" />
-      </g>
-
-      {/* Кружки */}
-      <circle cx="350" cy="840" r="6" fill="#b8956a" opacity="0.5" />
-      <circle cx="368" cy="840" r="6" fill="#b8956a" opacity="0.4" />
-      <circle cx="386" cy="840" r="6" fill="#b8956a" opacity="0.3" />
-
-      <circle cx="1090" cy="55" r="7" fill="#e8d5b7" opacity="0.9" />
-      <circle cx="1110" cy="48" r="4" fill="#b8956a" opacity="0.7" />
+      <circle cx="1010" cy="855" r="7" fill="#b8956a" opacity="0.5" />
+      <circle cx="1028" cy="855" r="7" fill="#b8956a" opacity="0.4" />
+      <circle cx="1046" cy="855" r="7" fill="#b8956a" opacity="0.3" />
     </svg>
   );
 }
