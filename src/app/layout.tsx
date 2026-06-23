@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Lora, Nunito } from "next/font/google";
 import "./globals.css";
+import BackgroundDecor from "@/components/BackgroundDecor";
 
 const lora = Lora({
   variable: "--font-lora",
@@ -25,7 +26,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru" className={`${lora.variable} ${nunito.variable} h-full`}>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <BackgroundDecor />
+        <div className="relative flex flex-col flex-1" style={{ zIndex: 1 }}>{children}</div>
+      </body>
     </html>
   );
 }
