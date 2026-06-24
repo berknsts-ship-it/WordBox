@@ -7,10 +7,11 @@ import JournalTab from "@/components/student/tabs/JournalTab";
 import MaterialsTab from "@/components/student/tabs/MaterialsTab";
 import TrainerTab from "@/components/student/tabs/TrainerTab";
 import BoardTab from "@/components/student/tabs/BoardTab";
+import GrammarTab from "@/components/student/tabs/GrammarTab";
 import SplashScreen from "@/components/student/SplashScreen";
 
-type Tab = "schedule" | "homework" | "board" | "journal" | "materials" | "trainer";
-const VALID_TABS: Tab[] = ["schedule", "homework", "board", "journal", "materials", "trainer"];
+type Tab = "schedule" | "homework" | "board" | "journal" | "materials" | "trainer" | "grammar";
+const VALID_TABS: Tab[] = ["schedule", "homework", "board", "journal", "materials", "trainer", "grammar"];
 
 export default async function StudentCabinetPage({
   params,
@@ -59,6 +60,7 @@ export default async function StudentCabinetPage({
           {activeTab === "trainer"   && (
             <TrainerTab studentId={student.id} code={code} activeSetId={set} />
           )}
+          {activeTab === "grammar"   && <GrammarTab />}
         </div>
       </div>
     </SplashScreen>

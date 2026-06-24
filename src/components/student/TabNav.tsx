@@ -9,6 +9,7 @@ const TABS = [
   { id: "journal",   label: "Журнал уроков",    icon: "📖" },
   { id: "materials", label: "Материалы",        icon: "📂" },
   { id: "trainer",   label: "Тренажёр",         icon: "🃏" },
+  { id: "grammar",   label: "Грамматика",        icon: "📐" },
 ];
 
 export default function TabNav({
