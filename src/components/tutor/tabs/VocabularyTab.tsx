@@ -12,9 +12,10 @@ export default async function TutorVocabularyTab({
   const supabase = await createClient();
   const { data: sets } = await supabase
     .from("vocabulary_sets")
-    .select("id, name, created_at")
+    .select("id, name, created_at, sort_order")
     .eq("student_id", studentId)
-    .order("created_at", { ascending: false });
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
 
   // Если выбран конкретный набор — показываем слова
   if (activeSetId) {

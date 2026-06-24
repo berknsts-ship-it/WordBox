@@ -48,7 +48,8 @@ export default async function TrainerTab({
     .from("vocabulary_sets")
     .select("id, name")
     .eq("student_id", studentId)
-    .order("created_at", { ascending: false });
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
 
   if (!sets || sets.length === 0) {
     return (
