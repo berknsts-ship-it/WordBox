@@ -26,7 +26,7 @@ export default async function StudentCabinetPage({
   const supabase = await createClient();
   const { data: student } = await supabase
     .from("students")
-    .select("id, name, canvas_url")
+    .select("id, name, canvas_url, textbook")
     .eq("access_code", code)
     .single();
 
@@ -58,7 +58,7 @@ export default async function StudentCabinetPage({
           {activeTab === "trainer"   && (
             <TrainerTab studentId={student.id} code={code} activeSetId={set} />
           )}
-          {activeTab === "grammar"   && <GrammarTab />}
+          {activeTab === "grammar"   && <GrammarTab textbook={student.textbook ?? null} />}
         </div>
       </div>
     </SplashScreen>

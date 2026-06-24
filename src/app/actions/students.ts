@@ -23,9 +23,11 @@ export async function addStudent(formData: FormData) {
   const notes = (formData.get("notes") as string) || null;
   const access_code = generateCode();
 
+  const textbook = (formData.get("textbook") as string) || null;
+
   const { data, error } = await supabase
     .from("students")
-    .insert({ name, email, notes, access_code, tutor_id: user.id })
+    .insert({ name, email, notes, access_code, tutor_id: user.id, textbook })
     .select("id")
     .single();
 
@@ -37,6 +39,13 @@ export async function updateCanvasUrl(id: string, formData: FormData) {
   const supabase = await createClient();
   const canvas_url = (formData.get("canvas_url") as string) || null;
   await supabase.from("students").update({ canvas_url }).eq("id", id);
+  revalidatePath(`/tutor/students/${id}`);
+}
+
+export async function updateTextbook(id: string, formData: FormData) {
+  const supabase = await createClient();
+  const textbook = (formData.get("textbook") as string) || null;
+  await supabase.from("students").update({ textbook }).eq("id", id);
   revalidatePath(`/tutor/students/${id}`);
 }
 

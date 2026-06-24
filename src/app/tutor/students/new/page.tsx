@@ -71,6 +71,22 @@ export default function NewStudentPage() {
             />
           </div>
 
+          <div>
+            <label className="block text-sm font-semibold mb-1.5"
+              style={{ color: "var(--brown-mid)" }}>
+              Учебник (необязательно)
+            </label>
+            <select
+              name="textbook"
+              className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
+              style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
+            >
+              <option value="">Не выбран</option>
+              <option value="english_file_elementary">English File Elementary</option>
+              <option value="solutions_elementary">Solutions 3rd Ed. Elementary</option>
+            </select>
+          </div>
+
           <div className="rounded-2xl p-4 text-sm"
             style={{ background: "var(--brown-pale)", color: "var(--brown-mid)" }}>
             🔑 Код доступа сгенерируется автоматически — ты сможешь поделиться им с учеником
