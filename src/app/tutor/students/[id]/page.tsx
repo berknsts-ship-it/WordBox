@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { updateCanvasUrl } from "@/app/actions/students";
+import CopyLinkButton from "@/components/tutor/CopyLinkButton";
 import TutorLessonsTab from "@/components/tutor/tabs/LessonsTab";
 import TutorHomeworkTab from "@/components/tutor/tabs/HomeworkTab";
 import TutorMaterialsTab from "@/components/tutor/tabs/MaterialsTab";
@@ -59,6 +60,7 @@ export default async function StudentDetailPage({
           <p className="text-xl font-bold tracking-widest" style={{ color: "var(--brown-dark)" }}>
             {student.access_code}
           </p>
+          <CopyLinkButton code={student.access_code} />
         </div>
       </div>
 
