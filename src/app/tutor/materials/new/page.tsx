@@ -18,12 +18,12 @@ async function addMaterial(formData: FormData) {
     const ext = file.name.split(".").pop();
     const path = `materials/${user.id}/${Date.now()}.${ext}`;
     const { data: uploadData } = await supabase.storage
-      .from("wordbox")
+      .from("WordBox")
       .upload(path, file);
 
     if (uploadData) {
       const { data: urlData } = supabase.storage
-        .from("wordbox")
+        .from("WordBox")
         .getPublicUrl(uploadData.path);
       url = urlData.publicUrl;
       file_name = file.name;

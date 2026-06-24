@@ -18,12 +18,12 @@ async function addHomework(formData: FormData) {
     const ext = file.name.split(".").pop();
     const path = `homework/${user.id}/${Date.now()}.${ext}`;
     const { data: uploadData } = await supabase.storage
-      .from("wordbox")
+      .from("WordBox")
       .upload(path, file);
 
     if (uploadData) {
       const { data: urlData } = supabase.storage
-        .from("wordbox")
+        .from("WordBox")
         .getPublicUrl(uploadData.path);
       material_url = urlData.publicUrl;
       material_label = material_label || file.name;
