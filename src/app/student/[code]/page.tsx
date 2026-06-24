@@ -7,6 +7,7 @@ import JournalTab from "@/components/student/tabs/JournalTab";
 import MaterialsTab from "@/components/student/tabs/MaterialsTab";
 import TrainerTab from "@/components/student/tabs/TrainerTab";
 import BoardTab from "@/components/student/tabs/BoardTab";
+import SplashScreen from "@/components/student/SplashScreen";
 
 type Tab = "schedule" | "homework" | "board" | "journal" | "materials" | "trainer";
 const VALID_TABS: Tab[] = ["schedule", "homework", "board", "journal", "materials", "trainer"];
@@ -38,26 +39,28 @@ export default async function StudentCabinetPage({
     .eq("status", "pending");
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-2xl">Привет, {student.name}! 👋</h1>
-        <p className="text-sm mt-1" style={{ color: "var(--brown-light)" }}>
-          Твой личный кабинет
-        </p>
-      </div>
+    <SplashScreen code={code}>
+      <div>
+        <div className="mb-6">
+          <h1 className="text-2xl">Привет, {student.name}! 👋</h1>
+          <p className="text-sm mt-1" style={{ color: "var(--brown-light)" }}>
+            Твой личный кабинет
+          </p>
+        </div>
 
-      <TabNav code={code} activeTab={activeTab} pendingHomework={pendingCount ?? 0} />
+        <TabNav code={code} activeTab={activeTab} pendingHomework={pendingCount ?? 0} />
 
-      <div className="mt-6">
-        {activeTab === "schedule"  && <ScheduleTab  studentId={student.id} />}
-        {activeTab === "homework"  && <HomeworkTab  studentId={student.id} />}
-        {activeTab === "board"     && <BoardTab     boardUrl={student.canvas_url ?? null} />}
-        {activeTab === "journal"   && <JournalTab   studentId={student.id} />}
-        {activeTab === "materials" && <MaterialsTab studentId={student.id} />}
-        {activeTab === "trainer"   && (
-          <TrainerTab studentId={student.id} code={code} activeSetId={set} />
-        )}
+        <div className="mt-6">
+          {activeTab === "schedule"  && <ScheduleTab  studentId={student.id} />}
+          {activeTab === "homework"  && <HomeworkTab  studentId={student.id} />}
+          {activeTab === "board"     && <BoardTab     boardUrl={student.canvas_url ?? null} />}
+          {activeTab === "journal"   && <JournalTab   studentId={student.id} />}
+          {activeTab === "materials" && <MaterialsTab studentId={student.id} />}
+          {activeTab === "trainer"   && (
+            <TrainerTab studentId={student.id} code={code} activeSetId={set} />
+          )}
+        </div>
       </div>
-    </div>
+    </SplashScreen>
   );
 }
