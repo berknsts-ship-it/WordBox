@@ -16,7 +16,12 @@ const nunito = Nunito({
 
 export const metadata: Metadata = {
   title: "Word Box",
-  description: "Онлайн-платформа репетитора английского языка",
+  description: "Личный кабинет ученика английского языка",
+  appleWebApp: {
+    capable: true,
+    title: "Word Box",
+    statusBarStyle: "default",
+  },
 };
 
 export default function RootLayout({
