@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { FileUploadField } from "@/components/tutor/FileUploadField";
 
 async function addMaterial(formData: FormData) {
   "use server";
@@ -9,34 +10,17 @@ async function addMaterial(formData: FormData) {
   if (!user) return;
 
   const student_id = formData.get("student_id") as string;
-
-  let url: string | null = (formData.get("url") as string) || null;
-  let file_name: string | null = null;
-
-  const file = formData.get("file") as File | null;
-  if (file && file.size > 0) {
-    const ext = file.name.split(".").pop();
-    const path = `materials/${user.id}/${Date.now()}.${ext}`;
-    const { data: uploadData } = await supabase.storage
-      .from("WordBox")
-      .upload(path, file);
-
-    if (uploadData) {
-      const { data: urlData } = supabase.storage
-        .from("WordBox")
-        .getPublicUrl(uploadData.path);
-      url = urlData.publicUrl;
-      file_name = file.name;
-    }
-  }
+  const uploadedUrl = (formData.get("uploaded_url") as string) || null;
+  const uploadedFileName = (formData.get("uploaded_file_name") as string) || null;
+  const textUrl = (formData.get("url") as string) || null;
 
   await supabase.from("materials").insert({
     student_id,
     tutor_id: user.id,
     title: formData.get("title") as string,
     content: (formData.get("content") as string) || null,
-    url,
-    file_name,
+    url: uploadedUrl || textUrl,
+    file_name: uploadedFileName,
     is_iframe: formData.get("is_iframe") === "on",
   });
 
@@ -65,7 +49,7 @@ export default async function NewMaterialPage() {
       <h1 className="text-2xl mb-6">Добавить материал</h1>
 
       <div className="bg-white/80 rounded-3xl border p-6" style={{ borderColor: "var(--brown-pale)" }}>
-        <form action={addMaterial} encType="multipart/form-data" className="space-y-4">
+        <form action={addMaterial} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold mb-1" style={{ color: "var(--brown-mid)" }}>
               Ученик *
@@ -115,23 +99,11 @@ export default async function NewMaterialPage() {
             <div className="flex-1 h-px" style={{ background: "var(--brown-pale)" }} />
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: "var(--brown-mid)" }}>
-              Загрузить файл с компьютера
-            </label>
-            <input
-              name="file"
-              type="file"
-              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.mp3,.mp4,.txt"
-              className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none
-                file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0
-                file:text-xs file:font-semibold file:cursor-pointer"
-              style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
-            />
-            <p className="text-xs mt-1" style={{ color: "var(--brown-light)" }}>
-              PDF, Word, картинки, аудио — до 10 МБ
-            </p>
-          </div>
+          <FileUploadField
+            folder="materials"
+            urlFieldName="uploaded_url"
+            fileNameFieldName="uploaded_file_name"
+          />
 
           <div>
             <label className="block text-xs font-semibold mb-1" style={{ color: "var(--brown-mid)" }}>

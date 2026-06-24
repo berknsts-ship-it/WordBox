@@ -9,26 +9,10 @@ export async function addHomework(formData: FormData) {
   if (!user) return;
 
   const student_id = formData.get("student_id") as string;
-
-  let material_url: string | null = (formData.get("material_url") as string) || null;
-  let material_label: string | null = (formData.get("material_label") as string) || null;
-
-  const file = formData.get("file") as File | null;
-  if (file && file.size > 0) {
-    const ext = file.name.split(".").pop();
-    const path = `homework/${user.id}/${Date.now()}.${ext}`;
-    const { data: uploadData } = await supabase.storage
-      .from("WordBox")
-      .upload(path, file);
-
-    if (uploadData) {
-      const { data: urlData } = supabase.storage
-        .from("WordBox")
-        .getPublicUrl(uploadData.path);
-      material_url = urlData.publicUrl;
-      material_label = material_label || file.name;
-    }
-  }
+  const uploadedUrl = (formData.get("uploaded_url") as string) || null;
+  const uploadedFileName = (formData.get("uploaded_file_name") as string) || null;
+  const textUrl = (formData.get("material_url") as string) || null;
+  const textLabel = (formData.get("material_label") as string) || null;
 
   await supabase.from("homework").insert({
     student_id,
@@ -36,8 +20,8 @@ export async function addHomework(formData: FormData) {
     title: formData.get("title") as string,
     description: (formData.get("description") as string) || null,
     due_date: (formData.get("due_date") as string) || null,
-    material_url,
-    material_label,
+    material_url: uploadedUrl || textUrl,
+    material_label: uploadedFileName || textLabel,
     status: "pending",
   });
 

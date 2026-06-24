@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { addMaterial, deleteMaterial } from "@/app/actions/materials";
+import { FileUploadField } from "@/components/tutor/FileUploadField";
 
 export default async function TutorMaterialsTab({ studentId }: { studentId: string }) {
   const supabase = await createClient();
@@ -16,7 +17,7 @@ export default async function TutorMaterialsTab({ studentId }: { studentId: stri
         <h2 className="text-base font-semibold mb-4" style={{ color: "var(--brown-dark)" }}>
           Добавить материал
         </h2>
-        <form action={addMaterial} encType="multipart/form-data" className="space-y-4">
+        <form action={addMaterial} className="space-y-4">
           <input type="hidden" name="student_id" value={studentId} />
 
           <div>
@@ -64,23 +65,11 @@ export default async function TutorMaterialsTab({ studentId }: { studentId: stri
             <div className="flex-1 h-px" style={{ background: "var(--brown-pale)" }} />
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: "var(--brown-mid)" }}>
-              Загрузить файл с компьютера
-            </label>
-            <input
-              name="file"
-              type="file"
-              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.mp3,.mp4,.txt"
-              className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none
-                file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0
-                file:text-xs file:font-semibold file:cursor-pointer"
-              style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
-            />
-            <p className="text-xs mt-1" style={{ color: "var(--brown-light)" }}>
-              PDF, Word, картинки, аудио — до 10 МБ
-            </p>
-          </div>
+          <FileUploadField
+            folder="materials"
+            urlFieldName="uploaded_url"
+            fileNameFieldName="uploaded_file_name"
+          />
 
           {/* Чекбокс iframe */}
           <label className="flex items-start gap-3 cursor-pointer p-3 rounded-xl hover:opacity-80 transition-opacity"
