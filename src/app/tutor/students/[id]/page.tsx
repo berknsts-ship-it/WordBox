@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { updateCanvasUrl } from "@/app/actions/students";
 import CopyLinkButton from "@/components/tutor/CopyLinkButton";
+import DeleteStudentButton from "@/components/tutor/DeleteStudentButton";
 import TutorLessonsTab from "@/components/tutor/tabs/LessonsTab";
 import TutorHomeworkTab from "@/components/tutor/tabs/HomeworkTab";
 import TutorVocabularyTab from "@/components/tutor/tabs/VocabularyTab";
@@ -60,6 +61,10 @@ export default async function StudentDetailPage({
           </p>
           <CopyLinkButton code={student.access_code} />
         </div>
+      </div>
+
+      <div className="flex justify-end mb-2">
+        <DeleteStudentButton studentId={id} studentName={student.name} />
       </div>
 
       {student.notes && (
