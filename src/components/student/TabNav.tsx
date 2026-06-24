@@ -7,7 +7,6 @@ const TABS = [
   { id: "homework",  label: "Домашние задания", icon: "📝" },
   { id: "board",     label: "Доска",            icon: "🖊️" },
   { id: "journal",   label: "Журнал уроков",    icon: "📖" },
-  { id: "materials", label: "Материалы",        icon: "📂" },
   { id: "trainer",   label: "Тренажёр",         icon: "🃏" },
   { id: "grammar",   label: "Грамматика",        icon: "📐" },
 ];

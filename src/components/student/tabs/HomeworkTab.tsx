@@ -10,7 +10,7 @@ export default async function HomeworkTab({ studentId }: { studentId: string }) 
   const supabase = await createClient();
   const { data: homework } = await supabase
     .from("homework")
-    .select("id, title, description, due_date, status")
+    .select("id, title, description, due_date, status, material_url, material_label")
     .eq("student_id", studentId)
     .order("due_date", { ascending: true });
 
@@ -39,6 +39,17 @@ export default async function HomeworkTab({ studentId }: { studentId: string }) 
                       {isOverdue ? "⚠️ Просрочено · " : "Срок: "}
                       {new Date(hw.due_date).toLocaleDateString("ru", { day: "numeric", month: "long" })}
                     </p>
+                  )}
+                  {hw.material_url && (
+                    <a
+                      href={hw.material_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-xl text-xs font-semibold transition-opacity hover:opacity-80"
+                      style={{ background: "var(--brown-pale)", color: "var(--brown-mid)" }}
+                    >
+                      📎 {hw.material_label || "Открыть материал"}
+                    </a>
                   )}
                 </div>
               </div>

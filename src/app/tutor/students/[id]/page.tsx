@@ -5,15 +5,13 @@ import { updateCanvasUrl } from "@/app/actions/students";
 import CopyLinkButton from "@/components/tutor/CopyLinkButton";
 import TutorLessonsTab from "@/components/tutor/tabs/LessonsTab";
 import TutorHomeworkTab from "@/components/tutor/tabs/HomeworkTab";
-import TutorMaterialsTab from "@/components/tutor/tabs/MaterialsTab";
 import TutorVocabularyTab from "@/components/tutor/tabs/VocabularyTab";
 
-type Tab = "lessons" | "homework" | "materials" | "vocabulary";
+type Tab = "lessons" | "homework" | "vocabulary";
 
 const TABS = [
   { id: "lessons",    label: "📅 Уроки" },
   { id: "homework",   label: "📝 Домашние задания" },
-  { id: "materials",  label: "📂 Материалы" },
   { id: "vocabulary", label: "📚 Словари" },
 ];
 
@@ -26,7 +24,7 @@ export default async function StudentDetailPage({
 }) {
   const { id } = await params;
   const { tab = "lessons", set } = await searchParams;
-  const activeTab = (["lessons", "homework", "materials", "vocabulary"].includes(tab) ? tab : "lessons") as Tab;
+  const activeTab = (["lessons", "homework", "vocabulary"].includes(tab) ? tab : "lessons") as Tab;
 
   const supabase = await createClient();
   const { data: student } = await supabase
@@ -112,7 +110,6 @@ export default async function StudentDetailPage({
 
       {activeTab === "lessons"    && <TutorLessonsTab    studentId={id} />}
       {activeTab === "homework"   && <TutorHomeworkTab   studentId={id} />}
-      {activeTab === "materials"  && <TutorMaterialsTab  studentId={id} />}
       {activeTab === "vocabulary" && <TutorVocabularyTab studentId={id} activeSetId={set} />}
     </div>
   );

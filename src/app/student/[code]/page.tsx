@@ -4,14 +4,13 @@ import TabNav from "@/components/student/TabNav";
 import ScheduleTab from "@/components/student/tabs/ScheduleTab";
 import HomeworkTab from "@/components/student/tabs/HomeworkTab";
 import JournalTab from "@/components/student/tabs/JournalTab";
-import MaterialsTab from "@/components/student/tabs/MaterialsTab";
 import TrainerTab from "@/components/student/tabs/TrainerTab";
 import BoardTab from "@/components/student/tabs/BoardTab";
 import GrammarTab from "@/components/student/tabs/GrammarTab";
 import SplashScreen from "@/components/student/SplashScreen";
 
-type Tab = "schedule" | "homework" | "board" | "journal" | "materials" | "trainer" | "grammar";
-const VALID_TABS: Tab[] = ["schedule", "homework", "board", "journal", "materials", "trainer", "grammar"];
+type Tab = "schedule" | "homework" | "board" | "journal" | "trainer" | "grammar";
+const VALID_TABS: Tab[] = ["schedule", "homework", "board", "journal", "trainer", "grammar"];
 
 export default async function StudentCabinetPage({
   params,
@@ -56,7 +55,6 @@ export default async function StudentCabinetPage({
           {activeTab === "homework"  && <HomeworkTab  studentId={student.id} />}
           {activeTab === "board"     && <BoardTab     boardUrl={student.canvas_url ?? null} />}
           {activeTab === "journal"   && <JournalTab   studentId={student.id} />}
-          {activeTab === "materials" && <MaterialsTab studentId={student.id} />}
           {activeTab === "trainer"   && (
             <TrainerTab studentId={student.id} code={code} activeSetId={set} />
           )}

@@ -15,6 +15,8 @@ async function addHomework(formData: FormData) {
     title: formData.get("title") as string,
     description: (formData.get("description") as string) || null,
     due_date: (formData.get("due_date") as string) || null,
+    material_url: (formData.get("material_url") as string) || null,
+    material_label: (formData.get("material_label") as string) || null,
     status: "pending",
   });
 
@@ -97,6 +99,27 @@ export default async function NewHomeworkPage() {
               className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
               style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
             />
+          </div>
+
+          <div className="border-t pt-4" style={{ borderColor: "var(--brown-pale)" }}>
+            <p className="text-xs font-semibold mb-3" style={{ color: "var(--brown-light)" }}>
+              📎 Материал (необязательно)
+            </p>
+            <div className="space-y-3">
+              <input
+                name="material_url"
+                type="url"
+                placeholder="https://..."
+                className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+                style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
+              />
+              <input
+                name="material_label"
+                placeholder="Название ссылки (например: Видео урок, Упражнение)"
+                className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+                style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
+              />
+            </div>
           </div>
 
           <button
