@@ -9,12 +9,34 @@ async function addMaterial(formData: FormData) {
   if (!user) return;
 
   const student_id = formData.get("student_id") as string;
+
+  let url: string | null = (formData.get("url") as string) || null;
+  let file_name: string | null = null;
+
+  const file = formData.get("file") as File | null;
+  if (file && file.size > 0) {
+    const ext = file.name.split(".").pop();
+    const path = `materials/${user.id}/${Date.now()}.${ext}`;
+    const { data: uploadData } = await supabase.storage
+      .from("wordbox")
+      .upload(path, file);
+
+    if (uploadData) {
+      const { data: urlData } = supabase.storage
+        .from("wordbox")
+        .getPublicUrl(uploadData.path);
+      url = urlData.publicUrl;
+      file_name = file.name;
+    }
+  }
+
   await supabase.from("materials").insert({
     student_id,
     tutor_id: user.id,
     title: formData.get("title") as string,
     content: (formData.get("content") as string) || null,
-    url: (formData.get("url") as string) || null,
+    url,
+    file_name,
     is_iframe: formData.get("is_iframe") === "on",
   });
 
@@ -43,7 +65,7 @@ export default async function NewMaterialPage() {
       <h1 className="text-2xl mb-6">Добавить материал</h1>
 
       <div className="bg-white/80 rounded-3xl border p-6" style={{ borderColor: "var(--brown-pale)" }}>
-        <form action={addMaterial} className="space-y-4">
+        <form action={addMaterial} encType="multipart/form-data" className="space-y-4">
           <div>
             <label className="block text-xs font-semibold mb-1" style={{ color: "var(--brown-mid)" }}>
               Ученик *
@@ -85,6 +107,30 @@ export default async function NewMaterialPage() {
               className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
               style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
             />
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px" style={{ background: "var(--brown-pale)" }} />
+            <span className="text-xs" style={{ color: "var(--brown-light)" }}>или</span>
+            <div className="flex-1 h-px" style={{ background: "var(--brown-pale)" }} />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold mb-1" style={{ color: "var(--brown-mid)" }}>
+              Загрузить файл с компьютера
+            </label>
+            <input
+              name="file"
+              type="file"
+              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.mp3,.mp4,.txt"
+              className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none
+                file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0
+                file:text-xs file:font-semibold file:cursor-pointer"
+              style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
+            />
+            <p className="text-xs mt-1" style={{ color: "var(--brown-light)" }}>
+              PDF, Word, картинки, аудио — до 10 МБ
+            </p>
           </div>
 
           <div>

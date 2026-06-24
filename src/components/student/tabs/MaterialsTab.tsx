@@ -4,7 +4,7 @@ export default async function MaterialsTab({ studentId }: { studentId: string })
   const supabase = await createClient();
   const { data: materials } = await supabase
     .from("materials")
-    .select("id, title, content, url, is_iframe, created_at")
+    .select("id, title, content, url, file_name, is_iframe, created_at")
     .eq("student_id", studentId)
     .order("created_at", { ascending: false });
 
@@ -36,13 +36,18 @@ export default async function MaterialsTab({ studentId }: { studentId: string })
             <div className="flex items-start justify-between gap-3">
               <div className="flex gap-3 items-start">
                 <span className="text-lg mt-0.5">
-                  {m.is_iframe ? "🖥️" : m.url ? "🔗" : "📄"}
+                  {m.is_iframe ? "🖥️" : m.file_name ? "📎" : m.url ? "🔗" : "📄"}
                 </span>
                 <div>
                   <p className="font-semibold text-sm" style={{ color: "var(--brown-dark)" }}>{m.title}</p>
                   {m.content && (
                     <p className="text-sm mt-1 leading-relaxed" style={{ color: "var(--brown-mid)" }}>
                       {m.content}
+                    </p>
+                  )}
+                  {m.file_name && (
+                    <p className="text-xs mt-1" style={{ color: "var(--brown-light)" }}>
+                      {m.file_name}
                     </p>
                   )}
                   <p className="text-xs mt-1.5" style={{ color: "var(--brown-light)" }}>
@@ -55,10 +60,11 @@ export default async function MaterialsTab({ studentId }: { studentId: string })
                   href={m.url}
                   target="_blank"
                   rel="noopener noreferrer"
+                  download={m.file_name || undefined}
                   className="shrink-0 text-sm font-semibold px-3 py-1.5 rounded-xl transition-colors hover:opacity-80"
                   style={{ background: "var(--brown-pale)", color: "var(--brown-mid)" }}
                 >
-                  Открыть →
+                  {m.file_name ? "Скачать ↓" : "Открыть →"}
                 </a>
               )}
             </div>

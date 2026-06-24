@@ -9,12 +9,34 @@ export async function addMaterial(formData: FormData) {
   if (!user) return;
 
   const student_id = formData.get("student_id") as string;
+
+  let url: string | null = (formData.get("url") as string) || null;
+  let file_name: string | null = null;
+
+  const file = formData.get("file") as File | null;
+  if (file && file.size > 0) {
+    const ext = file.name.split(".").pop();
+    const path = `materials/${user.id}/${Date.now()}.${ext}`;
+    const { data: uploadData } = await supabase.storage
+      .from("wordbox")
+      .upload(path, file);
+
+    if (uploadData) {
+      const { data: urlData } = supabase.storage
+        .from("wordbox")
+        .getPublicUrl(uploadData.path);
+      url = urlData.publicUrl;
+      file_name = file.name;
+    }
+  }
+
   await supabase.from("materials").insert({
     student_id,
     tutor_id: user.id,
     title: formData.get("title") as string,
     content: (formData.get("content") as string) || null,
-    url: (formData.get("url") as string) || null,
+    url,
+    file_name,
     is_iframe: formData.get("is_iframe") === "on",
   });
 

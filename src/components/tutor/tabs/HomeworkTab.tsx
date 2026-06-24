@@ -11,7 +11,7 @@ export default async function TutorHomeworkTab({ studentId }: { studentId: strin
   const supabase = await createClient();
   const { data: homework } = await supabase
     .from("homework")
-    .select("id, title, description, due_date, status")
+    .select("id, title, description, due_date, status, material_url, material_label")
     .eq("student_id", studentId)
     .order("created_at", { ascending: false });
 
@@ -22,7 +22,7 @@ export default async function TutorHomeworkTab({ studentId }: { studentId: strin
         <h2 className="text-base font-semibold mb-4" style={{ color: "var(--brown-dark)" }}>
           Добавить задание
         </h2>
-        <form action={addHomework} className="space-y-4">
+        <form action={addHomework} encType="multipart/form-data" className="space-y-4">
           <input type="hidden" name="student_id" value={studentId} />
 
           <div>
@@ -63,6 +63,62 @@ export default async function TutorHomeworkTab({ studentId }: { studentId: strin
             />
           </div>
 
+          {/* Прикрепить материал */}
+          <div className="border-t pt-4 space-y-3" style={{ borderColor: "var(--brown-pale)" }}>
+            <p className="text-xs font-semibold" style={{ color: "var(--brown-light)" }}>
+              📎 Прикрепить материал (необязательно)
+            </p>
+
+            <div>
+              <label className="block text-xs font-semibold mb-1" style={{ color: "var(--brown-mid)" }}>
+                Ссылка
+              </label>
+              <input
+                name="material_url"
+                type="url"
+                placeholder="https://..."
+                className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+                style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold mb-1" style={{ color: "var(--brown-mid)" }}>
+                Название ссылки
+              </label>
+              <input
+                name="material_label"
+                placeholder="Например: Видео-урок, Упражнение"
+                className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+                style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
+              />
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px" style={{ background: "var(--brown-pale)" }} />
+              <span className="text-xs" style={{ color: "var(--brown-light)" }}>или</span>
+              <div className="flex-1 h-px" style={{ background: "var(--brown-pale)" }} />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold mb-1" style={{ color: "var(--brown-mid)" }}>
+                Загрузить файл с компьютера
+              </label>
+              <input
+                name="file"
+                type="file"
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.mp3,.mp4,.txt"
+                className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none
+                  file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0
+                  file:text-xs file:font-semibold file:cursor-pointer"
+                style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
+              />
+              <p className="text-xs mt-1" style={{ color: "var(--brown-light)" }}>
+                PDF, Word, картинки, аудио — до 10 МБ
+              </p>
+            </div>
+          </div>
+
           <button type="submit"
             className="w-full rounded-xl px-4 py-2.5 text-white text-sm font-semibold hover:opacity-80 transition-opacity"
             style={{ background: "var(--brown-mid)" }}>
@@ -88,6 +144,11 @@ export default async function TutorHomeworkTab({ studentId }: { studentId: strin
                     {hw.due_date && (
                       <p className="text-xs mt-1" style={{ color: "var(--brown-light)" }}>
                         Срок: {new Date(hw.due_date).toLocaleDateString("ru", { day: "numeric", month: "long" })}
+                      </p>
+                    )}
+                    {hw.material_url && (
+                      <p className="text-xs mt-1 truncate" style={{ color: "var(--brown-light)" }}>
+                        📎 {hw.material_label || hw.material_url}
                       </p>
                     )}
                   </div>

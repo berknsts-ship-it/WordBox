@@ -9,12 +9,35 @@ export async function addHomework(formData: FormData) {
   if (!user) return;
 
   const student_id = formData.get("student_id") as string;
+
+  let material_url: string | null = (formData.get("material_url") as string) || null;
+  let material_label: string | null = (formData.get("material_label") as string) || null;
+
+  const file = formData.get("file") as File | null;
+  if (file && file.size > 0) {
+    const ext = file.name.split(".").pop();
+    const path = `homework/${user.id}/${Date.now()}.${ext}`;
+    const { data: uploadData } = await supabase.storage
+      .from("wordbox")
+      .upload(path, file);
+
+    if (uploadData) {
+      const { data: urlData } = supabase.storage
+        .from("wordbox")
+        .getPublicUrl(uploadData.path);
+      material_url = urlData.publicUrl;
+      material_label = material_label || file.name;
+    }
+  }
+
   await supabase.from("homework").insert({
     student_id,
     tutor_id: user.id,
     title: formData.get("title") as string,
     description: (formData.get("description") as string) || null,
     due_date: (formData.get("due_date") as string) || null,
+    material_url,
+    material_label,
     status: "pending",
   });
 
