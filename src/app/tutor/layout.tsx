@@ -19,7 +19,7 @@ export default async function TutorLayout({
   return (
     <div className="flex min-h-full flex-col">
       <TutorNav userEmail={user.email ?? ""} />
-      <main className="flex-1 px-4 py-8 max-w-6xl mx-auto w-full">
+      <main className="flex-1 px-4 py-5 sm:py-8 max-w-6xl mx-auto w-full">
         {children}
       </main>
     </div>

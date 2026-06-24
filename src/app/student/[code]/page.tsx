@@ -55,7 +55,7 @@ export default async function StudentCabinetPage({
           <iframe
             src={student.canvas_url}
             className="w-full"
-            style={{ height: "65vh", border: "none", display: "block" }}
+            style={{ height: "clamp(280px, 55vh, 700px)", border: "none", display: "block" }}
             allowFullScreen
           />
         </div>

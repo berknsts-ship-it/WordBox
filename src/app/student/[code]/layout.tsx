@@ -11,7 +11,7 @@ export default function StudentLayout({
           <span className="font-bold text-stone-900">Word Box</span>
         </div>
       </header>
-      <main className="flex-1 max-w-4xl mx-auto w-full px-4 py-6 relative">
+      <main className="flex-1 max-w-4xl mx-auto w-full px-3 sm:px-4 py-5 sm:py-6 relative">
         {children}
       </main>
     </div>
