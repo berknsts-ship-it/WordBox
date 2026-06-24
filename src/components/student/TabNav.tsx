@@ -5,6 +5,7 @@ import Link from "next/link";
 const TABS = [
   { id: "schedule",  label: "Расписание",      icon: "📅" },
   { id: "homework",  label: "Домашние задания", icon: "📝" },
+  { id: "board",     label: "Доска",            icon: "🖊️" },
   { id: "journal",   label: "Журнал уроков",    icon: "📖" },
   { id: "materials", label: "Материалы",        icon: "📂" },
   { id: "trainer",   label: "Тренажёр",         icon: "🃏" },

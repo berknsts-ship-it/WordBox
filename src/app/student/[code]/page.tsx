@@ -6,9 +6,10 @@ import HomeworkTab from "@/components/student/tabs/HomeworkTab";
 import JournalTab from "@/components/student/tabs/JournalTab";
 import MaterialsTab from "@/components/student/tabs/MaterialsTab";
 import TrainerTab from "@/components/student/tabs/TrainerTab";
+import BoardTab from "@/components/student/tabs/BoardTab";
 
-type Tab = "schedule" | "homework" | "journal" | "materials" | "trainer";
-const VALID_TABS: Tab[] = ["schedule", "homework", "journal", "materials", "trainer"];
+type Tab = "schedule" | "homework" | "board" | "journal" | "materials" | "trainer";
+const VALID_TABS: Tab[] = ["schedule", "homework", "board", "journal", "materials", "trainer"];
 
 export default async function StudentCabinetPage({
   params,
@@ -45,27 +46,12 @@ export default async function StudentCabinetPage({
         </p>
       </div>
 
-      {/* Холст — всегда виден */}
-      {student.canvas_url && (
-        <div className="mb-6 rounded-3xl overflow-hidden border" style={{ borderColor: "var(--brown-pale)" }}>
-          <div className="px-4 py-2.5 flex items-center gap-2 border-b" style={{ background: "var(--brown-pale)", borderColor: "var(--brown-pale)" }}>
-            <span>🎨</span>
-            <span className="text-sm font-semibold" style={{ color: "var(--brown-dark)" }}>Наш холст</span>
-          </div>
-          <iframe
-            src={student.canvas_url}
-            className="w-full"
-            style={{ height: "clamp(280px, 55vh, 700px)", border: "none", display: "block" }}
-            allowFullScreen
-          />
-        </div>
-      )}
-
       <TabNav code={code} activeTab={activeTab} pendingHomework={pendingCount ?? 0} />
 
       <div className="mt-6">
         {activeTab === "schedule"  && <ScheduleTab  studentId={student.id} />}
         {activeTab === "homework"  && <HomeworkTab  studentId={student.id} />}
+        {activeTab === "board"     && <BoardTab     boardUrl={student.canvas_url ?? null} />}
         {activeTab === "journal"   && <JournalTab   studentId={student.id} />}
         {activeTab === "materials" && <MaterialsTab studentId={student.id} />}
         {activeTab === "trainer"   && (
