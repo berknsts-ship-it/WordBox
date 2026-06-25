@@ -44,9 +44,6 @@ export default async function StudentCabinetPage({
         .eq("student_id", student.id).eq("status", "checked"),
     ]);
 
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Доброе утро" : hour < 18 ? "Добрый день" : "Добрый вечер";
-
   return (
     <SplashScreen code={code}>
       <div>
@@ -66,17 +63,18 @@ export default async function StudentCabinetPage({
           <div className="absolute right-16 -bottom-6 w-32 h-32 rounded-full"
             style={{ background: "rgba(255,255,255,0.05)" }} />
 
-          {/* Декоративные буквы */}
+          {/* Декоративная буква */}
           <div className="absolute right-6 top-4 opacity-15 select-none pointer-events-none"
             style={{ fontFamily: "Georgia, serif", fontSize: "72px", fontStyle: "italic", color: "#fff", lineHeight: 1 }}>
             A
           </div>
 
           <div className="relative z-10">
-            <p className="text-sm font-medium mb-1" style={{ color: "rgba(255,255,255,0.7)" }}>
-              {greeting},
+            <p className="text-sm font-medium mb-1" style={{ color: "rgba(255,255,255,0.65)" }}>
+              Привет,
             </p>
-            <h1 className="text-3xl font-bold text-white mb-4" style={{ fontFamily: "var(--font-lora)" }}>
+            <h1 className="text-3xl font-bold mb-4"
+              style={{ fontFamily: "var(--font-lora)", color: "#fdf3e3", textShadow: "0 1px 8px rgba(59,42,26,0.25)" }}>
               {student.name}!
             </h1>
 
