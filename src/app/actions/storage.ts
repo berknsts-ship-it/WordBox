@@ -1,24 +1,32 @@
 "use server";
 
+import { createClient } from "@/lib/supabase/server";
+
 export async function createUploadUrl(
   path: string
 ): Promise<{ url: string | null; debug: string }> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
-  if (!supabaseUrl || !serviceRoleKey) {
-    return { url: null, debug: `НЕТ ПЕРЕМЕННЫХ: url=${!!supabaseUrl} key=${!!serviceRoleKey}` };
+  // Получаем access_token пользователя из cookies (это нормальный JWT)
+  const supabase = await createClient();
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+  if (!session?.access_token) {
+    return {
+      url: null,
+      debug: `НЕТ_СЕССИИ: ${sessionError?.message ?? "session is null"}`,
+    };
   }
 
-  // Прямой HTTP запрос к Supabase Storage REST API (минуя SDK)
+  const accessToken = session.access_token;
+
+  // Прямой REST запрос к Supabase Storage с JWT пользователя
   const storageEndpoint = `${supabaseUrl}/storage/v1/object/upload/sign/WordBox/${path}`;
 
   const res = await fetch(storageEndpoint, {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${serviceRoleKey}`,
-      "apikey": serviceRoleKey,
+      "Authorization": `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ expiresIn: 3600 }),
@@ -26,19 +34,14 @@ export async function createUploadUrl(
 
   if (!res.ok) {
     const text = await res.text();
-    return { url: null, debug: `HTTP ${res.status}: ${text} | URL: ${supabaseUrl}` };
+    return { url: null, debug: `HTTP ${res.status}: ${text}` };
   }
 
   const data = await res.json();
 
-  if (!data.url) {
-    return { url: null, debug: `Нет поля url в ответе: ${JSON.stringify(data)}` };
-  }
-
-  // data.url это путь вида /storage/v1/object/upload/sign/... — делаем полный URL
-  const fullSignedUrl = data.url.startsWith("http")
+  const signedUrl = data.url?.startsWith("http")
     ? data.url
     : `${supabaseUrl}${data.url}`;
 
-  return { url: fullSignedUrl, debug: "ok" };
+  return { url: signedUrl, debug: "ok" };
 }
