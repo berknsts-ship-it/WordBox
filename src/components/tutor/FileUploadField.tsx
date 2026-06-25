@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { createUploadUrl } from "@/app/actions/storage";
 
 interface Props {
   folder: string;
@@ -20,27 +20,34 @@ export function FileUploadField({ folder, urlFieldName, fileNameFieldName }: Pro
 
     setStatus("uploading");
 
-    const supabase = createClient();
-    const ext = file.name.split(".").pop();
-    const path = `${folder}/${Date.now()}.${ext}`;
+    try {
+      const ext = file.name.split(".").pop();
+      const path = `${folder}/${Date.now()}.${ext}`;
 
-    const { data, error } = await supabase.storage
-      .from("WordBox")
-      .upload(path, file);
+      const signedUrl = await createUploadUrl(path);
+      if (!signedUrl) {
+        setStatus("error");
+        return;
+      }
 
-    if (error || !data) {
-      console.error("Upload error:", error);
+      const res = await fetch(signedUrl, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+      });
+
+      if (!res.ok) {
+        setStatus("error");
+        return;
+      }
+
+      const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/WordBox/${path}`;
+      setUploadedUrl(publicUrl);
+      setUploadedName(file.name);
+      setStatus("done");
+    } catch {
       setStatus("error");
-      return;
     }
-
-    const { data: urlData } = supabase.storage
-      .from("WordBox")
-      .getPublicUrl(data.path);
-
-    setUploadedUrl(urlData.publicUrl);
-    setUploadedName(file.name);
-    setStatus("done");
   }
 
   return (
@@ -63,12 +70,10 @@ export function FileUploadField({ folder, urlFieldName, fileNameFieldName }: Pro
         <p className="text-xs mt-1" style={{ color: "var(--brown-light)" }}>Загружаю...</p>
       )}
       {status === "done" && (
-        <p className="text-xs mt-1 font-semibold" style={{ color: "var(--brown-mid)" }}>
-          ✓ {uploadedName}
-        </p>
+        <p className="text-xs mt-1 font-semibold" style={{ color: "var(--brown-mid)" }}>✓ {uploadedName}</p>
       )}
       {status === "error" && (
-        <p className="text-xs mt-1 text-red-500">Ошибка загрузки. Проверь настройки Supabase Storage.</p>
+        <p className="text-xs mt-1 text-red-500">Ошибка загрузки. Проверь политики в Supabase Storage.</p>
       )}
       {status === "idle" && (
         <p className="text-xs mt-1" style={{ color: "var(--brown-light)" }}>PDF, Word, картинки, аудио — до 10 МБ</p>
