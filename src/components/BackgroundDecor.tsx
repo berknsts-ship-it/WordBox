@@ -7,21 +7,21 @@ function LetterBlock({ x, y, letter, rotate = 0, size = 64 }: {
   return (
     <g transform={`translate(${x}, ${y}) rotate(${rotate})`} opacity="0.82">
       {/* Нижняя тень (3D эффект) */}
-      <rect x={d} y={d} width={size} height={size} rx={r} fill="#8a6540" opacity="0.18" />
+      <rect x={d} y={d} width={size} height={size} rx={r} fill="#3d0609" opacity="0.18" />
       {/* Боковые грани */}
       <path
         d={`M${r},${size} L${size - r},${size} L${size},${size - r} L${size + d},${size - r + d} L${size + d - r + r},${size + d} Z`}
-        fill="#a07040" opacity="0.25"
+        fill="#4E6813" opacity="0.30"
       />
       {/* Основная плитка с градиентом */}
       <defs>
         <linearGradient id={`tg-${letter}`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#f8e8cc" />
-          <stop offset="100%" stopColor="#d4b07a" />
+          <stop offset="0%" stopColor="#F0E7DA" />
+          <stop offset="100%" stopColor="#e4d5c2" />
         </linearGradient>
       </defs>
       <rect x={0} y={0} width={size} height={size} rx={r}
-        fill={`url(#tg-${letter})`} stroke="#b8956a" strokeWidth="1.5" />
+        fill={`url(#tg-${letter})`} stroke="#4E6813" strokeWidth="1.5" />
       {/* Блик сверху */}
       <rect x={3} y={3} width={size - 6} height={size * 0.35} rx={r * 0.7}
         fill="white" opacity="0.22" />
@@ -30,14 +30,14 @@ function LetterBlock({ x, y, letter, rotate = 0, size = 64 }: {
         x={size / 2} y={size * 0.71}
         fontSize={fontSize}
         textAnchor="middle"
-        fill="#5c3d20"
+        fill="#74070E"
         fontFamily="Georgia, serif"
         fontStyle="italic"
         opacity="0.9"
       >{letter}</text>
       {/* Тонкая внутренняя рамка */}
       <rect x={4} y={4} width={size - 8} height={size - 8} rx={r * 0.6}
-        fill="none" stroke="#c8a060" strokeWidth="1" opacity="0.4" />
+        fill="none" stroke="#4E6813" strokeWidth="1" opacity="0.4" />
     </g>
   );
 }
@@ -48,26 +48,26 @@ function Book({ x, y, rotate = 0, scale = 1 }: { x: number; y: number; rotate?: 
       {/* Тень */}
       <rect x="3" y="3" width="44" height="56" rx="4" fill="#5c3010" opacity="0.12" />
       {/* Корешок (бок) */}
-      <rect x="0" y="0" width="8" height="56" rx="3" fill="#8a6030" />
+      <rect x="0" y="0" width="8" height="56" rx="3" fill="#3d0609" />
       {/* Обложка */}
       <defs>
         <linearGradient id="book-cover" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#c8984a" />
-          <stop offset="100%" stopColor="#8a6030" />
+          <stop offset="0%" stopColor="#74070E" />
+          <stop offset="100%" stopColor="#3d0609" />
         </linearGradient>
       </defs>
       <rect x="0" y="0" width="44" height="56" rx="4" fill="url(#book-cover)" />
       {/* Страницы (правый торец) */}
-      <rect x="40" y="2" width="6" height="52" rx="1" fill="#f0e0c0" opacity="0.9" />
-      <line x1="40" y1="6"  x2="46" y2="6"  stroke="#d4b880" strokeWidth="0.5" />
-      <line x1="40" y1="10" x2="46" y2="10" stroke="#d4b880" strokeWidth="0.5" />
-      <line x1="40" y1="14" x2="46" y2="14" stroke="#d4b880" strokeWidth="0.5" />
+      <rect x="40" y="2" width="6" height="52" rx="1" fill="#F0E7DA" opacity="0.9" />
+      <line x1="40" y1="6"  x2="46" y2="6"  stroke="#4E6813" strokeWidth="0.5" />
+      <line x1="40" y1="10" x2="46" y2="10" stroke="#4E6813" strokeWidth="0.5" />
+      <line x1="40" y1="14" x2="46" y2="14" stroke="#4E6813" strokeWidth="0.5" />
       {/* Страница */}
-      <rect x="6" y="0" width="34" height="56" rx="3" fill="#f5e8cc" />
-      <line x1="11" y1="13" x2="36" y2="13" stroke="#c8a060" strokeWidth="1.5" opacity="0.7" />
-      <line x1="11" y1="21" x2="36" y2="21" stroke="#c8a060" strokeWidth="1.5" opacity="0.7" />
-      <line x1="11" y1="29" x2="28" y2="29" stroke="#c8a060" strokeWidth="1.5" opacity="0.7" />
-      <line x1="11" y1="37" x2="32" y2="37" stroke="#c8a060" strokeWidth="1.5" opacity="0.7" />
+      <rect x="6" y="0" width="34" height="56" rx="3" fill="#F0E7DA" />
+      <line x1="11" y1="13" x2="36" y2="13" stroke="#4E6813" strokeWidth="1.5" opacity="0.5" />
+      <line x1="11" y1="21" x2="36" y2="21" stroke="#4E6813" strokeWidth="1.5" opacity="0.5" />
+      <line x1="11" y1="29" x2="28" y2="29" stroke="#4E6813" strokeWidth="1.5" opacity="0.5" />
+      <line x1="11" y1="37" x2="32" y2="37" stroke="#4E6813" strokeWidth="1.5" opacity="0.5" />
       {/* Блик на обложке */}
       <rect x="6" y="1" width="16" height="28" rx="2" fill="white" opacity="0.1" />
     </g>
@@ -115,7 +115,7 @@ export default function BackgroundDecor() {
     >
       <defs>
         <filter id="drop" x="-20%" y="-20%" width="150%" height="150%">
-          <feDropShadow dx="2" dy="3" stdDeviation="4" floodColor="#3b2a1a" floodOpacity="0.18" />
+          <feDropShadow dx="2" dy="3" stdDeviation="4" floodColor="#1c0a0b" floodOpacity="0.18" />
         </filter>
       </defs>
 

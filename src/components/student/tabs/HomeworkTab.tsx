@@ -4,8 +4,8 @@ import { ClipboardList, Paperclip, AlertCircle, CheckCircle2, Clock3 } from "luc
 const STATUS: Record<string, { label: string; color: string; dot: string; icon: React.ReactNode }> = {
   pending:   {
     label: "Нужно сделать",
-    color: "bg-[#f5ede0] text-[#7c5c3e]",
-    dot: "bg-[#b8956a]",
+    color: "bg-[#f5ece3] text-[#74070E]",
+    dot: "bg-[#74070E]",
     icon: <Clock3 size={12} />,
   },
   submitted: {
@@ -34,8 +34,8 @@ export default async function HomeworkTab({ studentId }: { studentId: string }) 
     return (
       <EmptyState
         icon={<ClipboardList size={36} />}
-        color="#b8956a"
-        bg="linear-gradient(135deg, #f5ede0 0%, #e8d5b7 100%)"
+        color="#74070E"
+        bg="linear-gradient(135deg, #f5ece3 0%, #ede3d5 100%)"
         text="Домашних заданий нет"
         hint="Здесь появятся задания от репетитора"
       />
@@ -52,7 +52,7 @@ export default async function HomeworkTab({ studentId }: { studentId: string }) 
           <div
             key={hw.id}
             className="bg-white/90 rounded-2xl overflow-hidden"
-            style={{ boxShadow: "var(--shadow-card)", border: "1px solid rgba(232,213,183,0.6)" }}
+            style={{ boxShadow: "var(--shadow-card)", border: "1px solid rgba(237,227,213,0.8)" }}
           >
             {/* Цветная полоска сверху по статусу */}
             <div className="h-1" style={{
@@ -62,7 +62,7 @@ export default async function HomeworkTab({ studentId }: { studentId: string }) 
                 ? "linear-gradient(90deg, #7a9ab8, #a0b8d0)"
                 : isOverdue
                 ? "linear-gradient(90deg, #c49090, #d4a8a8)"
-                : "linear-gradient(90deg, #b8956a, #d4b080)",
+                : "linear-gradient(90deg, #74070E, #a01018)",
             }} />
 
             <div className="p-4">

@@ -111,7 +111,7 @@ export default function StudentEntryPage() {
               maxLength={20}
               className="w-full rounded-xl px-4 py-4 text-center text-2xl font-bold tracking-widest focus:outline-none transition"
               style={{
-                background: "#fdf8f0",
+                background: "#F0E7DA",
                 border: "1.5px solid var(--brown-pale)",
                 color: "var(--brown-dark)",
                 letterSpacing: "0.25em",

@@ -4,7 +4,7 @@ import { useRef } from "react";
 import { updateLessonStatus } from "@/app/actions/lessons";
 
 export const STATUS_CONFIG = {
-  scheduled:   { label: "Запланирован",  color: "bg-[#f5ede0] text-[#7c5c3e]",    dot: "bg-[#b8956a]" },
+  scheduled:   { label: "Запланирован",  color: "bg-[#f5ece3] text-[#74070E]",    dot: "bg-[#74070E]" },
   completed:   { label: "Проведён",      color: "bg-[#e6efea] text-[#4a7a5e]", dot: "bg-[#6ea882]" },
   rescheduled: { label: "Перенесён",     color: "bg-[#e8eff5] text-[#4a6580]",       dot: "bg-[#7a9ab8]" },
   cancelled:   { label: "Отменён",       color: "bg-stone-100 text-stone-500",    dot: "bg-stone-300" },

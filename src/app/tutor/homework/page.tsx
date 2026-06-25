@@ -3,7 +3,7 @@ import Link from "next/link";
 import { updateHomeworkStatus, deleteHomework } from "@/app/actions/homework";
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  pending:   { label: "Не сдано",   color: "bg-[#f5ede0] text-[#7c5c3e]" },
+  pending:   { label: "Не сдано",   color: "bg-[#f5ece3] text-[#74070E]" },
   submitted: { label: "Сдано",      color: "bg-[#e8eff5] text-[#4a6580]" },
   checked:   { label: "Проверено",  color: "bg-[#e6efea] text-[#4a7a5e]" },
 };

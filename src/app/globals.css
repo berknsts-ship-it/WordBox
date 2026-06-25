@@ -1,21 +1,22 @@
 @import "tailwindcss";
 
 :root {
-  --background: #fdf8f0;
-  --foreground: #3b2a1a;
+  /* Cherry Red #74070E · Dill Green #4E6813 · Alpine Oat #F0E7DA */
+  --background: #F0E7DA;
+  --foreground: #1c0a0b;
 
-  --brown-dark:   #3b2a1a;
-  --brown-mid:    #7c5c3e;
-  --brown-light:  #b8956a;
-  --brown-pale:   #e8d5b7;
-  --cream:        #fdf8f0;
+  --brown-dark:   #1c0a0b;
+  --brown-mid:    #74070E;
+  --brown-light:  #4E6813;
+  --brown-pale:   #ede3d5;
+  --cream:        #F0E7DA;
 
-  --gradient-primary: linear-gradient(135deg, #7c5c3e 0%, #b8956a 100%);
-  --gradient-soft:    linear-gradient(135deg, #fdf8f0 0%, #f0e0c5 100%);
-  --shadow-card:   0 2px 16px rgba(59, 42, 26, 0.07);
-  --shadow-nav:    0 2px 24px rgba(59, 42, 26, 0.09);
-  --shadow-button: 0 2px 10px rgba(124, 92, 62, 0.35);
-  --shadow-hover:  0 4px 20px rgba(59, 42, 26, 0.12);
+  --gradient-primary: linear-gradient(135deg, #74070E 0%, #a01018 100%);
+  --gradient-soft:    linear-gradient(135deg, #F0E7DA 0%, #e4d5c2 100%);
+  --shadow-card:   0 2px 16px rgba(28, 10, 11, 0.07);
+  --shadow-nav:    0 2px 24px rgba(28, 10, 11, 0.09);
+  --shadow-button: 0 2px 10px rgba(116, 7, 14, 0.35);
+  --shadow-hover:  0 4px 20px rgba(28, 10, 11, 0.12);
 }
 
 @theme inline {
@@ -59,8 +60,8 @@ h1, h2, h3, h4 {
 
 /* Фон в виде страницы школьного дневника */
 .quick-action:hover {
-  border-color: var(--brown-light) !important;
-  background: linear-gradient(135deg, #fdf8f0 0%, #f5e6ca 100%);
+  border-color: var(--brown-mid) !important;
+  background: linear-gradient(135deg, #F0E7DA 0%, #e4d5c2 100%);
   box-shadow: var(--shadow-hover) !important;
   transform: translateY(-1px);
 }
@@ -78,22 +79,22 @@ h1, h2, h3, h4 {
       to bottom,
       transparent 0px,
       transparent 27px,
-      rgba(180, 145, 90, 0.22) 27px,
-      rgba(180, 145, 90, 0.22) 28px
+      rgba(78, 104, 19, 0.18) 27px,
+      rgba(78, 104, 19, 0.18) 28px
     ),
     /* Красная полоса слева (поле) */
     linear-gradient(
       to right,
       transparent 58px,
-      rgba(210, 130, 120, 0.28) 58px,
-      rgba(210, 130, 120, 0.28) 59.5px,
+      rgba(116, 7, 14, 0.30) 58px,
+      rgba(116, 7, 14, 0.30) 59.5px,
       transparent 59.5px
     ),
     /* Переплёт слева с градиентом */
     linear-gradient(
       to right,
-      rgba(160, 120, 60, 0.35) 0px,
-      rgba(200, 165, 100, 0.18) 14px,
+      rgba(116, 7, 14, 0.20) 0px,
+      rgba(116, 7, 14, 0.08) 14px,
       transparent 36px
     );
   background-size: 100% 28px, 100% 100%, 100% 100%;

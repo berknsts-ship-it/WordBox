@@ -79,7 +79,7 @@ export default function LoginPage() {
                   autoFocus
                   className="w-full rounded-xl pl-9 pr-4 py-3 text-sm focus:outline-none transition"
                   style={{
-                    background: "#fdf8f0",
+                    background: "#F0E7DA",
                     border: "1.5px solid var(--brown-pale)",
                     color: "var(--brown-dark)",
                   }}
@@ -102,7 +102,7 @@ export default function LoginPage() {
                   required
                   className="w-full rounded-xl pl-9 pr-4 py-3 text-sm focus:outline-none transition"
                   style={{
-                    background: "#fdf8f0",
+                    background: "#F0E7DA",
                     border: "1.5px solid var(--brown-pale)",
                     color: "var(--brown-dark)",
                   }}

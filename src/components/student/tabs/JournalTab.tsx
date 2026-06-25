@@ -16,9 +16,9 @@ export default async function JournalTab({ studentId }: { studentId: string }) {
         <div
           className="w-20 h-20 rounded-3xl flex items-center justify-center mb-4"
           style={{
-            background: "linear-gradient(135deg, #f0ede8 0%, #e0d8cc 100%)",
+            background: "linear-gradient(135deg, #f0ece5 0%, #e4d8ca 100%)",
             color: "var(--brown-light)",
-            boxShadow: "0 4px 16px rgba(184,149,106,0.2)",
+            boxShadow: "0 4px 16px rgba(78,104,19,0.2)",
           }}
         >
           <NotebookText size={36} />
@@ -39,12 +39,12 @@ export default async function JournalTab({ studentId }: { studentId: string }) {
           <div
             key={lesson.id}
             className="bg-white/90 rounded-2xl overflow-hidden flex"
-            style={{ boxShadow: "var(--shadow-card)", border: "1px solid rgba(232,213,183,0.6)" }}
+            style={{ boxShadow: "var(--shadow-card)", border: "1px solid rgba(237,227,213,0.8)" }}
           >
             {/* Левый цветной акцент */}
             <div
               className="w-1 flex-shrink-0"
-              style={{ background: i === 0 ? "var(--gradient-primary)" : "linear-gradient(180deg, #d4b88a, #e8d5b7)" }}
+              style={{ background: i === 0 ? "var(--gradient-primary)" : "linear-gradient(180deg, #4E6813, #ede3d5)" }}
             />
             <div className="flex-1 p-4">
               <div className="flex items-start justify-between gap-3 mb-2">

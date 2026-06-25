@@ -3,7 +3,7 @@ import { addHomework, updateHomeworkStatus, deleteHomework } from "@/app/actions
 import { FileUploadField } from "@/components/tutor/FileUploadField";
 
 const STATUS = {
-  pending:   { label: "Нужно сделать", color: "bg-[#f5ede0] text-[#7c5c3e]" },
+  pending:   { label: "Нужно сделать", color: "bg-[#f5ece3] text-[#74070E]" },
   submitted: { label: "Отправлено",    color: "bg-[#e8eff5] text-[#4a6580]" },
   checked:   { label: "Проверено ✓",   color: "bg-[#e6efea] text-[#4a7a5e]" },
 };

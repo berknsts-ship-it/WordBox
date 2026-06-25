@@ -34,7 +34,7 @@ export default function SplashScreen({
         <div
           className="fixed inset-0 z-50 flex flex-col items-center justify-center"
           style={{
-            background: "linear-gradient(160deg, #fdf8f0 0%, #f5e8d0 60%, #ecdbb8 100%)",
+            background: "linear-gradient(160deg, #F0E7DA 0%, #e4d5c2 60%, #d8c8b0 100%)",
             opacity: fading ? 0 : 1,
             transition: "opacity 0.9s ease",
             pointerEvents: fading ? "none" : "all",
@@ -44,17 +44,17 @@ export default function SplashScreen({
           <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ opacity: 0.18 }}>
             {Array.from({ length: 18 }).map((_, i) => (
               <div key={i} className="absolute w-full h-px"
-                style={{ background: "rgba(180,145,90,0.6)", top: `${80 + i * 28}px` }} />
+                style={{ background: "rgba(78,104,19,0.4)", top: `${80 + i * 28}px` }} />
             ))}
             {/* Поле */}
-            <div className="absolute top-0 bottom-0 w-px" style={{ background: "rgba(210,130,120,0.7)", left: "72px" }} />
+            <div className="absolute top-0 bottom-0 w-px" style={{ background: "rgba(116,7,14,0.5)", left: "72px" }} />
           </div>
 
           {/* Декоративные круги */}
           <div className="absolute -top-24 -left-24 w-64 h-64 rounded-full"
-            style={{ background: "radial-gradient(circle, rgba(184,149,106,0.18) 0%, transparent 70%)" }} />
+            style={{ background: "radial-gradient(circle, rgba(116,7,14,0.12) 0%, transparent 70%)" }} />
           <div className="absolute -bottom-16 -right-16 w-80 h-80 rounded-full"
-            style={{ background: "radial-gradient(circle, rgba(124,92,62,0.12) 0%, transparent 70%)" }} />
+            style={{ background: "radial-gradient(circle, rgba(78,104,19,0.10) 0%, transparent 70%)" }} />
 
           {/* Контент */}
           <div className="relative text-center px-8">
@@ -63,8 +63,8 @@ export default function SplashScreen({
               <div
                 className="w-20 h-20 rounded-3xl flex items-center justify-center"
                 style={{
-                  background: "linear-gradient(135deg, #7c5c3e 0%, #b8956a 100%)",
-                  boxShadow: "0 8px 32px rgba(124,92,62,0.35)",
+                  background: "linear-gradient(135deg, #74070E 0%, #a01018 100%)",
+                  boxShadow: "0 8px 32px rgba(116,7,14,0.35)",
                 }}
               >
                 <BookOpen size={36} className="text-white" />

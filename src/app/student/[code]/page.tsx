@@ -51,7 +51,7 @@ export default async function StudentCabinetPage({
         <div
           className="relative overflow-hidden rounded-3xl p-6 mb-6"
           style={{
-            background: "linear-gradient(135deg, #7c5c3e 0%, #a07850 50%, #b8956a 100%)",
+            background: "linear-gradient(135deg, #74070E 0%, #8f0e14 50%, #a01018 100%)",
             boxShadow: "0 4px 24px rgba(59,42,26,0.22)",
           }}
         >

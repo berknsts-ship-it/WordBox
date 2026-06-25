@@ -36,12 +36,12 @@ export default async function ScheduleTab({ studentId }: { studentId: string }) 
           <div
             key={lesson.id}
             className="bg-white/90 rounded-2xl p-4 flex items-center gap-4"
-            style={{ boxShadow: "var(--shadow-card)", border: "1px solid rgba(232,213,183,0.6)" }}
+            style={{ boxShadow: "var(--shadow-card)", border: "1px solid rgba(237,227,213,0.8)" }}
           >
             {/* Дата */}
             <div
               className="rounded-xl px-3 py-2.5 text-center min-w-[58px] flex-shrink-0"
-              style={{ background: "linear-gradient(135deg, #f5ede0 0%, #e8d5b7 100%)", boxShadow: "0 2px 6px rgba(124,92,62,0.15)" }}
+              style={{ background: "linear-gradient(135deg, #f5ece3 0%, #ede3d5 100%)", boxShadow: "0 2px 6px rgba(116,7,14,0.15)" }}
             >
               <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--brown-light)" }}>{month}</p>
               <p className="text-2xl font-bold leading-none mt-0.5" style={{ color: "var(--brown-dark)", fontFamily: "var(--font-lora)" }}>{dayNum}</p>

@@ -8,8 +8,8 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: "/student",
     display: "standalone",
     orientation: "portrait",
-    background_color: "#fdf8f0",
-    theme_color: "#7c5c3e",
+    background_color: "#F0E7DA",
+    theme_color: "#74070E",
     icons: [
       {
         src: "/favicon.ico",
