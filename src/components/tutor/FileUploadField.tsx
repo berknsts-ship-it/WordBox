@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { createUploadUrl } from "@/app/actions/storage";
 
 interface Props {
   folder: string;
@@ -21,38 +20,25 @@ export function FileUploadField({ folder, urlFieldName, fileNameFieldName }: Pro
     setStatus("uploading");
 
     try {
-      const ext = file.name.split(".").pop();
-      const path = `${folder}/${Date.now()}.${ext}`;
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("folder", folder);
 
-      console.log("[upload] запрашиваю signed URL для:", path);
-      const result = await createUploadUrl(path);
-      console.log("[upload] ответ сервера:", result.debug);
-
-      if (!result.url) {
-        console.error("[upload] сервер вернул null. Причина:", result.debug);
-        setStatus("error");
-        return;
-      }
-
-      const signedUrl = result.url;
-      console.log("[upload] signed URL:", signedUrl);
-      const res = await fetch(signedUrl, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type || "application/octet-stream" },
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
       });
 
       if (!res.ok) {
-        const text = await res.text();
-        console.error("[upload] ошибка загрузки:", res.status, text);
+        const err = await res.json().catch(() => ({}));
+        console.error("[upload] ошибка:", res.status, err);
         setStatus("error");
         return;
       }
 
-      const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/WordBox/${path}`;
-      console.log("[upload] успешно:", publicUrl);
-      setUploadedUrl(publicUrl);
-      setUploadedName(file.name);
+      const data = await res.json();
+      setUploadedUrl(data.url);
+      setUploadedName(data.name);
       setStatus("done");
     } catch (err) {
       console.error("[upload] исключение:", err);
@@ -83,10 +69,10 @@ export function FileUploadField({ folder, urlFieldName, fileNameFieldName }: Pro
         <p className="text-xs mt-1 font-semibold" style={{ color: "var(--brown-mid)" }}>✓ {uploadedName}</p>
       )}
       {status === "error" && (
-        <p className="text-xs mt-1 text-red-500">Ошибка загрузки. Проверь политики в Supabase Storage.</p>
+        <p className="text-xs mt-1 text-red-500">Ошибка загрузки. Попробуй ещё раз.</p>
       )}
       {status === "idle" && (
-        <p className="text-xs mt-1" style={{ color: "var(--brown-light)" }}>PDF, Word, картинки, аудио — до 10 МБ</p>
+        <p className="text-xs mt-1" style={{ color: "var(--brown-light)" }}>PDF, Word, картинки, аудио — до 4 МБ</p>
       )}
 
       <input type="hidden" name={urlFieldName} value={uploadedUrl} />
