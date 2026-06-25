@@ -58,6 +58,14 @@ h1, h2, h3, h4 {
 .flip-card-back { transform: rotateY(180deg); }
 
 /* Фон в виде страницы школьного дневника */
+.quick-action:hover {
+  border-color: var(--brown-light) !important;
+  background: linear-gradient(135deg, #fdf8f0 0%, #f5e6ca 100%);
+  box-shadow: var(--shadow-hover) !important;
+  transform: translateY(-1px);
+}
+
+/* Фон в виде страницы школьного дневника */
 .diary-bg {
   position: relative;
   background-color: #fef9ef;

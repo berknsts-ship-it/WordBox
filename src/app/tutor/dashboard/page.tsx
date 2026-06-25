@@ -114,24 +114,11 @@ function QuickAction({ icon: Icon, label, href }: {
   return (
     <a
       href={href}
-      className="flex flex-col items-center gap-2.5 p-4 rounded-2xl border transition-all text-center group hover:scale-[1.02]"
-      style={{
-        borderColor: "var(--brown-pale)",
-        boxShadow: "0 1px 4px rgba(59,42,26,0.04)",
-      }}
-      onMouseEnter={(e) => {
-        (e.currentTarget as HTMLElement).style.borderColor = "var(--brown-light)";
-        (e.currentTarget as HTMLElement).style.background = "linear-gradient(135deg, #fdf8f0 0%, #f5e6ca 100%)";
-        (e.currentTarget as HTMLElement).style.boxShadow = "var(--shadow-hover)";
-      }}
-      onMouseLeave={(e) => {
-        (e.currentTarget as HTMLElement).style.borderColor = "var(--brown-pale)";
-        (e.currentTarget as HTMLElement).style.background = "";
-        (e.currentTarget as HTMLElement).style.boxShadow = "0 1px 4px rgba(59,42,26,0.04)";
-      }}
+      className="quick-action flex flex-col items-center gap-2.5 p-4 rounded-2xl border transition-all text-center"
+      style={{ borderColor: "var(--brown-pale)", boxShadow: "0 1px 4px rgba(59,42,26,0.04)" }}
     >
       <div
-        className="w-10 h-10 rounded-xl flex items-center justify-center transition-all"
+        className="w-10 h-10 rounded-xl flex items-center justify-center"
         style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-button)" }}
       >
         <Icon size={18} className="text-white" />
