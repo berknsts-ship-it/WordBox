@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { NotebookText, Clock } from "lucide-react";
 
 export default async function JournalTab({ studentId }: { studentId: string }) {
   const supabase = await createClient();
@@ -10,44 +11,70 @@ export default async function JournalTab({ studentId }: { studentId: string }) {
     .order("date", { ascending: false });
 
   if (!lessons || lessons.length === 0) {
-    return <EmptyState icon="📖" text="Уроков пока не было" hint="После каждого урока здесь будут появляться заметки" />;
+    return (
+      <div className="flex flex-col items-center py-16 text-center">
+        <div
+          className="w-20 h-20 rounded-3xl flex items-center justify-center mb-4"
+          style={{
+            background: "linear-gradient(135deg, #f0ede8 0%, #e0d8cc 100%)",
+            color: "var(--brown-light)",
+            boxShadow: "0 4px 16px rgba(184,149,106,0.2)",
+          }}
+        >
+          <NotebookText size={36} />
+        </div>
+        <p className="font-semibold text-base" style={{ color: "var(--brown-dark)" }}>Уроков пока не было</p>
+        <p className="text-sm mt-1.5" style={{ color: "var(--brown-light)" }}>
+          После каждого урока здесь будут появляться заметки
+        </p>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-3">
-      {lessons.map((lesson) => {
+      {lessons.map((lesson, i) => {
         const date = new Date(lesson.date);
         return (
-          <div key={lesson.id} className="bg-white rounded-2xl border border-stone-100 p-4">
-            <div className="flex items-start justify-between gap-3 mb-2">
-              <p className="font-semibold text-stone-800">
-                {lesson.topic || "Урок английского"}
-              </p>
-              <span className="shrink-0 text-xs text-stone-400 bg-stone-50 px-2.5 py-1 rounded-full">
-                {date.toLocaleDateString("ru", { day: "numeric", month: "long" })}
-              </span>
+          <div
+            key={lesson.id}
+            className="bg-white/90 rounded-2xl overflow-hidden flex"
+            style={{ boxShadow: "var(--shadow-card)", border: "1px solid rgba(232,213,183,0.6)" }}
+          >
+            {/* Левый цветной акцент */}
+            <div
+              className="w-1 flex-shrink-0"
+              style={{ background: i === 0 ? "var(--gradient-primary)" : "linear-gradient(180deg, #d4b88a, #e8d5b7)" }}
+            />
+            <div className="flex-1 p-4">
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <p className="font-semibold" style={{ color: "var(--brown-dark)" }}>
+                  {lesson.topic || "Урок английского"}
+                </p>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  <span
+                    className="text-xs px-2.5 py-1 rounded-full font-medium"
+                    style={{ background: "var(--brown-pale)", color: "var(--brown-mid)" }}
+                  >
+                    {date.toLocaleDateString("ru", { day: "numeric", month: "long" })}
+                  </span>
+                  <span className="flex items-center gap-1 text-xs" style={{ color: "var(--brown-light)" }}>
+                    <Clock size={10} />
+                    {lesson.duration_minutes} мин
+                  </span>
+                </div>
+              </div>
+              {lesson.notes ? (
+                <p className="text-sm whitespace-pre-wrap leading-relaxed" style={{ color: "var(--brown-mid)" }}>
+                  {lesson.notes}
+                </p>
+              ) : (
+                <p className="text-sm italic" style={{ color: "var(--brown-pale)" }}>Заметок нет</p>
+              )}
             </div>
-            {lesson.notes ? (
-              <p className="text-sm text-stone-600 whitespace-pre-wrap leading-relaxed">
-                {lesson.notes}
-              </p>
-            ) : (
-              <p className="text-sm text-stone-300 italic">Заметок нет</p>
-            )}
-            <p className="text-xs text-stone-300 mt-2">{lesson.duration_minutes} мин</p>
           </div>
         );
       })}
-    </div>
-  );
-}
-
-function EmptyState({ icon, text, hint }: { icon: string; text: string; hint: string }) {
-  return (
-    <div className="text-center py-16">
-      <p className="text-5xl mb-3">{icon}</p>
-      <p className="font-semibold text-stone-700">{text}</p>
-      <p className="text-sm text-stone-400 mt-1">{hint}</p>
     </div>
   );
 }
