@@ -4,8 +4,13 @@ import { createClient } from "@/lib/supabase/server";
 
 export async function createUploadUrl(path: string): Promise<string | null> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
+
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+  if (sessionError || !session) {
+    console.error("[storage action] нет сессии:", sessionError);
+    return null;
+  }
 
   const { data, error } = await supabase.storage
     .from("WordBox")
@@ -15,5 +20,6 @@ export async function createUploadUrl(path: string): Promise<string | null> {
     console.error("[storage action] createSignedUploadUrl error:", error);
     return null;
   }
+
   return data.signedUrl;
 }
