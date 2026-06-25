@@ -11,6 +11,9 @@ export async function createUploadUrl(path: string): Promise<string | null> {
     .from("WordBox")
     .createSignedUploadUrl(path);
 
-  if (error || !data) return null;
+  if (error || !data) {
+    console.error("[storage action] createSignedUploadUrl error:", error);
+    return null;
+  }
   return data.signedUrl;
 }

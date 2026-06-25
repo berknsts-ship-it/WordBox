@@ -24,12 +24,16 @@ export function FileUploadField({ folder, urlFieldName, fileNameFieldName }: Pro
       const ext = file.name.split(".").pop();
       const path = `${folder}/${Date.now()}.${ext}`;
 
+      console.log("[upload] запрашиваю signed URL для:", path);
       const signedUrl = await createUploadUrl(path);
+
       if (!signedUrl) {
+        console.error("[upload] сервер вернул null — нет сессии или ошибка политики Storage");
         setStatus("error");
         return;
       }
 
+      console.log("[upload] signed URL получен, загружаю файл...");
       const res = await fetch(signedUrl, {
         method: "PUT",
         body: file,
@@ -37,15 +41,19 @@ export function FileUploadField({ folder, urlFieldName, fileNameFieldName }: Pro
       });
 
       if (!res.ok) {
+        const text = await res.text();
+        console.error("[upload] ошибка загрузки:", res.status, text);
         setStatus("error");
         return;
       }
 
       const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/WordBox/${path}`;
+      console.log("[upload] успешно:", publicUrl);
       setUploadedUrl(publicUrl);
       setUploadedName(file.name);
       setStatus("done");
-    } catch {
+    } catch (err) {
+      console.error("[upload] исключение:", err);
       setStatus("error");
     }
   }
