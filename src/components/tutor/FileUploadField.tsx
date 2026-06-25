@@ -35,7 +35,7 @@ export function FileUploadField({ folder, urlFieldName, fileNameFieldName }: Pro
       }
 
       const signedUrl = result.url;
-      console.log("[upload] signed URL получен, загружаю файл...");
+      console.log("[upload] signed URL:", signedUrl);
       const res = await fetch(signedUrl, {
         method: "PUT",
         body: file,
