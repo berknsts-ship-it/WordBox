@@ -65,79 +65,36 @@ h1, h2, h3, h4 {
   transform: translateY(-1px);
 }
 
-/* Фон ежедневника */
-.diary-bg {
-  position: relative;
-  /* Бумага страницы */
-  background-color: #faf4e4;
+/* Фон ежедневника — фиксированный на весь экран */
+.diary-bg-fixed {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-color: var(--background);
   background-image:
-    /* Горизонтальные линии */
+    /* Горизонтальные линии — тонкие и полупрозрачные */
     repeating-linear-gradient(
       to bottom,
       transparent 0px,
       transparent 27px,
-      #d8c4a0 27px,
-      #d8c4a0 28.5px
+      rgba(180, 145, 90, 0.22) 27px,
+      rgba(180, 145, 90, 0.22) 28px
     ),
     /* Красная полоса слева (поле) */
     linear-gradient(
       to right,
-      transparent 52px,
-      #e8b0a8 52px,
-      #e8b0a8 54px,
-      transparent 54px
+      transparent 58px,
+      rgba(210, 130, 120, 0.28) 58px,
+      rgba(210, 130, 120, 0.28) 59.5px,
+      transparent 59.5px
     ),
-    /* Переплёт / корешок слева */
+    /* Переплёт слева с градиентом */
     linear-gradient(
       to right,
-      #c8a878 0px,
-      #e2c898 10px,
-      #f0dab4 22px,
-      transparent 44px
-    ),
-    /* Тень от переплёта */
-    linear-gradient(
-      to right,
-      rgba(80,50,20,0.18) 0px,
-      rgba(80,50,20,0.07) 30px,
-      transparent 60px
+      rgba(160, 120, 60, 0.35) 0px,
+      rgba(200, 165, 100, 0.18) 14px,
+      transparent 36px
     );
-  background-size:
-    100% 28.5px,
-    100% 100%,
-    100% 100%,
-    100% 100%;
-}
-
-/* Шапка страницы (имитация ежедневника) */
-.diary-bg::before {
-  content: '';
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 48px;
-  background: linear-gradient(
-    to bottom,
-    #e8d4a8 0%,
-    #e8d4a8 44px,
-    #d8c090 44px,
-    #d8c090 48px,
-    transparent 48px
-  );
-  pointer-events: none;
-  z-index: 0;
-}
-
-/* Нижнее затухание */
-.diary-bg::after {
-  content: '';
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 100px;
-  background: linear-gradient(to bottom, transparent, rgba(200,168,100,0.12));
-  pointer-events: none;
-  z-index: 0;
+  background-size: 100% 28px, 100% 100%, 100% 100%;
 }
