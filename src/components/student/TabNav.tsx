@@ -4,12 +4,12 @@ import Link from "next/link";
 import { CalendarDays, ClipboardList, PenLine, NotebookText, Brain, BookText } from "lucide-react";
 
 const TABS = [
-  { id: "schedule",  label: "Расписание",       icon: CalendarDays },
-  { id: "homework",  label: "Домашние задания",  icon: ClipboardList },
-  { id: "board",     label: "Доска",             icon: PenLine },
-  { id: "journal",   label: "Журнал уроков",     icon: NotebookText },
-  { id: "trainer",   label: "Тренажёр",          icon: Brain },
-  { id: "grammar",   label: "Грамматика",        icon: BookText },
+  { id: "schedule", label: "Расписание",  icon: CalendarDays },
+  { id: "homework", label: "Задания",      icon: ClipboardList },
+  { id: "board",    label: "Доска",        icon: PenLine },
+  { id: "journal",  label: "Журнал",       icon: NotebookText },
+  { id: "trainer",  label: "Тренажёр",     icon: Brain },
+  { id: "grammar",  label: "Грамматика",   icon: BookText },
 ];
 
 export default function TabNav({
@@ -22,16 +22,17 @@ export default function TabNav({
   pendingHomework?: number;
 }) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="grid grid-cols-6 gap-1.5 sm:gap-2">
       {TABS.map((tab) => {
         const Icon = tab.icon;
         const isActive = activeTab === tab.id;
         const showBadge = tab.id === "homework" && pendingHomework > 0;
+
         return (
           <Link
             key={tab.id}
             href={`/student/${code}?tab=${tab.id}`}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold whitespace-nowrap transition-all relative"
+            className="relative flex flex-col items-center justify-center gap-1 py-2.5 sm:py-2.5 rounded-xl sm:rounded-2xl transition-all"
             style={
               isActive
                 ? {
@@ -40,18 +41,20 @@ export default function TabNav({
                     boxShadow: "var(--shadow-button)",
                   }
                 : {
-                    background: "rgba(255,255,255,0.7)",
+                    background: "rgba(255,255,255,0.75)",
                     color: "var(--brown-light)",
                     border: "1.5px solid var(--brown-pale)",
                   }
             }
           >
-            <Icon size={15} />
-            <span>{tab.label}</span>
+            <Icon size={18} className="sm:w-4 sm:h-4" />
+            <span className="hidden sm:block text-xs font-semibold text-center leading-tight px-1">
+              {tab.label}
+            </span>
             {showBadge && (
               <span
-                className="flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold text-white"
-                style={{ background: "#e85d4a", fontSize: "11px" }}
+                className="absolute -top-1.5 -right-1.5 flex items-center justify-center w-4 h-4 rounded-full text-white font-bold"
+                style={{ background: "#e85d4a", fontSize: "10px" }}
               >
                 {pendingHomework}
               </span>

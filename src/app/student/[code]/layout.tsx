@@ -14,7 +14,7 @@ export default function StudentLayout({
         className="sticky top-0 z-20 bg-white/75 backdrop-blur-md border-b"
         style={{ borderColor: "var(--brown-pale)", boxShadow: "0 1px 12px rgba(59,42,26,0.07)" }}
       >
-        <div className="max-w-4xl mx-auto px-4 flex items-center gap-2.5 h-14">
+        <div className="max-w-6xl mx-auto px-4 sm:px-8 flex items-center gap-2.5 h-14">
           <div
             className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
             style={{ background: "var(--gradient-primary)" }}
@@ -36,7 +36,7 @@ export default function StudentLayout({
       </header>
 
       <main
-        className="flex-1 max-w-4xl mx-auto w-full px-3 sm:px-4 py-5 sm:py-6 relative"
+        className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-8 py-5 sm:py-6 relative"
         style={{ zIndex: 1 }}
       >
         {children}
