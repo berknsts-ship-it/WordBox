@@ -65,51 +65,79 @@ h1, h2, h3, h4 {
   transform: translateY(-1px);
 }
 
-/* Фон в виде страницы школьного дневника */
+/* Фон ежедневника */
 .diary-bg {
   position: relative;
-  background-color: #fef9ef;
+  /* Бумага страницы */
+  background-color: #faf4e4;
   background-image:
+    /* Горизонтальные линии */
     repeating-linear-gradient(
       to bottom,
-      transparent,
-      transparent 31px,
-      #e2cba8 31px,
-      #e2cba8 32px
+      transparent 0px,
+      transparent 27px,
+      #d8c4a0 27px,
+      #d8c4a0 28.5px
     ),
+    /* Красная полоса слева (поле) */
     linear-gradient(
       to right,
-      transparent 60px,
-      #f5b8b8 60px,
-      #f5b8b8 62px,
-      transparent 62px
+      transparent 52px,
+      #e8b0a8 52px,
+      #e8b0a8 54px,
+      transparent 54px
+    ),
+    /* Переплёт / корешок слева */
+    linear-gradient(
+      to right,
+      #c8a878 0px,
+      #e2c898 10px,
+      #f0dab4 22px,
+      transparent 44px
+    ),
+    /* Тень от переплёта */
+    linear-gradient(
+      to right,
+      rgba(80,50,20,0.18) 0px,
+      rgba(80,50,20,0.07) 30px,
+      transparent 60px
     );
-  background-size: 100% 32px, 100% 100%;
+  background-size:
+    100% 28.5px,
+    100% 100%,
+    100% 100%,
+    100% 100%;
 }
 
+/* Шапка страницы (имитация ежедневника) */
 .diary-bg::before {
   content: '';
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 48px;
   background: linear-gradient(
-    to right,
-    #fef9ef 0%,
-    transparent 12%,
-    transparent 88%,
-    #fef9ef 100%
+    to bottom,
+    #e8d4a8 0%,
+    #e8d4a8 44px,
+    #d8c090 44px,
+    #d8c090 48px,
+    transparent 48px
   );
   pointer-events: none;
-  z-index: 1;
+  z-index: 0;
 }
 
+/* Нижнее затухание */
 .diary-bg::after {
   content: '';
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  height: 180px;
-  background: linear-gradient(to bottom, transparent, #fef9ef);
+  height: 100px;
+  background: linear-gradient(to bottom, transparent, rgba(200,168,100,0.12));
   pointer-events: none;
-  z-index: 1;
+  z-index: 0;
 }

@@ -1,55 +1,105 @@
 function LetterBlock({ x, y, letter, rotate = 0, size = 64 }: {
   x: number; y: number; letter: string; rotate?: number; size?: number;
 }) {
-  const r = size * 0.13;
-  const fontSize = size * 0.52;
+  const r = size * 0.14;
+  const fontSize = size * 0.5;
+  const d = size * 0.06; // depth of 3D edge
   return (
-    <g transform={`translate(${x}, ${y}) rotate(${rotate})`} opacity="0.75">
-      <rect x={0} y={0} width={size} height={size} rx={r} fill="#e8d5b7" stroke="#b8956a" strokeWidth="2.5" />
+    <g transform={`translate(${x}, ${y}) rotate(${rotate})`} opacity="0.82">
+      {/* Нижняя тень (3D эффект) */}
+      <rect x={d} y={d} width={size} height={size} rx={r} fill="#8a6540" opacity="0.18" />
+      {/* Боковые грани */}
+      <path
+        d={`M${r},${size} L${size - r},${size} L${size},${size - r} L${size + d},${size - r + d} L${size + d - r + r},${size + d} Z`}
+        fill="#a07040" opacity="0.25"
+      />
+      {/* Основная плитка с градиентом */}
+      <defs>
+        <linearGradient id={`tg-${letter}`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#f8e8cc" />
+          <stop offset="100%" stopColor="#d4b07a" />
+        </linearGradient>
+      </defs>
+      <rect x={0} y={0} width={size} height={size} rx={r}
+        fill={`url(#tg-${letter})`} stroke="#b8956a" strokeWidth="1.5" />
+      {/* Блик сверху */}
+      <rect x={3} y={3} width={size - 6} height={size * 0.35} rx={r * 0.7}
+        fill="white" opacity="0.22" />
+      {/* Буква */}
       <text
-        x={size / 2} y={size * 0.72}
+        x={size / 2} y={size * 0.71}
         fontSize={fontSize}
         textAnchor="middle"
-        fill="#7c5c3e"
+        fill="#5c3d20"
         fontFamily="Georgia, serif"
         fontStyle="italic"
+        opacity="0.9"
       >{letter}</text>
+      {/* Тонкая внутренняя рамка */}
+      <rect x={4} y={4} width={size - 8} height={size - 8} rx={r * 0.6}
+        fill="none" stroke="#c8a060" strokeWidth="1" opacity="0.4" />
     </g>
   );
 }
 
 function Book({ x, y, rotate = 0, scale = 1 }: { x: number; y: number; rotate?: number; scale?: number }) {
   return (
-    <g transform={`translate(${x}, ${y}) rotate(${rotate}) scale(${scale})`} opacity="0.72">
-      <rect x="0" y="0" width="44" height="56" rx="4" fill="#b8956a" />
-      <rect x="6" y="0" width="38" height="56" rx="3" fill="#e8d5b7" />
-      <line x1="10" y1="12" x2="38" y2="12" stroke="#b8956a" strokeWidth="1.8" />
-      <line x1="10" y1="20" x2="38" y2="20" stroke="#b8956a" strokeWidth="1.8" />
-      <line x1="10" y1="28" x2="30" y2="28" stroke="#b8956a" strokeWidth="1.8" />
-      <line x1="10" y1="36" x2="34" y2="36" stroke="#b8956a" strokeWidth="1.8" />
+    <g transform={`translate(${x}, ${y}) rotate(${rotate}) scale(${scale})`} opacity="0.78">
+      {/* Тень */}
+      <rect x="3" y="3" width="44" height="56" rx="4" fill="#5c3010" opacity="0.12" />
+      {/* Корешок (бок) */}
+      <rect x="0" y="0" width="8" height="56" rx="3" fill="#8a6030" />
+      {/* Обложка */}
+      <defs>
+        <linearGradient id="book-cover" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#c8984a" />
+          <stop offset="100%" stopColor="#8a6030" />
+        </linearGradient>
+      </defs>
+      <rect x="0" y="0" width="44" height="56" rx="4" fill="url(#book-cover)" />
+      {/* Страницы (правый торец) */}
+      <rect x="40" y="2" width="6" height="52" rx="1" fill="#f0e0c0" opacity="0.9" />
+      <line x1="40" y1="6"  x2="46" y2="6"  stroke="#d4b880" strokeWidth="0.5" />
+      <line x1="40" y1="10" x2="46" y2="10" stroke="#d4b880" strokeWidth="0.5" />
+      <line x1="40" y1="14" x2="46" y2="14" stroke="#d4b880" strokeWidth="0.5" />
+      {/* Страница */}
+      <rect x="6" y="0" width="34" height="56" rx="3" fill="#f5e8cc" />
+      <line x1="11" y1="13" x2="36" y2="13" stroke="#c8a060" strokeWidth="1.5" opacity="0.7" />
+      <line x1="11" y1="21" x2="36" y2="21" stroke="#c8a060" strokeWidth="1.5" opacity="0.7" />
+      <line x1="11" y1="29" x2="28" y2="29" stroke="#c8a060" strokeWidth="1.5" opacity="0.7" />
+      <line x1="11" y1="37" x2="32" y2="37" stroke="#c8a060" strokeWidth="1.5" opacity="0.7" />
+      {/* Блик на обложке */}
+      <rect x="6" y="1" width="16" height="28" rx="2" fill="white" opacity="0.1" />
     </g>
   );
 }
 
 function Pencil({ x, y, rotate = 0 }: { x: number; y: number; rotate?: number }) {
   return (
-    <g transform={`translate(${x}, ${y}) rotate(${rotate})`} opacity="0.68">
-      <rect x="0" y="0" width="13" height="70" rx="3" fill="#b8956a" />
-      <polygon points="0,70 13,70 6.5,88" fill="#e8d5b7" />
-      <rect x="0" y="0" width="13" height="13" rx="2" fill="#7c5c3e" />
-      <line x1="0" y1="13" x2="13" y2="13" stroke="#7c5c3e" strokeWidth="1.5" />
+    <g transform={`translate(${x}, ${y}) rotate(${rotate})`} opacity="0.72">
+      {/* Тень */}
+      <rect x="2" y="2" width="13" height="70" rx="3" fill="#3b2010" opacity="0.12" />
+      {/* Резинка */}
+      <rect x="0" y="0" width="13" height="10" rx="2" fill="#e8a0a0" />
+      {/* Металлический ободок */}
+      <rect x="0" y="10" width="13" height="5" fill="#c0a870" />
+      <line x1="0" y1="13" x2="13" y2="13" stroke="#a08840" strokeWidth="0.8" />
+      {/* Тело карандаша с градиентом */}
+      <defs>
+        <linearGradient id="pencil-body" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#c8a050" />
+          <stop offset="40%" stopColor="#e8c070" />
+          <stop offset="100%" stopColor="#a07030" />
+        </linearGradient>
+      </defs>
+      <rect x="0" y="15" width="13" height="55" rx="1" fill="url(#pencil-body)" />
+      {/* Дерево (носик) */}
+      <polygon points="0,70 13,70 6.5,86" fill="#d4a870" />
+      {/* Грифель */}
+      <polygon points="4,83 9,83 6.5,90" fill="#6a5030" />
+      {/* Блик на теле */}
+      <rect x="3" y="15" width="3" height="55" rx="1" fill="white" opacity="0.18" />
     </g>
-  );
-}
-
-function Star({ x, y, size = 1 }: { x: number; y: number; size?: number }) {
-  const s = size;
-  return (
-    <polygon
-      points={`${x},${y - 14 * s} ${x + 4 * s},${y - 4 * s} ${x + 14 * s},${y - 4 * s} ${x + 6 * s},${y + 3 * s} ${x + 9 * s},${y + 13 * s} ${x},${y + 7 * s} ${x - 9 * s},${y + 13 * s} ${x - 6 * s},${y + 3 * s} ${x - 14 * s},${y - 4 * s} ${x - 4 * s},${y - 4 * s}`}
-      fill="#b8956a"
-      opacity="0.65"
-    />
   );
 }
 
@@ -57,71 +107,59 @@ export default function BackgroundDecor() {
   return (
     <svg
       className="fixed inset-0 w-full h-full pointer-events-none"
-      style={{ zIndex: 0, opacity: 0.22 }}
+      style={{ zIndex: 0, opacity: 0.28 }}
       viewBox="0 0 1440 900"
       preserveAspectRatio="xMidYMid slice"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
     >
+      <defs>
+        <filter id="drop" x="-20%" y="-20%" width="150%" height="150%">
+          <feDropShadow dx="2" dy="3" stdDeviation="4" floodColor="#3b2a1a" floodOpacity="0.18" />
+        </filter>
+      </defs>
+
       {/* Верхний левый */}
-      <LetterBlock x={40} y={30} letter="A" rotate={-12} size={72} />
-      <LetterBlock x={140} y={20} letter="B" rotate={8} size={60} />
-      <Star x={250} y={80} size={1.1} />
+      <g filter="url(#drop)"><LetterBlock x={40} y={30} letter="A" rotate={-12} size={72} /></g>
+      <g filter="url(#drop)"><LetterBlock x={148} y={18} letter="B" rotate={8} size={60} /></g>
 
       {/* Верхний центр */}
-      <LetterBlock x={660} y={18} letter="C" rotate={-6} size={68} />
-      <Star x={790} y={55} size={0.9} />
+      <g filter="url(#drop)"><LetterBlock x={665} y={16} letter="C" rotate={-6} size={68} /></g>
 
       {/* Верхний правый */}
-      <Book x={1260} y={20} rotate={-8} scale={1.6} />
-      <Pencil x={1400} y={15} rotate={-35} />
+      <g filter="url(#drop)"><Book x={1260} y={18} rotate={-8} scale={1.6} /></g>
+      <g filter="url(#drop)"><Pencil x={1402} y={12} rotate={-35} /></g>
 
       {/* Левый край */}
-      <Star x={55} y={320} size={1.3} />
-      <LetterBlock x={18} y={460} letter="D" rotate={15} size={66} />
-      <g stroke="#e8d5b7" strokeWidth="2" opacity="0.9">
-        <line x1="0" y1="560" x2="130" y2="560" />
-        <line x1="0" y1="578" x2="100" y2="578" />
-        <line x1="0" y1="596" x2="140" y2="596" />
+      <g filter="url(#drop)"><LetterBlock x={16} y={460} letter="D" rotate={15} size={66} /></g>
+      <g stroke="#d4b880" strokeWidth="1.8" opacity="0.55">
+        <line x1="0" y1="565" x2="120" y2="565" />
+        <line x1="0" y1="583" x2="90"  y2="583" />
+        <line x1="0" y1="601" x2="130" y2="601" />
       </g>
 
       {/* Правый край */}
-      <LetterBlock x={1358} y={300} letter="E" rotate={-14} size={66} />
-      <Star x={1390} y={460} size={1.2} />
-      <g stroke="#e8d5b7" strokeWidth="2" opacity="0.9">
-        <line x1="1310" y1="540" x2="1440" y2="540" />
-        <line x1="1340" y1="558" x2="1440" y2="558" />
-        <line x1="1300" y1="576" x2="1440" y2="576" />
+      <g filter="url(#drop)"><LetterBlock x={1360} y={298} letter="E" rotate={-14} size={66} /></g>
+      <g stroke="#d4b880" strokeWidth="1.8" opacity="0.55">
+        <line x1="1315" y1="545" x2="1440" y2="545" />
+        <line x1="1345" y1="563" x2="1440" y2="563" />
+        <line x1="1305" y1="581" x2="1440" y2="581" />
       </g>
 
-      {/* Центр левый */}
-      <Book x={320} y={680} rotate={-10} scale={2} />
-      <Star x={480} y={780} size={1.0} />
+      {/* Нижний центр-левый */}
+      <g filter="url(#drop)"><Book x={322} y={678} rotate={-10} scale={2} /></g>
+      <g filter="url(#drop)"><LetterBlock x={660} y={792} letter="F" rotate={5} size={64} /></g>
 
-      {/* Центр */}
-      <LetterBlock x={660} y={790} letter="F" rotate={5} size={64} />
-      <Star x={780} y={820} size={0.85} />
-
-      {/* Центр правый */}
-      <Star x={960} y={760} size={1.0} />
-      <Book x={1060} y={690} rotate={12} scale={2} />
+      {/* Нижний центр-правый */}
+      <g filter="url(#drop)"><Book x={1062} y={688} rotate={12} scale={2} /></g>
 
       {/* Нижний левый */}
-      <Pencil x={60} y={720} rotate={22} />
-      <LetterBlock x={20} y={820} letter="G" rotate={-8} size={60} />
+      <g filter="url(#drop)"><Pencil x={62} y={718} rotate={22} /></g>
+      <g filter="url(#drop)"><LetterBlock x={18} y={822} letter="G" rotate={-8} size={60} /></g>
 
       {/* Нижний правый */}
-      <LetterBlock x={1350} y={800} letter="H" rotate={10} size={64} />
-      <Pencil x={1220} y={760} rotate={-18} />
-
-      {/* Рассыпанные кружки */}
-      <circle cx="420" cy="50" r="7" fill="#b8956a" opacity="0.5" />
-      <circle cx="438" cy="50" r="7" fill="#b8956a" opacity="0.4" />
-      <circle cx="456" cy="50" r="7" fill="#b8956a" opacity="0.3" />
-
-      <circle cx="1010" cy="855" r="7" fill="#b8956a" opacity="0.5" />
-      <circle cx="1028" cy="855" r="7" fill="#b8956a" opacity="0.4" />
-      <circle cx="1046" cy="855" r="7" fill="#b8956a" opacity="0.3" />
+      <g filter="url(#drop)"><LetterBlock x={1352} y={800} letter="H" rotate={10} size={64} /></g>
+      <g filter="url(#drop)"><Pencil x={1222} y={758} rotate={-18} /></g>
     </svg>
   );
 }
