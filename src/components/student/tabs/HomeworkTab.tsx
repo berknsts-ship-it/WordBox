@@ -1,9 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 
 const STATUS: Record<string, { label: string; color: string; dot: string }> = {
-  pending:   { label: "Нужно сделать", color: "bg-amber-50 text-amber-700",   dot: "bg-amber-400" },
-  submitted: { label: "Отправлено",    color: "bg-blue-50 text-blue-700",     dot: "bg-blue-400" },
-  checked:   { label: "Проверено ✓",   color: "bg-emerald-50 text-emerald-700", dot: "bg-emerald-400" },
+  pending:   { label: "Нужно сделать", color: "bg-[#f5ede0] text-[#7c5c3e]",   dot: "bg-[#b8956a]" },
+  submitted: { label: "Отправлено",    color: "bg-[#e8eff5] text-[#4a6580]",     dot: "bg-[#7a9ab8]" },
+  checked:   { label: "Проверено ✓",   color: "bg-[#e6efea] text-[#4a7a5e]", dot: "bg-[#6ea882]" },
 };
 
 export default async function HomeworkTab({ studentId }: { studentId: string }) {

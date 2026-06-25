@@ -3,9 +3,9 @@ import { addHomework, updateHomeworkStatus, deleteHomework } from "@/app/actions
 import { FileUploadField } from "@/components/tutor/FileUploadField";
 
 const STATUS = {
-  pending:   { label: "Нужно сделать", color: "bg-amber-50 text-amber-700" },
-  submitted: { label: "Отправлено",    color: "bg-blue-50 text-blue-700" },
-  checked:   { label: "Проверено ✓",   color: "bg-emerald-50 text-emerald-700" },
+  pending:   { label: "Нужно сделать", color: "bg-[#f5ede0] text-[#7c5c3e]" },
+  submitted: { label: "Отправлено",    color: "bg-[#e8eff5] text-[#4a6580]" },
+  checked:   { label: "Проверено ✓",   color: "bg-[#e6efea] text-[#4a7a5e]" },
 };
 
 export default async function TutorHomeworkTab({ studentId }: { studentId: string }) {

@@ -32,24 +32,24 @@ export default async function DashboardPage() {
           icon={Users}
           label="Учеников"
           value={studentsCount ?? 0}
-          gradient="linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%)"
-          iconBg="#7c3aed"
+          gradient="linear-gradient(135deg, #f5efe8 0%, #ede0cc 100%)"
+          iconBg="#a07850"
           href="/tutor/students"
         />
         <StatCard
           icon={CalendarDays}
           label="Ближайших уроков"
           value={lessonsCount ?? 0}
-          gradient="linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)"
-          iconBg="#2563eb"
+          gradient="linear-gradient(135deg, #eef4f0 0%, #d8ece0 100%)"
+          iconBg="#6a9e7f"
           href="/tutor/schedule"
         />
         <StatCard
           icon={ClipboardList}
           label="Непроверенных заданий"
           value={homeworkCount ?? 0}
-          gradient="linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)"
-          iconBg="#d97706"
+          gradient="linear-gradient(135deg, #f5f0e8 0%, #ece0ca 100%)"
+          iconBg="#b89060"
           href="/tutor/homework"
         />
       </div>

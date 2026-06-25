@@ -28,9 +28,10 @@ export default async function ScheduleTab({ studentId }: { studentId: string }) 
             key={lesson.id}
             className="bg-white rounded-2xl border border-stone-100 p-4 flex items-center gap-4"
           >
-            <div className="bg-violet-50 rounded-xl px-3 py-2.5 text-center min-w-[56px]">
-              <p className="text-[11px] font-semibold text-violet-400 uppercase">{month}</p>
-              <p className="text-2xl font-bold text-violet-700 leading-none">{dayNum}</p>
+            <div className="rounded-xl px-3 py-2.5 text-center min-w-[56px]"
+              style={{ background: "linear-gradient(135deg, #f5ede0 0%, #ece0cc 100%)" }}>
+              <p className="text-[11px] font-semibold uppercase" style={{ color: "var(--brown-light)" }}>{month}</p>
+              <p className="text-2xl font-bold leading-none" style={{ color: "var(--brown-dark)" }}>{dayNum}</p>
             </div>
             <div className="flex-1">
               <p className="font-semibold text-stone-800">
@@ -40,7 +41,7 @@ export default async function ScheduleTab({ studentId }: { studentId: string }) 
                 {weekday} · {time} · {lesson.duration_minutes} мин
               </p>
             </div>
-            <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+            <div className="w-2 h-2 rounded-full shrink-0" style={{ background: "#6ea882" }} />
           </div>
         );
       })}

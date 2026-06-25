@@ -111,7 +111,7 @@ export default async function TutorLessonsTab({ studentId }: { studentId: string
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className={`w-2 h-2 rounded-full shrink-0 ${lesson.status === "completed" ? "bg-emerald-400" : isPast ? "bg-red-300" : "bg-amber-400"}`} />
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${lesson.status === "completed" ? "bg-[#6ea882]" : isPast ? "bg-[#c49090]" : "bg-[#b8956a]"}`} />
                       <p className="font-semibold text-sm" style={{ color: "var(--brown-dark)" }}>
                         {lesson.topic || "Урок английского"}
                       </p>
