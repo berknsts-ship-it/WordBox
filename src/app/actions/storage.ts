@@ -2,12 +2,13 @@
 
 import { createClient } from "@supabase/supabase-js";
 
-export async function createUploadUrl(path: string): Promise<string | null> {
+export async function createUploadUrl(
+  path: string
+): Promise<{ url: string | null; debug: string }> {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!serviceRoleKey) {
-    console.error("[storage] SUPABASE_SERVICE_ROLE_KEY не задан в переменных окружения");
-    return null;
+    return { url: null, debug: "НЕТ_КЛЮЧА: SUPABASE_SERVICE_ROLE_KEY не задан в Vercel" };
   }
 
   const supabase = createClient(
@@ -21,9 +22,8 @@ export async function createUploadUrl(path: string): Promise<string | null> {
     .createSignedUploadUrl(path);
 
   if (error || !data) {
-    console.error("[storage] ошибка createSignedUploadUrl:", JSON.stringify(error));
-    return null;
+    return { url: null, debug: `ОШИБКА_STORAGE: ${JSON.stringify(error)}` };
   }
 
-  return data.signedUrl;
+  return { url: data.signedUrl, debug: "ok" };
 }

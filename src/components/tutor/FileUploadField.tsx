@@ -25,14 +25,16 @@ export function FileUploadField({ folder, urlFieldName, fileNameFieldName }: Pro
       const path = `${folder}/${Date.now()}.${ext}`;
 
       console.log("[upload] запрашиваю signed URL для:", path);
-      const signedUrl = await createUploadUrl(path);
+      const result = await createUploadUrl(path);
+      console.log("[upload] ответ сервера:", result.debug);
 
-      if (!signedUrl) {
-        console.error("[upload] сервер вернул null — нет сессии или ошибка политики Storage");
+      if (!result.url) {
+        console.error("[upload] сервер вернул null. Причина:", result.debug);
         setStatus("error");
         return;
       }
 
+      const signedUrl = result.url;
       console.log("[upload] signed URL получен, загружаю файл...");
       const res = await fetch(signedUrl, {
         method: "PUT",
