@@ -9,6 +9,13 @@
   --brown-light:  #b8956a;
   --brown-pale:   #e8d5b7;
   --cream:        #fdf8f0;
+
+  --gradient-primary: linear-gradient(135deg, #7c5c3e 0%, #b8956a 100%);
+  --gradient-soft:    linear-gradient(135deg, #fdf8f0 0%, #f0e0c5 100%);
+  --shadow-card:   0 2px 16px rgba(59, 42, 26, 0.07);
+  --shadow-nav:    0 2px 24px rgba(59, 42, 26, 0.09);
+  --shadow-button: 0 2px 10px rgba(124, 92, 62, 0.35);
+  --shadow-hover:  0 4px 20px rgba(59, 42, 26, 0.12);
 }
 
 @theme inline {

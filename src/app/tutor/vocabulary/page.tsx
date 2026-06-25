@@ -39,7 +39,7 @@ export default async function VocabularyPage() {
           </p>
           <Link href="/tutor/students"
             className="inline-block mt-4 px-5 py-2.5 rounded-2xl text-sm font-semibold text-white hover:opacity-80"
-            style={{ background: "var(--brown-mid)" }}>
+            style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-button)" }}>
             К ученикам
           </Link>
         </div>

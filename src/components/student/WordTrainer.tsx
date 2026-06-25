@@ -101,7 +101,7 @@ export default function WordTrainer({ words, setName, code }: {
           <button
             onClick={restart}
             className="px-6 py-3 rounded-2xl text-white font-semibold hover:opacity-80 transition-opacity"
-            style={{ background: "var(--brown-mid)" }}
+            style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-button)" }}
           >
             Повторить снова
           </button>
@@ -169,7 +169,7 @@ export default function WordTrainer({ words, setName, code }: {
           {/* Лицевая сторона — английский */}
           <div
             className="flip-card-front rounded-3xl flex flex-col items-center justify-center p-8 cursor-pointer select-none"
-            style={{ background: "var(--brown-mid)" }}
+            style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-button)" }}
           >
             <p className="text-4xl font-bold text-white text-center mb-3">
               {current.english}

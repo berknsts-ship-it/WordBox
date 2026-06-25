@@ -23,7 +23,7 @@ export default async function StudentsPage() {
         <Link
           href="/tutor/students/new"
           className="flex items-center gap-2 px-5 py-2.5 rounded-2xl text-white font-semibold text-sm transition-opacity hover:opacity-80"
-          style={{ background: "var(--brown-mid)" }}
+          style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-button)" }}
         >
           <span>+</span> Добавить ученика
         </Link>
@@ -41,7 +41,7 @@ export default async function StudentsPage() {
           <Link
             href="/tutor/students/new"
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl text-white font-semibold text-sm"
-            style={{ background: "var(--brown-mid)" }}
+            style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-button)" }}
           >
             Добавить ученика
           </Link>

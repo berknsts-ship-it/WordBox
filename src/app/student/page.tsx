@@ -59,7 +59,7 @@ export default function StudentEntryPage() {
           <button
             onClick={() => setShowForm(true)}
             className="w-full rounded-2xl px-4 py-4 text-white font-semibold text-base transition-opacity hover:opacity-90"
-            style={{ background: "var(--brown-mid)" }}
+            style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-button)" }}
           >
             Войти по коду →
           </button>
@@ -122,7 +122,7 @@ export default function StudentEntryPage() {
               onClick={handleSubmit}
               disabled={loading || !code.trim()}
               className="w-full rounded-xl px-4 py-3.5 text-white font-semibold text-base transition-opacity disabled:opacity-50"
-              style={{ background: "var(--brown-mid)" }}
+              style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-button)" }}
             >
               {loading ? "Загрузка..." : "Открыть кабинет →"}
             </button>

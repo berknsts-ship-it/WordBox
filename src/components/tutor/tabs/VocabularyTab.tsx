@@ -97,7 +97,7 @@ export default async function TutorVocabularyTab({
             <button
               type="submit"
               className="w-full rounded-xl px-4 py-2.5 text-white text-sm font-semibold hover:opacity-80 transition-opacity"
-              style={{ background: "var(--brown-mid)" }}
+              style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-button)" }}
             >
               Добавить слово
             </button>
@@ -168,7 +168,7 @@ export default async function TutorVocabularyTab({
           <button
             type="submit"
             className="rounded-xl px-4 py-2.5 text-white text-sm font-semibold hover:opacity-80 whitespace-nowrap"
-            style={{ background: "var(--brown-mid)" }}
+            style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-button)" }}
           >
             Создать
           </button>

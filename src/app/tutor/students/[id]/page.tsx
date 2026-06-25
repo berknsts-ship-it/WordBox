@@ -91,7 +91,7 @@ export default async function StudentDetailPage({
           </select>
           <button type="submit"
             className="shrink-0 rounded-xl px-4 py-2 text-sm font-semibold text-white hover:opacity-80 transition-opacity"
-            style={{ background: "var(--brown-mid)" }}>
+            style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-button)" }}>
             Сохранить
           </button>
         </form>
@@ -112,7 +112,7 @@ export default async function StudentDetailPage({
           />
           <button type="submit"
             className="shrink-0 rounded-xl px-4 py-2 text-sm font-semibold text-white hover:opacity-80 transition-opacity"
-            style={{ background: "var(--brown-mid)" }}>
+            style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-button)" }}>
             Сохранить
           </button>
         </form>

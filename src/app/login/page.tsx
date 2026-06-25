@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { BookOpen, Mail, Lock } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -31,61 +32,87 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
 
         <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-amber-100 mb-4">
-            <span className="text-3xl">📚</span>
+          <div
+            className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4"
+            style={{
+              background: "var(--gradient-primary)",
+              boxShadow: "var(--shadow-button)",
+            }}
+          >
+            <BookOpen size={28} className="text-white" />
           </div>
-          <h1 className="text-3xl" style={{ color: "var(--brown-dark)" }}>Word Box</h1>
+          <h1
+            className="text-3xl"
+            style={{
+              background: "var(--gradient-primary)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+            }}
+          >
+            Word Box
+          </h1>
           <p className="mt-1.5 text-sm" style={{ color: "var(--brown-light)" }}>
             Кабинет репетитора
           </p>
         </div>
 
-        <div className="bg-white/80 backdrop-blur rounded-3xl shadow-sm border p-8"
-          style={{ borderColor: "var(--brown-pale)" }}>
+        <div
+          className="bg-white/80 backdrop-blur rounded-3xl border p-8"
+          style={{
+            borderColor: "var(--brown-pale)",
+            boxShadow: "var(--shadow-nav)",
+          }}
+        >
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-semibold mb-1.5"
-                style={{ color: "var(--brown-mid)" }}>
+              <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--brown-mid)" }}>
                 Email
               </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoFocus
-                className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 transition"
-                style={{
-                  background: "#fdf8f0",
-                  border: "1.5px solid var(--brown-pale)",
-                  color: "var(--brown-dark)",
-                }}
-                placeholder="you@example.com"
-              />
+              <div className="relative">
+                <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                  style={{ color: "var(--brown-light)" }} />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoFocus
+                  className="w-full rounded-xl pl-9 pr-4 py-3 text-sm focus:outline-none transition"
+                  style={{
+                    background: "#fdf8f0",
+                    border: "1.5px solid var(--brown-pale)",
+                    color: "var(--brown-dark)",
+                  }}
+                  placeholder="you@example.com"
+                />
+              </div>
             </div>
 
             <div>
-              <label className="block text-sm font-semibold mb-1.5"
-                style={{ color: "var(--brown-mid)" }}>
+              <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--brown-mid)" }}>
                 Пароль
               </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none transition"
-                style={{
-                  background: "#fdf8f0",
-                  border: "1.5px solid var(--brown-pale)",
-                  color: "var(--brown-dark)",
-                }}
-                placeholder="••••••••"
-              />
+              <div className="relative">
+                <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                  style={{ color: "var(--brown-light)" }} />
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="w-full rounded-xl pl-9 pr-4 py-3 text-sm focus:outline-none transition"
+                  style={{
+                    background: "#fdf8f0",
+                    border: "1.5px solid var(--brown-pale)",
+                    color: "var(--brown-dark)",
+                  }}
+                  placeholder="••••••••"
+                />
+              </div>
             </div>
 
             {error && (
-              <div className="text-sm rounded-xl px-4 py-3 bg-red-50 text-red-600">
+              <div className="text-sm rounded-xl px-4 py-3 bg-red-50 text-red-600 border border-red-100">
                 {error}
               </div>
             )}
@@ -93,8 +120,11 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-xl px-4 py-3 text-white font-semibold transition-opacity disabled:opacity-50"
-              style={{ background: "var(--brown-mid)" }}
+              className="w-full rounded-xl px-4 py-3 text-white font-semibold transition-all disabled:opacity-50 hover:opacity-90 active:scale-[0.98]"
+              style={{
+                background: "var(--gradient-primary)",
+                boxShadow: "var(--shadow-button)",
+              }}
             >
               {loading ? "Входим..." : "Войти"}
             </button>
@@ -103,8 +133,7 @@ export default function LoginPage() {
 
         <p className="text-center text-sm mt-6" style={{ color: "var(--brown-light)" }}>
           Ты ученик?{" "}
-          <a href="/student" className="font-semibold hover:underline"
-            style={{ color: "var(--brown-mid)" }}>
+          <a href="/student" className="font-semibold hover:underline" style={{ color: "var(--brown-mid)" }}>
             Войди по коду
           </a>
         </p>

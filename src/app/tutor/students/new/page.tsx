@@ -103,7 +103,7 @@ export default function NewStudentPage() {
             <button
               type="submit"
               className="flex-1 rounded-xl px-4 py-3 text-white text-sm font-semibold transition-opacity hover:opacity-80"
-              style={{ background: "var(--brown-mid)" }}
+              style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-button)" }}
             >
               Добавить ученика
             </button>
