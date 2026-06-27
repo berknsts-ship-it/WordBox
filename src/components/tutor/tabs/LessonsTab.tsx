@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
-import { addLesson, deleteLesson, togglePaymentStatus } from "@/app/actions/lessons";
-import LessonStatusPicker, { STATUS_CONFIG } from "@/components/tutor/LessonStatusPicker";
+import { addLesson } from "@/app/actions/lessons";
+import { STATUS_CONFIG } from "@/components/tutor/LessonStatusPicker";
+import LessonCard from "@/components/tutor/LessonCard";
 
 export default async function TutorLessonsTab({ studentId }: { studentId: string }) {
   const supabase = await createClient();
@@ -117,68 +118,9 @@ export default async function TutorLessonsTab({ studentId }: { studentId: string
       {/* Список уроков */}
       {lessons && lessons.length > 0 && (
         <div className="space-y-3">
-          {lessons.map((lesson) => {
-            const date = new Date(lesson.date);
-            const isPast = date < new Date();
-            const isCancelled = lesson.status === "cancelled";
-            const payStatus = (lesson.payment_status ?? "unpaid") as "paid" | "unpaid";
-
-            return (
-              <div key={lesson.id} className="bg-white/80 rounded-2xl border p-4"
-                style={{ borderColor: "var(--brown-pale)" }}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`w-2 h-2 rounded-full shrink-0 ${lesson.status === "completed" ? "bg-[#6ea882]" : isPast ? "bg-[#c49090]" : "bg-[#74070E]"}`} />
-                      <p className="font-semibold text-sm truncate" style={{ color: "var(--brown-dark)" }}>
-                        {lesson.topic || "Урок английского"}
-                      </p>
-                    </div>
-                    <p className="text-xs ml-4" style={{ color: "var(--brown-light)" }}>
-                      {date.toLocaleDateString("ru", { day: "numeric", month: "long", weekday: "short" })}
-                      {" · "}{date.toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" })}
-                      {" · "}{lesson.duration_minutes} мин
-                      {lesson.price_rub ? ` · ${lesson.price_rub.toLocaleString("ru")} ₽` : ""}
-                    </p>
-                    {lesson.notes && (
-                      <p className="text-xs ml-4 mt-1 italic" style={{ color: "var(--brown-light)" }}>
-                        {lesson.notes}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col items-end gap-2 shrink-0">
-                    <div className="flex items-center gap-2">
-                      <LessonStatusPicker
-                        lessonId={lesson.id}
-                        studentId={studentId}
-                        currentStatus={lesson.status}
-                      />
-                      <form action={deleteLesson.bind(null, lesson.id, studentId)}>
-                        <button type="submit" className="text-xs text-red-400 hover:text-red-600 px-2 py-1">✕</button>
-                      </form>
-                    </div>
-
-                    {/* Кнопка оплаты (кроме отменённых) */}
-                    {!isCancelled && (
-                      <form action={togglePaymentStatus.bind(null, lesson.id, payStatus)}>
-                        <button
-                          type="submit"
-                          className="text-xs font-semibold px-3 py-1 rounded-xl transition-all"
-                          style={payStatus === "paid"
-                            ? { background: "#dcfce7", color: "#166534" }
-                            : { background: "#fff7ed", color: "#9a3412" }
-                          }
-                        >
-                          {payStatus === "paid" ? "✓ Оплачено" : "₽ Не оплачено"}
-                        </button>
-                      </form>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+          {lessons.map((lesson) => (
+            <LessonCard key={lesson.id} lesson={lesson} studentId={studentId} />
+          ))}
         </div>
       )}
     </div>

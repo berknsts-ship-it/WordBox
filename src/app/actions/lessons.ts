@@ -50,6 +50,27 @@ export async function markLessonCompleted(id: string, studentId: string) {
   revalidatePath("/tutor/schedule");
 }
 
+export async function updateLesson(formData: FormData) {
+  const supabase = await createClient();
+  const id = formData.get("id") as string;
+  const studentId = formData.get("student_id") as string;
+  const priceRaw = formData.get("price_rub");
+
+  await supabase.from("lessons").update({
+    date: formData.get("date") as string,
+    duration_minutes: Number(formData.get("duration_minutes")) || 60,
+    topic: (formData.get("topic") as string) || null,
+    notes: (formData.get("notes") as string) || null,
+    price_rub: priceRaw ? Number(priceRaw) : null,
+    payment_status: formData.get("payment_status") as string,
+    status: formData.get("status") as string,
+  }).eq("id", id);
+
+  revalidatePath(`/tutor/students/${studentId}`);
+  revalidatePath("/tutor/schedule");
+  revalidatePath("/tutor/dashboard");
+}
+
 export async function togglePaymentStatus(id: string, current: "paid" | "unpaid") {
   const supabase = await createClient();
   await supabase.from("lessons")
