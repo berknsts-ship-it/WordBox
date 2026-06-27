@@ -217,21 +217,57 @@ export default async function StudentDetailPage({
       ) : (
         /* ═══════════════════════════════ ВИД РЕПЕТИТОРА ════════════════════════════ */
         <div>
-          {/* Шапка */}
-          <div className="flex items-start justify-between gap-4 mb-6">
-            <div>
-              <h1 className="text-2xl">{student.name}</h1>
-              {student.email && (
-                <p className="text-sm mt-0.5" style={{ color: "var(--brown-light)" }}>{student.email}</p>
-              )}
+          {/* Шапка профиля */}
+          <div className="relative overflow-hidden rounded-3xl p-6 mb-5"
+            style={{ background: "var(--gradient-primary)", boxShadow: "0 4px 24px rgba(116,7,14,0.22)" }}>
+
+            {/* Декор */}
+            <div className="absolute -right-8 -top-8 w-44 h-44 rounded-full" style={{ background: "rgba(255,255,255,0.07)" }} />
+            <div className="absolute -right-2 top-14 w-28 h-28 rounded-full" style={{ background: "rgba(255,255,255,0.05)" }} />
+            <div className="absolute left-1/2 -bottom-12 w-52 h-52 rounded-full" style={{ background: "rgba(255,255,255,0.04)" }} />
+
+            {/* Word Box watermark */}
+            <div className="absolute right-6 bottom-4 select-none pointer-events-none"
+              style={{ fontFamily: "var(--font-lora)", fontSize: "30px", fontStyle: "italic", color: "rgba(255,255,255,0.13)", letterSpacing: "0.02em" }}>
+              Word Box
             </div>
-            <div className="text-center rounded-2xl px-5 py-3 shrink-0"
-              style={{ background: "var(--brown-pale)" }}>
-              <p className="text-xs font-semibold mb-1" style={{ color: "var(--brown-light)" }}>Код доступа</p>
-              <p className="text-xl font-bold tracking-widest" style={{ color: "var(--brown-dark)" }}>
-                {student.access_code}
-              </p>
-              <CopyLinkButton code={student.access_code} />
+
+            <div className="relative z-10 flex items-center gap-5 flex-wrap sm:flex-nowrap">
+              {/* Аватар */}
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 text-3xl font-bold"
+                style={{ background: "rgba(255,255,255,0.18)", backdropFilter: "blur(8px)", color: "#fdf3e3", fontFamily: "var(--font-lora)" }}>
+                {student.name[0].toUpperCase()}
+              </div>
+
+              {/* Имя и мета */}
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold tracking-widest uppercase mb-1.5"
+                  style={{ color: "rgba(255,255,255,0.50)" }}>
+                  Word Box · Кабинет ученика
+                </p>
+                <h1 className="text-3xl font-bold leading-tight"
+                  style={{ fontFamily: "var(--font-lora)", color: "#fdf3e3", textShadow: "0 1px 8px rgba(59,42,26,0.3)" }}>
+                  {student.name}
+                </h1>
+                {student.email && (
+                  <p className="text-sm mt-1" style={{ color: "rgba(255,255,255,0.60)" }}>{student.email}</p>
+                )}
+                {student.textbook && (
+                  <p className="text-xs mt-1 font-medium" style={{ color: "rgba(255,255,255,0.45)" }}>
+                    {student.textbook === "english_file_elementary" ? "English File Elementary" : "Solutions 3rd Ed. Elementary"}
+                  </p>
+                )}
+              </div>
+
+              {/* Код доступа */}
+              <div className="text-center rounded-2xl px-5 py-3 flex-shrink-0"
+                style={{ background: "rgba(255,255,255,0.15)", backdropFilter: "blur(8px)" }}>
+                <p className="text-xs font-semibold mb-1" style={{ color: "rgba(255,255,255,0.65)" }}>Код доступа</p>
+                <p className="text-2xl font-bold tracking-widest" style={{ color: "#fff" }}>
+                  {student.access_code}
+                </p>
+                <CopyLinkButton code={student.access_code} />
+              </div>
             </div>
           </div>
 
