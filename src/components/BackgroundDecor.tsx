@@ -1,104 +1,160 @@
-function LetterBlock({ x, y, letter, rotate = 0, size = 64 }: {
-  x: number; y: number; letter: string; rotate?: number; size?: number;
-}) {
-  const r = size * 0.14;
-  const fontSize = size * 0.5;
-  const d = size * 0.06; // depth of 3D edge
+type IconProps = { x: number; y: number; size?: number; rotate?: number };
+
+function Apple({ x, y, size = 64, rotate = 0 }: IconProps) {
+  const s = size / 64;
   return (
-    <g transform={`translate(${x}, ${y}) rotate(${rotate})`} opacity="0.82">
-      {/* Нижняя тень (3D эффект) */}
-      <rect x={d} y={d} width={size} height={size} rx={r} fill="#3d0609" opacity="0.18" />
-      {/* Боковые грани */}
-      <path
-        d={`M${r},${size} L${size - r},${size} L${size},${size - r} L${size + d},${size - r + d} L${size + d - r + r},${size + d} Z`}
-        fill="#4E6813" opacity="0.30"
-      />
-      {/* Основная плитка с градиентом */}
-      <defs>
-        <linearGradient id={`tg-${letter}`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#F0E7DA" />
-          <stop offset="100%" stopColor="#e4d5c2" />
-        </linearGradient>
-      </defs>
-      <rect x={0} y={0} width={size} height={size} rx={r}
-        fill={`url(#tg-${letter})`} stroke="#4E6813" strokeWidth="1.5" />
-      {/* Блик сверху */}
-      <rect x={3} y={3} width={size - 6} height={size * 0.35} rx={r * 0.7}
-        fill="white" opacity="0.22" />
-      {/* Буква */}
-      <text
-        x={size / 2} y={size * 0.71}
-        fontSize={fontSize}
-        textAnchor="middle"
-        fill="#74070E"
-        fontFamily="Georgia, serif"
-        fontStyle="italic"
-        opacity="0.9"
-      >{letter}</text>
-      {/* Тонкая внутренняя рамка */}
-      <rect x={4} y={4} width={size - 8} height={size - 8} rx={r * 0.6}
-        fill="none" stroke="#4E6813" strokeWidth="1" opacity="0.4" />
+    <g transform={`translate(${x},${y}) rotate(${rotate}) scale(${s})`} opacity="0.86">
+      <line x1="32" y1="12" x2="35" y2="2" stroke="#4E6813" strokeWidth="3.5" strokeLinecap="round"/>
+      <path d="M35 6 Q46 -2 43 11 Q38 17 35 6Z" fill="#4E6813"/>
+      <path d="M32 14 Q28 6 22 10 Q8 14 8 32 Q8 52 20 60 Q26 64 32 62 Q38 64 44 60 Q56 52 56 32 Q56 14 42 10 Q36 6 32 14Z" fill="#74070E"/>
+      <ellipse cx="21" cy="30" rx="4" ry="9" fill="white" opacity="0.18" transform="rotate(-15,21,30)"/>
     </g>
   );
 }
 
-function Book({ x, y, rotate = 0, scale = 1 }: { x: number; y: number; rotate?: number; scale?: number }) {
+function Atom({ x, y, size = 72, rotate = 0 }: IconProps) {
+  const s = size / 72;
   return (
-    <g transform={`translate(${x}, ${y}) rotate(${rotate}) scale(${scale})`} opacity="0.78">
-      {/* Тень */}
-      <rect x="3" y="3" width="44" height="56" rx="4" fill="#5c3010" opacity="0.12" />
-      {/* Корешок (бок) */}
-      <rect x="0" y="0" width="8" height="56" rx="3" fill="#3d0609" />
-      {/* Обложка */}
-      <defs>
-        <linearGradient id="book-cover" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#74070E" />
-          <stop offset="100%" stopColor="#3d0609" />
-        </linearGradient>
-      </defs>
-      <rect x="0" y="0" width="44" height="56" rx="4" fill="url(#book-cover)" />
-      {/* Страницы (правый торец) */}
-      <rect x="40" y="2" width="6" height="52" rx="1" fill="#F0E7DA" opacity="0.9" />
-      <line x1="40" y1="6"  x2="46" y2="6"  stroke="#4E6813" strokeWidth="0.5" />
-      <line x1="40" y1="10" x2="46" y2="10" stroke="#4E6813" strokeWidth="0.5" />
-      <line x1="40" y1="14" x2="46" y2="14" stroke="#4E6813" strokeWidth="0.5" />
-      {/* Страница */}
-      <rect x="6" y="0" width="34" height="56" rx="3" fill="#F0E7DA" />
-      <line x1="11" y1="13" x2="36" y2="13" stroke="#4E6813" strokeWidth="1.5" opacity="0.5" />
-      <line x1="11" y1="21" x2="36" y2="21" stroke="#4E6813" strokeWidth="1.5" opacity="0.5" />
-      <line x1="11" y1="29" x2="28" y2="29" stroke="#4E6813" strokeWidth="1.5" opacity="0.5" />
-      <line x1="11" y1="37" x2="32" y2="37" stroke="#4E6813" strokeWidth="1.5" opacity="0.5" />
-      {/* Блик на обложке */}
-      <rect x="6" y="1" width="16" height="28" rx="2" fill="white" opacity="0.1" />
+    <g transform={`translate(${x},${y}) rotate(${rotate}) scale(${s})`} opacity="0.80">
+      <ellipse cx="36" cy="36" rx="34" ry="13" fill="none" stroke="#1c0a0b" strokeWidth="3"/>
+      <ellipse cx="36" cy="36" rx="34" ry="13" fill="none" stroke="#1c0a0b" strokeWidth="3" transform="rotate(60,36,36)"/>
+      <ellipse cx="36" cy="36" rx="34" ry="13" fill="none" stroke="#1c0a0b" strokeWidth="3" transform="rotate(120,36,36)"/>
+      <circle cx="36" cy="36" r="9" fill="#74070E"/>
+      <circle cx="70" cy="36" r="5" fill="#74070E"/>
+      <circle cx="19" cy="57" r="5" fill="#4E6813"/>
+      <circle cx="19" cy="15" r="5" fill="#4E6813"/>
     </g>
   );
 }
 
-function Pencil({ x, y, rotate = 0 }: { x: number; y: number; rotate?: number }) {
+function Globe({ x, y, size = 68, rotate = 0 }: IconProps) {
+  const s = size / 68;
   return (
-    <g transform={`translate(${x}, ${y}) rotate(${rotate})`} opacity="0.72">
-      {/* Тень */}
-      <rect x="2" y="2" width="13" height="70" rx="3" fill="#3b2010" opacity="0.12" />
-      {/* Резинка */}
-      <rect x="0" y="0" width="13" height="10" rx="2" fill="#e8a0a0" />
-      {/* Металлический ободок */}
-      <rect x="0" y="10" width="13" height="5" fill="#c0a870" />
-      <line x1="0" y1="13" x2="13" y2="13" stroke="#a08840" strokeWidth="0.8" />
-      {/* Тело карандаша с градиентом */}
-      <defs>
-        <linearGradient id="pencil-body" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#c8a050" />
-          <stop offset="40%" stopColor="#e8c070" />
-          <stop offset="100%" stopColor="#a07030" />
-        </linearGradient>
-      </defs>
-      <rect x="0" y="15" width="13" height="55" rx="1" fill="url(#pencil-body)" />
-      {/* Дерево (носик) */}
-      <polygon points="0,70 13,70 6.5,86" fill="#d4a870" />
-      {/* Грифель */}
-      <polygon points="4,83 9,83 6.5,90" fill="#6a5030" />
-      {/* Блик на теле */}
-      <rect x="3" y="15" width="3" height="55" rx="1" fill="white" opacity="0.18" />
+    <g transform={`translate(${x},${y}) rotate(${rotate}) scale(${s})`} opacity="0.78">
+      <circle cx="34" cy="34" r="32" fill="#F0E7DA" stroke="#1c0a0b" strokeWidth="3"/>
+      <ellipse cx="34" cy="34" rx="19" ry="32" fill="none" stroke="#1c0a0b" strokeWidth="2"/>
+      <line x1="2" y1="34" x2="66" y2="34" stroke="#1c0a0b" strokeWidth="2"/>
+      <ellipse cx="34" cy="34" rx="32" ry="12" fill="none" stroke="#1c0a0b" strokeWidth="1.5"/>
+      <ellipse cx="34" cy="34" rx="32" ry="22" fill="none" stroke="#1c0a0b" strokeWidth="1.5"/>
+      <path d="M17 21 Q24 16 30 22 Q28 30 20 27Z" fill="#74070E" opacity="0.75"/>
+      <path d="M38 27 Q46 22 51 31 Q48 40 39 37Z" fill="#74070E" opacity="0.75"/>
+      <path d="M18 40 Q27 37 30 46 Q23 51 17 46Z" fill="#4E6813" opacity="0.70"/>
+    </g>
+  );
+}
+
+function GraduationCap({ x, y, size = 76, rotate = 0 }: IconProps) {
+  const s = size / 76;
+  return (
+    <g transform={`translate(${x},${y}) rotate(${rotate}) scale(${s})`} opacity="0.84">
+      <path d="M14 32 L14 52 Q38 62 62 52 L62 32 Q38 42 14 32Z" fill="#1c0a0b"/>
+      <polygon points="38,6 74,26 38,46 2,26" fill="#74070E"/>
+      <polygon points="38,6 74,26 56,36" fill="#8a1014" opacity="0.5"/>
+      <line x1="74" y1="26" x2="74" y2="50" stroke="#1c0a0b" strokeWidth="3"/>
+      <rect x="69" y="50" width="10" height="14" rx="3" fill="#74070E"/>
+    </g>
+  );
+}
+
+function OpenBook({ x, y, size = 80, rotate = 0 }: IconProps) {
+  const s = size / 80;
+  return (
+    <g transform={`translate(${x},${y}) rotate(${rotate}) scale(${s})`} opacity="0.80">
+      <path d="M2 16 Q4 8 11 6 Q23 2 38 10 L38 64 Q22 57 10 60 Q4 62 2 56Z" fill="#F0E7DA" stroke="#1c0a0b" strokeWidth="2.5"/>
+      <path d="M78 16 Q76 8 69 6 Q57 2 42 10 L42 64 Q58 57 70 60 Q76 62 78 56Z" fill="#F0E7DA" stroke="#1c0a0b" strokeWidth="2.5"/>
+      <path d="M38 10 Q40 7 42 10 L42 64 Q40 67 38 64Z" fill="#74070E"/>
+      <line x1="10" y1="23" x2="33" y2="20" stroke="#4E6813" strokeWidth="2" opacity="0.65"/>
+      <line x1="10" y1="32" x2="33" y2="29" stroke="#4E6813" strokeWidth="2" opacity="0.65"/>
+      <line x1="10" y1="41" x2="31" y2="38" stroke="#4E6813" strokeWidth="2" opacity="0.65"/>
+      <line x1="10" y1="50" x2="33" y2="47" stroke="#4E6813" strokeWidth="2" opacity="0.65"/>
+      <line x1="47" y1="20" x2="70" y2="23" stroke="#74070E" strokeWidth="2" opacity="0.65"/>
+      <line x1="47" y1="29" x2="70" y2="32" stroke="#74070E" strokeWidth="2" opacity="0.65"/>
+      <line x1="47" y1="38" x2="68" y2="41" stroke="#74070E" strokeWidth="2" opacity="0.65"/>
+      <line x1="47" y1="47" x2="70" y2="50" stroke="#74070E" strokeWidth="2" opacity="0.65"/>
+    </g>
+  );
+}
+
+function StackedBooks({ x, y, size = 74, rotate = 0 }: IconProps) {
+  const s = size / 74;
+  return (
+    <g transform={`translate(${x},${y}) rotate(${rotate}) scale(${s})`} opacity="0.84">
+      <rect x="2" y="54" width="70" height="18" rx="4" fill="#2a3c0a"/>
+      <rect x="2" y="54" width="9" height="18" rx="4" fill="#1e2c08"/>
+      <rect x="10" y="54" width="62" height="18" rx="3" fill="#4E6813"/>
+      <rect x="5" y="34" width="64" height="20" rx="4" fill="#120608"/>
+      <rect x="5" y="34" width="9" height="20" rx="4" fill="#0a0405"/>
+      <rect x="13" y="34" width="56" height="20" rx="3" fill="#1c0a0b"/>
+      <rect x="9" y="14" width="56" height="20" rx="4" fill="#5a0509"/>
+      <rect x="9" y="14" width="9" height="20" rx="4" fill="#3d0609"/>
+      <rect x="17" y="14" width="48" height="20" rx="3" fill="#74070E"/>
+      <rect x="22" y="17" width="18" height="6" rx="2" fill="white" opacity="0.13"/>
+    </g>
+  );
+}
+
+function Rocket({ x, y, size = 58, rotate = 0 }: IconProps) {
+  const s = size / 58;
+  return (
+    <g transform={`translate(${x},${y}) rotate(${rotate}) scale(${s})`} opacity="0.82">
+      <path d="M22 68 Q24 56 29 60 Q29 50 29 46 Q29 50 29 60 Q34 56 36 68" fill="#74070E" opacity="0.85"/>
+      <path d="M17 44 L17 26 Q17 6 29 1 Q41 6 41 26 L41 44Z" fill="#1c0a0b"/>
+      <path d="M17 26 Q17 6 29 1 Q41 6 41 26Z" fill="#74070E"/>
+      <circle cx="29" cy="29" r="7" fill="#F0E7DA" stroke="#4E6813" strokeWidth="2.5"/>
+      <circle cx="29" cy="29" r="3" fill="#4E6813"/>
+      <path d="M17 44 L5 58 L17 51Z" fill="#74070E"/>
+      <path d="M41 44 L53 58 L41 51Z" fill="#74070E"/>
+      <rect x="17" y="44" width="24" height="8" rx="2" fill="#2a1015"/>
+    </g>
+  );
+}
+
+function Lightbulb({ x, y, size = 66, rotate = 0 }: IconProps) {
+  const s = size / 66;
+  return (
+    <g transform={`translate(${x},${y}) rotate(${rotate}) scale(${s})`} opacity="0.80">
+      <path d="M33 6 Q53 6 55 27 Q57 38 47 49 Q45 53 45 57 L21 57 Q21 53 19 49 Q9 38 11 27 Q13 6 33 6Z" fill="#F0E7DA" stroke="#1c0a0b" strokeWidth="2.5"/>
+      <path d="M33 10 Q49 10 51 28 Q52 37 44 47 L22 47 Q14 37 15 28 Q17 10 33 10Z" fill="#74070E" opacity="0.20"/>
+      <path d="M24 39 Q28 32 33 39 Q38 32 42 39" fill="none" stroke="#74070E" strokeWidth="2.5" strokeLinecap="round"/>
+      <rect x="21" y="57" width="24" height="5" rx="2" fill="#1c0a0b"/>
+      <rect x="23" y="62" width="20" height="5" rx="2" fill="#1c0a0b"/>
+      <line x1="21" y1="59.5" x2="45" y2="59.5" stroke="#F0E7DA" strokeWidth="0.8" opacity="0.4"/>
+    </g>
+  );
+}
+
+function Pencil({ x, y, size = 84, rotate = 0 }: IconProps) {
+  const s = size / 84;
+  return (
+    <g transform={`translate(${x},${y}) rotate(${rotate}) scale(${s})`} opacity="0.76">
+      <rect x="15" y="0" width="18" height="11" rx="3" fill="#e8a0a0"/>
+      <rect x="15" y="11" width="18" height="5" fill="#c8a85c"/>
+      <rect x="13" y="16" width="22" height="54" fill="#74070E"/>
+      <rect x="13" y="16" width="6" height="54" fill="#8a1014"/>
+      <rect x="29" y="16" width="6" height="54" fill="#5a0509"/>
+      <polygon points="13,70 35,70 24,84" fill="#d4a870"/>
+      <polygon points="19,78 29,78 24,86" fill="#4E6813"/>
+    </g>
+  );
+}
+
+function Clock({ x, y, size = 68, rotate = 0 }: IconProps) {
+  const s = size / 68;
+  const marks = [0,30,60,90,120,150,180,210,240,270,300,330];
+  return (
+    <g transform={`translate(${x},${y}) rotate(${rotate}) scale(${s})`} opacity="0.78">
+      <circle cx="34" cy="34" r="32" fill="#F0E7DA" stroke="#1c0a0b" strokeWidth="3.5"/>
+      {marks.map((deg, i) => {
+        const a = (deg - 90) * Math.PI / 180;
+        const r1 = i % 3 === 0 ? 20 : 23;
+        return <line key={deg}
+          x1={34 + r1 * Math.cos(a)} y1={34 + r1 * Math.sin(a)}
+          x2={34 + 28 * Math.cos(a)} y2={34 + 28 * Math.sin(a)}
+          stroke="#1c0a0b" strokeWidth={i % 3 === 0 ? 3 : 1.5}/>;
+      })}
+      <line x1="34" y1="34" x2="22" y2="14" stroke="#1c0a0b" strokeWidth="3.5" strokeLinecap="round"/>
+      <line x1="34" y1="34" x2="50" y2="24" stroke="#74070E" strokeWidth="2.5" strokeLinecap="round"/>
+      <circle cx="34" cy="34" r="4" fill="#74070E"/>
     </g>
   );
 }
@@ -107,59 +163,39 @@ export default function BackgroundDecor() {
   return (
     <svg
       className="fixed inset-0 w-full h-full pointer-events-none"
-      style={{ zIndex: 0, opacity: 0.28 }}
+      style={{ zIndex: 0, opacity: 0.30 }}
       viewBox="0 0 1440 900"
       preserveAspectRatio="xMidYMid slice"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
     >
       <defs>
-        <filter id="drop" x="-20%" y="-20%" width="150%" height="150%">
-          <feDropShadow dx="2" dy="3" stdDeviation="4" floodColor="#1c0a0b" floodOpacity="0.18" />
+        <filter id="drop" x="-25%" y="-25%" width="160%" height="160%">
+          <feDropShadow dx="2" dy="3" stdDeviation="4" floodColor="#1c0a0b" floodOpacity="0.18"/>
         </filter>
       </defs>
 
-      {/* Верхний левый */}
-      <g filter="url(#drop)"><LetterBlock x={40} y={30} letter="A" rotate={-12} size={72} /></g>
-      <g filter="url(#drop)"><LetterBlock x={148} y={18} letter="B" rotate={8} size={60} /></g>
-
-      {/* Верхний центр */}
-      <g filter="url(#drop)"><LetterBlock x={665} y={16} letter="C" rotate={-6} size={68} /></g>
-
-      {/* Верхний правый */}
-      <g filter="url(#drop)"><Book x={1260} y={18} rotate={-8} scale={1.6} /></g>
-      <g filter="url(#drop)"><Pencil x={1402} y={12} rotate={-35} /></g>
+      {/* Верхний ряд */}
+      <g filter="url(#drop)"><Apple           x={28}   y={18}  size={74} rotate={-12}/></g>
+      <g filter="url(#drop)"><Atom            x={175}  y={6}   size={80} rotate={6}  /></g>
+      <g filter="url(#drop)"><Globe           x={688}  y={4}   size={76} rotate={0}  /></g>
+      <g filter="url(#drop)"><GraduationCap   x={1270} y={4}   size={82} rotate={-10}/></g>
+      <g filter="url(#drop)"><Rocket          x={1388} y={2}   size={62} rotate={-32}/></g>
 
       {/* Левый край */}
-      <g filter="url(#drop)"><LetterBlock x={16} y={460} letter="D" rotate={15} size={66} /></g>
-      <g stroke="#d4b880" strokeWidth="1.8" opacity="0.55">
-        <line x1="0" y1="565" x2="120" y2="565" />
-        <line x1="0" y1="583" x2="90"  y2="583" />
-        <line x1="0" y1="601" x2="130" y2="601" />
-      </g>
+      <g filter="url(#drop)"><Lightbulb       x={4}    y={355} size={74} rotate={5}  /></g>
+      <g filter="url(#drop)"><StackedBooks    x={8}    y={602} size={76} rotate={-6} /></g>
 
       {/* Правый край */}
-      <g filter="url(#drop)"><LetterBlock x={1360} y={298} letter="E" rotate={-14} size={66} /></g>
-      <g stroke="#d4b880" strokeWidth="1.8" opacity="0.55">
-        <line x1="1315" y1="545" x2="1440" y2="545" />
-        <line x1="1345" y1="563" x2="1440" y2="563" />
-        <line x1="1305" y1="581" x2="1440" y2="581" />
-      </g>
+      <g filter="url(#drop)"><Clock           x={1388} y={325} size={70} rotate={8}  /></g>
+      <g filter="url(#drop)"><OpenBook        x={1308} y={582} size={84} rotate={-10}/></g>
 
-      {/* Нижний центр-левый */}
-      <g filter="url(#drop)"><Book x={322} y={678} rotate={-10} scale={2} /></g>
-      <g filter="url(#drop)"><LetterBlock x={660} y={792} letter="F" rotate={5} size={64} /></g>
-
-      {/* Нижний центр-правый */}
-      <g filter="url(#drop)"><Book x={1062} y={688} rotate={12} scale={2} /></g>
-
-      {/* Нижний левый */}
-      <g filter="url(#drop)"><Pencil x={62} y={718} rotate={22} /></g>
-      <g filter="url(#drop)"><LetterBlock x={18} y={822} letter="G" rotate={-8} size={60} /></g>
-
-      {/* Нижний правый */}
-      <g filter="url(#drop)"><LetterBlock x={1352} y={800} letter="H" rotate={10} size={64} /></g>
-      <g filter="url(#drop)"><Pencil x={1222} y={758} rotate={-18} /></g>
+      {/* Нижний ряд */}
+      <g filter="url(#drop)"><Pencil          x={48}   y={734} size={84} rotate={20} /></g>
+      <g filter="url(#drop)"><Atom            x={430}  y={814} size={74} rotate={-8} /></g>
+      <g filter="url(#drop)"><OpenBook        x={672}  y={808} size={80} rotate={6}  /></g>
+      <g filter="url(#drop)"><StackedBooks    x={998}  y={802} size={74} rotate={-10}/></g>
+      <g filter="url(#drop)"><Apple           x={1368} y={800} size={72} rotate={14} /></g>
     </svg>
   );
 }
