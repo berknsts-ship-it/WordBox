@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { getSnapshots } from "@/app/actions/board";
 import { updateCanvasUrl, updateTextbook } from "@/app/actions/students";
 import CopyLinkButton from "@/components/tutor/CopyLinkButton";
 import DeleteStudentButton from "@/components/tutor/DeleteStudentButton";
@@ -67,6 +68,8 @@ export default async function StudentDetailPage({
     .single();
 
   if (!student) notFound();
+
+  const boardSnapshots = studentActiveTab === "board" ? await getSnapshots(id) : [];
 
   let pendingCount = 0, lessonsCount = 0, checkedCount = 0;
   if (isStudentView) {
@@ -209,7 +212,7 @@ export default async function StudentDetailPage({
 
           {studentActiveTab === "schedule"  && <ScheduleTab        studentId={id} />}
           {studentActiveTab === "homework"  && <StudentHomeworkTab  studentId={id} />}
-          {studentActiveTab === "board"     && <BoardTab            studentId={id} boardUrl={student.canvas_url ?? null} />}
+          {studentActiveTab === "board"     && <BoardTab            studentId={id} role="tutor" snapshots={boardSnapshots as unknown as Parameters<typeof BoardTab>[0]["snapshots"]} />}
           {studentActiveTab === "journal"   && <JournalTab          studentId={id} />}
           {studentActiveTab === "trainer"   && <TrainerTab          studentId={id} code={student.access_code} activeSetId={set} />}
           {studentActiveTab === "grammar"   && <GrammarTab          textbook={student.textbook ?? null} />}
