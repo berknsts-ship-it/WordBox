@@ -1,4 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
+import { PdfReader } from "@/components/student/PdfReader";
+
+function isPdf(fileName: string | null, url: string | null) {
+  return (
+    fileName?.toLowerCase().endsWith(".pdf") ||
+    (!fileName && url?.toLowerCase().includes(".pdf"))
+  );
+}
 
 export default async function MaterialsTab({ studentId }: { studentId: string }) {
   const supabase = await createClient();
@@ -14,63 +22,69 @@ export default async function MaterialsTab({ studentId }: { studentId: string })
 
   return (
     <div className="space-y-4">
-      {materials.map((m) => (
-        <div key={m.id} className="bg-white/80 rounded-2xl border overflow-hidden"
-          style={{ borderColor: "var(--brown-pale)" }}>
+      {materials.map((m) => {
+        const pdf = isPdf(m.file_name, m.url);
+        const icon = m.is_iframe ? "🖥️" : pdf ? "📚" : m.file_name ? "📎" : m.url ? "🔗" : "📄";
 
-          {/* Встроенный фрейм */}
-          {m.is_iframe && m.url && (
-            <div className="relative w-full" style={{ paddingTop: "56.25%" }}>
-              <iframe
-                src={m.url}
-                className="absolute inset-0 w-full h-full"
-                allowFullScreen
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                style={{ border: "none" }}
-              />
-            </div>
-          )}
+        return (
+          <div key={m.id} className="bg-white/80 rounded-2xl border overflow-hidden"
+            style={{ borderColor: "var(--brown-pale)" }}>
 
-          {/* Текст и ссылка */}
-          <div className="p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex gap-3 items-start">
-                <span className="text-lg mt-0.5">
-                  {m.is_iframe ? "🖥️" : m.file_name ? "📎" : m.url ? "🔗" : "📄"}
-                </span>
-                <div>
-                  <p className="font-semibold text-sm" style={{ color: "var(--brown-dark)" }}>{m.title}</p>
+            {/* Встроенный фрейм (видео/сайт) */}
+            {m.is_iframe && m.url && (
+              <div className="relative w-full" style={{ paddingTop: "56.25%" }}>
+                <iframe
+                  src={m.url}
+                  className="absolute inset-0 w-full h-full"
+                  allowFullScreen
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  style={{ border: "none" }}
+                />
+              </div>
+            )}
+
+            <div className="p-4">
+              <div className="flex items-start gap-3">
+                <span className="text-xl mt-0.5 shrink-0">{icon}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm leading-snug" style={{ color: "var(--brown-dark)" }}>
+                    {m.title}
+                  </p>
                   {m.content && (
                     <p className="text-sm mt-1 leading-relaxed" style={{ color: "var(--brown-mid)" }}>
                       {m.content}
                     </p>
                   )}
-                  {m.file_name && (
-                    <p className="text-xs mt-1" style={{ color: "var(--brown-light)" }}>
-                      {m.file_name}
-                    </p>
-                  )}
                   <p className="text-xs mt-1.5" style={{ color: "var(--brown-light)" }}>
                     {new Date(m.created_at).toLocaleDateString("ru", { day: "numeric", month: "long" })}
                   </p>
+
+                  {/* PDF — кнопка «Читать» */}
+                  {pdf && m.url && (
+                    <div className="mt-3">
+                      <PdfReader url={m.url} title={m.title} />
+                    </div>
+                  )}
+
+                  {/* Не-PDF файл или ссылка — кнопка открыть/скачать */}
+                  {!pdf && !m.is_iframe && m.url && (
+                    <a
+                      href={m.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      download={m.file_name || undefined}
+                      className="inline-flex items-center gap-1.5 mt-3 text-sm font-semibold px-3 py-1.5 rounded-xl transition-colors hover:opacity-80"
+                      style={{ background: "var(--brown-pale)", color: "var(--brown-mid)" }}
+                    >
+                      {m.file_name ? "Скачать ↓" : "Открыть →"}
+                    </a>
+                  )}
                 </div>
               </div>
-              {m.url && !m.is_iframe && (
-                <a
-                  href={m.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  download={m.file_name || undefined}
-                  className="shrink-0 text-sm font-semibold px-3 py-1.5 rounded-xl transition-colors hover:opacity-80"
-                  style={{ background: "var(--brown-pale)", color: "var(--brown-mid)" }}
-                >
-                  {m.file_name ? "Скачать ↓" : "Открыть →"}
-                </a>
-              )}
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

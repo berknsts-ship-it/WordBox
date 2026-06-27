@@ -7,11 +7,12 @@ import JournalTab from "@/components/student/tabs/JournalTab";
 import TrainerTab from "@/components/student/tabs/TrainerTab";
 import BoardTab from "@/components/student/tabs/BoardTab";
 import GrammarTab from "@/components/student/tabs/GrammarTab";
+import MaterialsTab from "@/components/student/tabs/MaterialsTab";
 import SplashScreen from "@/components/student/SplashScreen";
 import { CalendarDays, ClipboardList, Star } from "lucide-react";
 
-type Tab = "schedule" | "homework" | "board" | "journal" | "trainer" | "grammar";
-const VALID_TABS: Tab[] = ["schedule", "homework", "board", "journal", "trainer", "grammar"];
+type Tab = "schedule" | "homework" | "materials" | "board" | "journal" | "trainer" | "grammar";
+const VALID_TABS: Tab[] = ["schedule", "homework", "materials", "board", "journal", "trainer", "grammar"];
 
 export default async function StudentCabinetPage({
   params,
@@ -112,6 +113,7 @@ export default async function StudentCabinetPage({
         <div className="mt-5">
           {activeTab === "schedule"  && <ScheduleTab  studentId={student.id} />}
           {activeTab === "homework"  && <HomeworkTab  studentId={student.id} />}
+          {activeTab === "materials" && <MaterialsTab studentId={student.id} />}
           {activeTab === "board"     && <BoardTab     studentId={student.id} boardUrl={student.canvas_url ?? null} />}
           {activeTab === "journal"   && <JournalTab   studentId={student.id} />}
           {activeTab === "trainer"   && (
