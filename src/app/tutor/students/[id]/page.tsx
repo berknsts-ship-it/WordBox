@@ -209,7 +209,7 @@ export default async function StudentDetailPage({
 
           {studentActiveTab === "schedule"  && <ScheduleTab        studentId={id} />}
           {studentActiveTab === "homework"  && <StudentHomeworkTab  studentId={id} />}
-          {studentActiveTab === "board"     && <BoardTab            boardUrl={student.canvas_url ?? null} />}
+          {studentActiveTab === "board"     && <BoardTab            studentId={id} boardUrl={student.canvas_url ?? null} />}
           {studentActiveTab === "journal"   && <JournalTab          studentId={id} />}
           {studentActiveTab === "trainer"   && <TrainerTab          studentId={id} code={student.access_code} activeSetId={set} />}
           {studentActiveTab === "grammar"   && <GrammarTab          textbook={student.textbook ?? null} />}

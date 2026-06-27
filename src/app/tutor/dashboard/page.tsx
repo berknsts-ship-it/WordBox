@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import {
-  Users, CalendarDays, ClipboardList,
+  Users, CalendarDays, ClipboardList, CircleDollarSign,
   UserPlus, CalendarPlus, ClipboardPlus, FolderPlus,
   ArrowRight,
 } from "lucide-react";
@@ -9,12 +9,19 @@ export default async function DashboardPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const [{ count: studentsCount }, { count: homeworkCount }, { count: lessonsCount }] =
-    await Promise.all([
-      supabase.from("students").select("*", { count: "exact", head: true }).eq("tutor_id", user!.id),
-      supabase.from("homework").select("*", { count: "exact", head: true }).eq("tutor_id", user!.id).eq("status", "pending"),
-      supabase.from("lessons").select("*", { count: "exact", head: true }).eq("tutor_id", user!.id).eq("status", "scheduled").gte("date", new Date().toISOString()),
-    ]);
+  const [
+    { count: studentsCount },
+    { count: homeworkCount },
+    { count: lessonsCount },
+    { data: unpaidLessons },
+  ] = await Promise.all([
+    supabase.from("students").select("*", { count: "exact", head: true }).eq("tutor_id", user!.id),
+    supabase.from("homework").select("*", { count: "exact", head: true }).eq("tutor_id", user!.id).eq("status", "pending"),
+    supabase.from("lessons").select("*", { count: "exact", head: true }).eq("tutor_id", user!.id).eq("status", "scheduled").gte("date", new Date().toISOString()),
+    supabase.from("lessons").select("price_rub").eq("tutor_id", user!.id).eq("payment_status", "unpaid").neq("status", "cancelled"),
+  ]);
+
+  const totalDebt = (unpaidLessons ?? []).reduce((s, l) => s + (l.price_rub ?? 0), 0);
 
   return (
     <div>
@@ -27,7 +34,7 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
         <StatCard
           icon={Users}
           label="Учеников"
@@ -52,6 +59,17 @@ export default async function DashboardPage() {
           iconBg="#b89060"
           href="/tutor/homework"
         />
+        <StatCard
+          icon={CircleDollarSign}
+          label="Не оплачено"
+          value={totalDebt}
+          displayValue={totalDebt > 0 ? `${totalDebt.toLocaleString("ru")} ₽` : "—"}
+          gradient={totalDebt > 0
+            ? "linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%)"
+            : "linear-gradient(135deg, #f5f5f5 0%, #e5e5e5 100%)"}
+          iconBg={totalDebt > 0 ? "#c2410c" : "#9ca3af"}
+          href="/tutor/students"
+        />
       </div>
 
       <div
@@ -72,10 +90,11 @@ export default async function DashboardPage() {
   );
 }
 
-function StatCard({ icon: Icon, label, value, gradient, iconBg, href }: {
+function StatCard({ icon: Icon, label, value, displayValue, gradient, iconBg, href }: {
   icon: React.ElementType;
   label: string;
   value: number;
+  displayValue?: string;
   gradient: string;
   iconBg: string;
   href: string;
@@ -84,18 +103,14 @@ function StatCard({ icon: Icon, label, value, gradient, iconBg, href }: {
     <a
       href={href}
       className="relative overflow-hidden rounded-2xl p-5 group transition-all"
-      style={{
-        background: gradient,
-        boxShadow: "var(--shadow-card)",
-      }}
+      style={{ background: gradient, boxShadow: "var(--shadow-card)" }}
     >
-      <div
-        className="w-10 h-10 rounded-xl flex items-center justify-center mb-3"
-        style={{ background: iconBg }}
-      >
+      <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3" style={{ background: iconBg }}>
         <Icon size={18} className="text-white" />
       </div>
-      <p className="text-3xl font-bold" style={{ color: "var(--brown-dark)" }}>{value}</p>
+      <p className="text-3xl font-bold" style={{ color: "var(--brown-dark)" }}>
+        {displayValue ?? value}
+      </p>
       <p className="text-sm mt-0.5" style={{ color: "var(--brown-mid)" }}>{label}</p>
       <ArrowRight
         size={16}

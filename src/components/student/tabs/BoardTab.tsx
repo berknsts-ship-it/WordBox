@@ -1,24 +1,21 @@
-export default function BoardTab({ boardUrl }: { boardUrl: string | null }) {
-  if (!boardUrl) {
-    return (
-      <div className="text-center py-16">
-        <p className="text-5xl mb-3">🖊️</p>
-        <p className="font-semibold" style={{ color: "var(--brown-dark)" }}>Доска ещё не прикреплена</p>
-        <p className="text-sm mt-1" style={{ color: "var(--brown-light)" }}>
-          Репетитор добавит ссылку на доску
-        </p>
-      </div>
-    );
-  }
+import dynamic from "next/dynamic";
 
+const WhiteboardCanvas = dynamic(
+  () => import("@/components/student/tabs/WhiteboardCanvas"),
+  { ssr: false, loading: () => <div className="flex-1 rounded-3xl animate-pulse" style={{ background: "var(--brown-pale)", minHeight: 400 }} /> }
+);
+
+export default function BoardTab({ studentId, boardUrl }: { studentId: string; boardUrl: string | null }) {
   return (
-    <div className="rounded-3xl overflow-hidden border" style={{ borderColor: "var(--brown-pale)" }}>
-      <iframe
-        src={boardUrl}
-        className="w-full"
-        style={{ height: "clamp(400px, 75vh, 900px)", border: "none", display: "block" }}
-        allowFullScreen
-      />
+    <div className="space-y-3">
+      <WhiteboardCanvas studentId={studentId} />
+      {boardUrl && (
+        <a href={boardUrl} target="_blank" rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 w-full py-2.5 rounded-2xl text-sm font-semibold transition-all hover:opacity-80"
+          style={{ background: "var(--brown-pale)", color: "var(--brown-mid)" }}>
+          🔗 Открыть внешнюю доску
+        </a>
+      )}
     </div>
   );
 }

@@ -9,6 +9,7 @@ export async function addLesson(formData: FormData) {
   if (!user) return;
 
   const student_id = formData.get("student_id") as string;
+  const priceRaw = formData.get("price_rub");
   await supabase.from("lessons").insert({
     student_id,
     tutor_id: user.id,
@@ -17,6 +18,7 @@ export async function addLesson(formData: FormData) {
     topic: (formData.get("topic") as string) || null,
     notes: (formData.get("notes") as string) || null,
     status: (formData.get("status") as string) || "scheduled",
+    price_rub: priceRaw ? Number(priceRaw) : null,
   });
 
   revalidatePath(`/tutor/students/${student_id}`);
@@ -46,4 +48,14 @@ export async function markLessonCompleted(id: string, studentId: string) {
   await supabase.from("lessons").update({ status: "completed" }).eq("id", id);
   revalidatePath(`/tutor/students/${studentId}`);
   revalidatePath("/tutor/schedule");
+}
+
+export async function togglePaymentStatus(id: string, current: "paid" | "unpaid") {
+  const supabase = await createClient();
+  await supabase.from("lessons")
+    .update({ payment_status: current === "paid" ? "unpaid" : "paid" })
+    .eq("id", id);
+  revalidatePath("/tutor/schedule");
+  revalidatePath("/tutor/students");
+  revalidatePath("/tutor/dashboard");
 }

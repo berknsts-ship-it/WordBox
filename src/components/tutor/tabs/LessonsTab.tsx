@@ -1,14 +1,24 @@
 import { createClient } from "@/lib/supabase/server";
-import { addLesson, deleteLesson } from "@/app/actions/lessons";
+import { addLesson, deleteLesson, togglePaymentStatus } from "@/app/actions/lessons";
 import LessonStatusPicker, { STATUS_CONFIG } from "@/components/tutor/LessonStatusPicker";
 
 export default async function TutorLessonsTab({ studentId }: { studentId: string }) {
   const supabase = await createClient();
-  const { data: lessons } = await supabase
-    .from("lessons")
-    .select("id, date, topic, notes, duration_minutes, status")
-    .eq("student_id", studentId)
-    .order("date", { ascending: false });
+
+  const [{ data: lessons }, { data: studentData }] = await Promise.all([
+    supabase
+      .from("lessons")
+      .select("id, date, topic, notes, duration_minutes, status, payment_status, price_rub")
+      .eq("student_id", studentId)
+      .order("date", { ascending: false }),
+    supabase
+      .from("students")
+      .select("default_price_rub")
+      .eq("id", studentId)
+      .single(),
+  ]);
+
+  const defaultPrice = studentData?.default_price_rub ?? null;
 
   return (
     <div className="space-y-6">
@@ -26,9 +36,7 @@ export default async function TutorLessonsTab({ studentId }: { studentId: string
                 Дата и время *
               </label>
               <input
-                name="date"
-                type="datetime-local"
-                required
+                name="date" type="datetime-local" required
                 className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
                 style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
               />
@@ -38,11 +46,32 @@ export default async function TutorLessonsTab({ studentId }: { studentId: string
                 Длительность (мин)
               </label>
               <input
-                name="duration_minutes"
-                type="number"
-                defaultValue={60}
-                min={15}
-                max={180}
+                name="duration_minutes" type="number" defaultValue={60} min={15} max={180}
+                className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+                style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold mb-1" style={{ color: "var(--brown-mid)" }}>
+                Тема урока
+              </label>
+              <input
+                name="topic" placeholder="Present Perfect, чтение текста..."
+                className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+                style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold mb-1" style={{ color: "var(--brown-mid)" }}>
+                Стоимость (₽)
+              </label>
+              <input
+                name="price_rub" type="number" min={0}
+                defaultValue={defaultPrice ?? ""}
+                placeholder="1500"
                 className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
                 style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
               />
@@ -51,24 +80,10 @@ export default async function TutorLessonsTab({ studentId }: { studentId: string
 
           <div>
             <label className="block text-xs font-semibold mb-1" style={{ color: "var(--brown-mid)" }}>
-              Тема урока
-            </label>
-            <input
-              name="topic"
-              placeholder="Например: Present Perfect, чтение текста..."
-              className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
-              style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: "var(--brown-mid)" }}>
               Заметки по уроку
             </label>
             <textarea
-              name="notes"
-              rows={2}
-              placeholder="Что прошли, что задали..."
+              name="notes" rows={2} placeholder="Что прошли, что задали..."
               className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none resize-none"
               style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
             />
@@ -105,19 +120,25 @@ export default async function TutorLessonsTab({ studentId }: { studentId: string
           {lessons.map((lesson) => {
             const date = new Date(lesson.date);
             const isPast = date < new Date();
+            const isCancelled = lesson.status === "cancelled";
+            const payStatus = (lesson.payment_status ?? "unpaid") as "paid" | "unpaid";
+
             return (
               <div key={lesson.id} className="bg-white/80 rounded-2xl border p-4"
                 style={{ borderColor: "var(--brown-pale)" }}>
                 <div className="flex items-start justify-between gap-3">
-                  <div>
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <span className={`w-2 h-2 rounded-full shrink-0 ${lesson.status === "completed" ? "bg-[#6ea882]" : isPast ? "bg-[#c49090]" : "bg-[#74070E]"}`} />
-                      <p className="font-semibold text-sm" style={{ color: "var(--brown-dark)" }}>
+                      <p className="font-semibold text-sm truncate" style={{ color: "var(--brown-dark)" }}>
                         {lesson.topic || "Урок английского"}
                       </p>
                     </div>
                     <p className="text-xs ml-4" style={{ color: "var(--brown-light)" }}>
-                      {date.toLocaleDateString("ru", { day: "numeric", month: "long", weekday: "short" })} · {date.toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" })} · {lesson.duration_minutes} мин
+                      {date.toLocaleDateString("ru", { day: "numeric", month: "long", weekday: "short" })}
+                      {" · "}{date.toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" })}
+                      {" · "}{lesson.duration_minutes} мин
+                      {lesson.price_rub ? ` · ${lesson.price_rub.toLocaleString("ru")} ₽` : ""}
                     </p>
                     {lesson.notes && (
                       <p className="text-xs ml-4 mt-1 italic" style={{ color: "var(--brown-light)" }}>
@@ -125,17 +146,34 @@ export default async function TutorLessonsTab({ studentId }: { studentId: string
                       </p>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <LessonStatusPicker
-                      lessonId={lesson.id}
-                      studentId={studentId}
-                      currentStatus={lesson.status}
-                    />
-                    <form action={deleteLesson.bind(null, lesson.id, studentId)}>
-                      <button type="submit" className="text-xs text-red-400 hover:text-red-600 px-2 py-1">
-                        ✕
-                      </button>
-                    </form>
+
+                  <div className="flex flex-col items-end gap-2 shrink-0">
+                    <div className="flex items-center gap-2">
+                      <LessonStatusPicker
+                        lessonId={lesson.id}
+                        studentId={studentId}
+                        currentStatus={lesson.status}
+                      />
+                      <form action={deleteLesson.bind(null, lesson.id, studentId)}>
+                        <button type="submit" className="text-xs text-red-400 hover:text-red-600 px-2 py-1">✕</button>
+                      </form>
+                    </div>
+
+                    {/* Кнопка оплаты (кроме отменённых) */}
+                    {!isCancelled && (
+                      <form action={togglePaymentStatus.bind(null, lesson.id, payStatus)}>
+                        <button
+                          type="submit"
+                          className="text-xs font-semibold px-3 py-1 rounded-xl transition-all"
+                          style={payStatus === "paid"
+                            ? { background: "#dcfce7", color: "#166534" }
+                            : { background: "#fff7ed", color: "#9a3412" }
+                          }
+                        >
+                          {payStatus === "paid" ? "✓ Оплачено" : "₽ Не оплачено"}
+                        </button>
+                      </form>
+                    )}
                   </div>
                 </div>
               </div>

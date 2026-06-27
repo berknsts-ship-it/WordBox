@@ -112,7 +112,7 @@ export default async function StudentCabinetPage({
         <div className="mt-5">
           {activeTab === "schedule"  && <ScheduleTab  studentId={student.id} />}
           {activeTab === "homework"  && <HomeworkTab  studentId={student.id} />}
-          {activeTab === "board"     && <BoardTab     boardUrl={student.canvas_url ?? null} />}
+          {activeTab === "board"     && <BoardTab     studentId={student.id} boardUrl={student.canvas_url ?? null} />}
           {activeTab === "journal"   && <JournalTab   studentId={student.id} />}
           {activeTab === "trainer"   && (
             <TrainerTab studentId={student.id} code={code} activeSetId={set} />
