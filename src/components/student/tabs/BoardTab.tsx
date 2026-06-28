@@ -25,10 +25,12 @@ export default function BoardTab({
   studentId,
   snapshots: initialSnapshots = [],
   role = "student",
+  boardUrl = null,
 }: {
   studentId: string;
   snapshots?: Snapshot[];
   role?: "tutor" | "student";
+  boardUrl?: string | null;
 }) {
   const canvasRef = useRef<WhiteboardRef>(null);
 
@@ -122,16 +124,25 @@ export default function BoardTab({
             </button>
           )}
 
-          <button onClick={() => setShowHistory(h => !h)}
-            className="flex items-center gap-1.5 text-sm px-3 py-1 rounded-lg font-medium border-2 hover:opacity-80 ml-auto"
-            style={{
-              borderColor: showHistory ? "var(--brown-dark)" : "var(--brown-pale)",
-              color: "var(--brown-dark)",
-              background: showHistory ? "var(--brown-pale)" : "transparent",
-            }}>
-            <BookOpen size={13}/> История {snapshots.length > 0 && `(${snapshots.length})`}
-            <ChevronRight size={12} style={{ transform: showHistory ? "rotate(90deg)" : "none", transition: "transform 0.2s" }} />
-          </button>
+          <div className="flex items-center gap-2 ml-auto">
+            {boardUrl && (
+              <a href={boardUrl} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-sm px-3 py-1 rounded-lg font-medium border-2 hover:opacity-80"
+                style={{ borderColor: "var(--brown-pale)", color: "var(--brown-light)" }}>
+                🔗 Внешняя
+              </a>
+            )}
+            <button onClick={() => setShowHistory(h => !h)}
+              className="flex items-center gap-1.5 text-sm px-3 py-1 rounded-lg font-medium border-2 hover:opacity-80"
+              style={{
+                borderColor: showHistory ? "var(--brown-dark)" : "var(--brown-pale)",
+                color: "var(--brown-dark)",
+                background: showHistory ? "var(--brown-pale)" : "transparent",
+              }}>
+              <BookOpen size={13}/> История {snapshots.length > 0 && `(${snapshots.length})`}
+              <ChevronRight size={12} style={{ transform: showHistory ? "rotate(90deg)" : "none", transition: "transform 0.2s" }} />
+            </button>
+          </div>
         </div>
       )}
 

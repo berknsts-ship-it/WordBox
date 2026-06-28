@@ -212,7 +212,7 @@ export default async function StudentDetailPage({
 
           {studentActiveTab === "schedule"  && <ScheduleTab        studentId={id} />}
           {studentActiveTab === "homework"  && <StudentHomeworkTab  studentId={id} />}
-          {studentActiveTab === "board"     && <BoardTab            studentId={id} role="tutor" snapshots={boardSnapshots as unknown as Parameters<typeof BoardTab>[0]["snapshots"]} />}
+          {studentActiveTab === "board"     && <BoardTab            studentId={id} role="tutor" boardUrl={student.canvas_url ?? null} snapshots={boardSnapshots as unknown as Parameters<typeof BoardTab>[0]["snapshots"]} />}
           {studentActiveTab === "journal"   && <JournalTab          studentId={id} />}
           {studentActiveTab === "trainer"   && <TrainerTab          studentId={id} code={student.access_code} activeSetId={set} />}
           {studentActiveTab === "grammar"   && <GrammarTab          textbook={student.textbook ?? null} />}

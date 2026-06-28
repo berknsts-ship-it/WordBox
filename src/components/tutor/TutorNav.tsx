@@ -6,12 +6,13 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   LayoutDashboard, Users, CalendarDays, ClipboardList,
-  BookOpen, LogOut, X, Menu,
+  BookOpen, LogOut, X, Menu, PenLine,
 } from "lucide-react";
 
 const NAV = [
   { label: "Главная",          href: "/tutor/dashboard",  icon: LayoutDashboard },
   { label: "Ученики",          href: "/tutor/students",   icon: Users },
+  { label: "Доска",            href: "/tutor/board",      icon: PenLine },
   { label: "Расписание",       href: "/tutor/schedule",   icon: CalendarDays },
   { label: "Домашние задания", href: "/tutor/homework",   icon: ClipboardList },
   { label: "Словари",          href: "/tutor/vocabulary", icon: BookOpen },
