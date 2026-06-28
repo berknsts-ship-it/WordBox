@@ -11,11 +11,12 @@ html[data-theme="classic"] {
   --theme-accent:         #7A1F1F;
   --theme-accent-2:       #9C7A45;
   --theme-text:           #3A2117;
-  --theme-text-secondary: #8A7560;
+  --theme-text-secondary: #7A6050;
   --theme-card-bg:        #FFFFFF;
   --theme-card-border:    rgba(156,122,69,0.18);
   --theme-radius:         5px;
-  --theme-font:           'Cormorant Garamond', Georgia, serif;
+  --theme-font:           'Playfair Display', Georgia, serif;
+  --theme-font-weight:    600;
   --theme-is-dark:        0;
   --theme-diary-opacity:  1;
 }
@@ -26,12 +27,13 @@ html[data-theme="coral"] {
   --theme-bg:             #FFF1EC;
   --theme-accent:         #FF6B5C;
   --theme-accent-2:       #FFB347;
-  --theme-text:           #A8421F;
-  --theme-text-secondary: #B5715A;
+  --theme-text:           #8A2E10;
+  --theme-text-secondary: #B5604A;
   --theme-card-bg:        #FFFFFF;
   --theme-card-border:    rgba(255,107,92,0.15);
   --theme-radius:         12px;
-  --theme-font:           'Baloo 2', sans-serif;
+  --theme-font:           'Nunito', sans-serif;
+  --theme-font-weight:    700;
   --theme-is-dark:        0;
   --theme-diary-opacity:  0.4;
 }
@@ -40,12 +42,13 @@ html[data-theme="ocean"] {
   --theme-bg:             #EAF1FB;
   --theme-accent:         #4A7FE0;
   --theme-accent-2:       #7FC4D4;
-  --theme-text:           #1E4A7A;
-  --theme-text-secondary: #5C7A9E;
+  --theme-text:           #1A3E6A;
+  --theme-text-secondary: #4A6A9E;
   --theme-card-bg:        #FFFFFF;
   --theme-card-border:    rgba(74,127,224,0.15);
   --theme-radius:         12px;
-  --theme-font:           'Quicksand', sans-serif;
+  --theme-font:           'Exo 2', sans-serif;
+  --theme-font-weight:    600;
   --theme-is-dark:        0;
   --theme-diary-opacity:  0.35;
 }
@@ -54,26 +57,28 @@ html[data-theme="forest"] {
   --theme-bg:             #EDF5E8;
   --theme-accent:         #3FA66B;
   --theme-accent-2:       #9ED1A0;
-  --theme-text:           #2B5A38;
-  --theme-text-secondary: #5C8A68;
+  --theme-text:           #1E4428;
+  --theme-text-secondary: #4A7A58;
   --theme-card-bg:        #FFFFFF;
   --theme-card-border:    rgba(63,166,107,0.15);
   --theme-radius:         12px;
-  --theme-font:           'Fredoka', sans-serif;
+  --theme-font:           'Jost', sans-serif;
+  --theme-font-weight:    600;
   --theme-is-dark:        0;
   --theme-diary-opacity:  0.35;
 }
 
 html[data-theme="sun"] {
   --theme-bg:             #FFF9E8;
-  --theme-accent:         #F5C04D;
+  --theme-accent:         #E8A800;
   --theme-accent-2:       #FADE9E;
-  --theme-text:           #7A5A0A;
-  --theme-text-secondary: #9C8030;
+  --theme-text:           #6A4A00;
+  --theme-text-secondary: #8C6820;
   --theme-card-bg:        #FFFFFF;
   --theme-card-border:    rgba(245,192,77,0.2);
   --theme-radius:         12px;
-  --theme-font:           'Comfortaa', sans-serif;
+  --theme-font:           'Righteous', sans-serif;
+  --theme-font-weight:    400;
   --theme-is-dark:        0;
   --theme-diary-opacity:  0.3;
 }
@@ -82,14 +87,15 @@ html[data-theme="sun"] {
 
 html[data-theme="neon"] {
   --theme-bg:             #1C1B29;
-  --theme-accent:         #7C6BE0;
-  --theme-accent-2:       #9B7FE8;
-  --theme-text:           #E8E6FF;
+  --theme-accent:         #8A78F0;
+  --theme-accent-2:       #B09AF8;
+  --theme-text:           #EEECff;
   --theme-text-secondary: #A89FC4;
   --theme-card-bg:        rgba(255,255,255,0.07);
-  --theme-card-border:    rgba(255,255,255,0.12);
+  --theme-card-border:    rgba(138,120,240,0.3);
   --theme-radius:         10px;
-  --theme-font:           'Space Grotesk', sans-serif;
+  --theme-font:           'Orbitron', sans-serif;
+  --theme-font-weight:    600;
   --theme-is-dark:        1;
   --theme-diary-opacity:  0;
 }
@@ -98,26 +104,28 @@ html[data-theme="craft"] {
   --theme-bg:             #7FAE5C;
   --theme-accent:         #D4C896;
   --theme-accent-2:       #5C8740;
-  --theme-text:           #3D5A28;
+  --theme-text:           #2A3E18;
   --theme-text-secondary: #3D5A28;
   --theme-card-bg:        #D4C896;
   --theme-card-border:    #5C8740;
   --theme-radius:         0px;
   --theme-font:           'Press Start 2P', monospace;
+  --theme-font-weight:    400;
   --theme-is-dark:        0;
   --theme-diary-opacity:  0;
 }
 
 html[data-theme="kawaii"] {
   --theme-bg:             #FFE3EF;
-  --theme-accent:         #F5A8C4;
+  --theme-accent:         #E8809F;
   --theme-accent-2:       #FFD6E8;
-  --theme-text:           #C97B9E;
-  --theme-text-secondary: #D89BB3;
+  --theme-text:           #8A3A5E;
+  --theme-text-secondary: #C07090;
   --theme-card-bg:        #FFFFFF;
-  --theme-card-border:    rgba(245,168,196,0.3);
+  --theme-card-border:    rgba(232,128,159,0.3);
   --theme-radius:         20px;
-  --theme-font:           'Mochiy Pop One', sans-serif;
+  --theme-font:           'M PLUS Rounded 1c', sans-serif;
+  --theme-font-weight:    700;
   --theme-is-dark:        0;
   --theme-diary-opacity:  0.25;
 }
@@ -125,13 +133,14 @@ html[data-theme="kawaii"] {
 html[data-theme="scene"] {
   --theme-bg:             #15131F;
   --theme-accent:         #FF5AA0;
-  --theme-accent-2:       #6E5AFF;
+  --theme-accent-2:       #7060FF;
   --theme-text:           #FFFFFF;
-  --theme-text-secondary: #A89FC4;
+  --theme-text-secondary: #C0B0E0;
   --theme-card-bg:        rgba(255,255,255,0.07);
-  --theme-card-border:    rgba(255,255,255,0.12);
+  --theme-card-border:    rgba(255,90,160,0.25);
   --theme-radius:         10px;
-  --theme-font:           'Unbounded', sans-serif;
+  --theme-font:           'Russo One', sans-serif;
+  --theme-font-weight:    400;
   --theme-is-dark:        1;
   --theme-diary-opacity:  0;
 }
@@ -142,12 +151,13 @@ html[data-theme="sunset"] {
   --theme-bg:             #FFD9A8;
   --theme-accent:         #7C5BC4;
   --theme-accent-2:       #FFADC4;
-  --theme-text:           #3A2050;
-  --theme-text-secondary: #5C4470;
+  --theme-text:           #2E1640;
+  --theme-text-secondary: #5C3A70;
   --theme-card-bg:        rgba(255,255,255,0.85);
   --theme-card-border:    rgba(124,91,196,0.15);
   --theme-radius:         10px;
-  --theme-font:           'Zen Maru Gothic', sans-serif;
+  --theme-font:           'Pacifico', cursive;
+  --theme-font-weight:    400;
   --theme-is-dark:        0;
   --theme-diary-opacity:  0;
 }
@@ -158,39 +168,50 @@ html[data-theme="emerald"] {
   --theme-bg:             #0E2A22;
   --theme-accent:         #C9A668;
   --theme-accent-2:       #8EB49B;
-  --theme-text:           #E8F0E5;
+  --theme-text:           #EEF4EB;
   --theme-text-secondary: #8EB49B;
   --theme-card-bg:        #1B4D3E;
   --theme-card-border:    rgba(201,166,104,0.4);
   --theme-radius:         8px;
-  --theme-font:           'Cormorant Garamond', Georgia, serif;
+  --theme-font:           'DM Serif Display', Georgia, serif;
+  --theme-font-weight:    400;
   --theme-is-dark:        1;
   --theme-diary-opacity:  0;
 }
 
 html[data-theme="graphite"] {
   --theme-bg:             #1A1A1D;
-  --theme-accent:         #B08D57;
+  --theme-accent:         #C4A468;
   --theme-accent-2:       #D4B896;
-  --theme-text:           #EDEBE5;
-  --theme-text-secondary: #A8A59E;
+  --theme-text:           #F0EDE8;
+  --theme-text-secondary: #B0ADA8;
   --theme-card-bg:        #2C2C2E;
-  --theme-card-border:    rgba(176,141,87,0.35);
+  --theme-card-border:    rgba(196,164,104,0.35);
   --theme-radius:         8px;
   --theme-font:           'Cinzel', Georgia, serif;
+  --theme-font-weight:    600;
   --theme-is-dark:        1;
   --theme-diary-opacity:  0;
 }
 
-/* ── Utility: theme-aware base styles in student cabinet ─────────────────── */
+/* ── Global theme styles ────────────────────────────────────────────────── */
 
-/* When a theme is active, body background follows the theme */
+/* Apply theme font and base colors to all body text in student cabinet */
 html[data-theme] body {
   background-color: var(--theme-bg);
   color: var(--theme-text);
+  font-family: var(--theme-font);
+  font-weight: var(--theme-font-weight, 400);
 }
 
-/* Special background for dark themes */
+/* Headings get a bit more weight */
+html[data-theme] h1,
+html[data-theme] h2,
+html[data-theme] h3 {
+  font-family: var(--theme-font);
+}
+
+/* Special backgrounds */
 html[data-theme="neon"] body {
   background-color: #1C1B29;
 }
@@ -209,15 +230,31 @@ html[data-theme] .diary-bg-fixed {
   background-color: var(--theme-bg);
 }
 
-/* Craft theme: uppercase everything in headings/nav */
+/* Craft: all-caps for headings/nav */
 html[data-theme="craft"] h1,
 html[data-theme="craft"] h2,
 html[data-theme="craft"] h3,
-html[data-theme="craft"] nav,
-html[data-theme="scene"]  h1,
-html[data-theme="scene"]  h2,
+html[data-theme="craft"] nav {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Scene + Graphite: spaced uppercase for headings */
+html[data-theme="scene"] h1,
+html[data-theme="scene"] h2,
 html[data-theme="graphite"] h1,
 html[data-theme="graphite"] h2 {
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
+}
+
+/* Orbitron (neon) looks best with some letter-spacing */
+html[data-theme="neon"] body {
+  letter-spacing: 0.02em;
+}
+
+/* Press Start 2P is tiny — bump base size slightly in craft */
+html[data-theme="craft"] body {
+  font-size: 11px;
+  line-height: 1.8;
 }
