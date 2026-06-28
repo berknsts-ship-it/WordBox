@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { Clock, CalendarDays } from "lucide-react";
+import { LocalTime, LocalDay, LocalMonth } from "@/components/student/LocalTime";
 
 export default async function ScheduleTab({ studentId }: { studentId: string }) {
   const supabase = await createClient();
@@ -25,14 +26,7 @@ export default async function ScheduleTab({ studentId }: { studentId: string }) 
 
   return (
     <div className="space-y-3">
-      {lessons.map((lesson) => {
-        const date = new Date(lesson.date);
-        const weekday = date.toLocaleDateString("ru", { weekday: "long" });
-        const time = date.toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" });
-        const dayNum = date.getDate();
-        const month = date.toLocaleDateString("ru", { month: "short" });
-
-        return (
+      {lessons.map((lesson) => (
           <div
             key={lesson.id}
             className="bg-white/90 rounded-2xl p-4 flex items-center gap-4"
@@ -43,8 +37,12 @@ export default async function ScheduleTab({ studentId }: { studentId: string }) 
               className="rounded-xl px-3 py-2.5 text-center min-w-[58px] flex-shrink-0"
               style={{ background: "linear-gradient(135deg, #f5ece3 0%, #ede3d5 100%)", boxShadow: "0 2px 6px rgba(116,7,14,0.15)" }}
             >
-              <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--brown-light)" }}>{month}</p>
-              <p className="text-2xl font-bold leading-none mt-0.5" style={{ color: "var(--brown-dark)", fontFamily: "var(--font-lora)" }}>{dayNum}</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--brown-light)" }}>
+                <LocalMonth iso={lesson.date} />
+              </p>
+              <p className="text-2xl font-bold leading-none mt-0.5" style={{ color: "var(--brown-dark)", fontFamily: "var(--font-lora)" }}>
+                <LocalDay iso={lesson.date} />
+              </p>
             </div>
 
             {/* Контент */}
@@ -53,8 +51,12 @@ export default async function ScheduleTab({ studentId }: { studentId: string }) 
                 {lesson.topic || "Урок английского"}
               </p>
               <div className="flex items-center gap-3 mt-1">
-                <span className="text-sm capitalize" style={{ color: "var(--brown-light)" }}>{weekday}</span>
-                <span className="text-sm font-medium" style={{ color: "var(--brown-mid)" }}>{time}</span>
+                <span className="text-sm capitalize" style={{ color: "var(--brown-light)" }}>
+                  <LocalTime iso={lesson.date} format="weekday" />
+                </span>
+                <span className="text-sm font-medium" style={{ color: "var(--brown-mid)" }}>
+                  <LocalTime iso={lesson.date} format="time" />
+                </span>
                 <span className="flex items-center gap-1 text-xs" style={{ color: "var(--brown-light)" }}>
                   <Clock size={11} />
                   {lesson.duration_minutes} мин
@@ -65,8 +67,7 @@ export default async function ScheduleTab({ studentId }: { studentId: string }) 
             {/* Индикатор */}
             <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: "#6ea882", boxShadow: "0 0 6px rgba(110,168,130,0.5)" }} />
           </div>
-        );
-      })}
+      ))}
     </div>
   );
 }

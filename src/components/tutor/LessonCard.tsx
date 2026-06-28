@@ -15,10 +15,10 @@ type Lesson = {
   price_rub: number | null;
 };
 
+// Extracts the datetime-local value directly from the stored string without timezone conversion.
+// "2026-06-28T17:00:00" → "2026-06-28T17:00"  (what was stored = what the form shows)
 function toDatetimeLocal(iso: string) {
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return iso.slice(0, 16);
 }
 
 export default function LessonCard({ lesson, studentId }: { lesson: Lesson; studentId: string }) {
