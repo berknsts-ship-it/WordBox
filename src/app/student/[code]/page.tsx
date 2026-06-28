@@ -9,6 +9,7 @@ import BoardTab from "@/components/student/tabs/BoardTab";
 import GrammarTab from "@/components/student/tabs/GrammarTab";
 import MaterialsTab from "@/components/student/tabs/MaterialsTab";
 import SplashScreen from "@/components/student/SplashScreen";
+import ThemeOnboardingGate from "@/components/student/ThemeOnboardingGate";
 import { CalendarDays, ClipboardList, Star } from "lucide-react";
 
 type Tab = "schedule" | "homework" | "materials" | "board" | "journal" | "trainer" | "grammar";
@@ -28,7 +29,7 @@ export default async function StudentCabinetPage({
   const supabase = await createClient();
   const { data: student } = await supabase
     .from("students")
-    .select("id, name, canvas_url, textbook")
+    .select("id, name, canvas_url, textbook, theme")
     .eq("access_code", code)
     .single();
 
@@ -46,6 +47,7 @@ export default async function StudentCabinetPage({
     ]);
 
   return (
+    <ThemeOnboardingGate needsOnboarding={student.theme === null}>
     <SplashScreen code={code}>
       <div>
         {/* Приветственный баннер */}
@@ -123,6 +125,7 @@ export default async function StudentCabinetPage({
         </div>
       </div>
     </SplashScreen>
+    </ThemeOnboardingGate>
   );
 }
 

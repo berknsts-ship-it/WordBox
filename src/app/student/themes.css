@@ -1,0 +1,223 @@
+/* ─── Word Box Theme System ─────────────────────────────────────────────────
+   Each theme sets CSS custom properties on [data-theme="..."].
+   The ThemeProvider applies data-theme to <html>.
+   Tutor pages are unaffected (no data-theme attribute is set for them).
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Default / Classic (also applied when no data-theme attribute is set) */
+:root,
+html[data-theme="classic"] {
+  --theme-bg:             #F2EBDD;
+  --theme-accent:         #7A1F1F;
+  --theme-accent-2:       #9C7A45;
+  --theme-text:           #3A2117;
+  --theme-text-secondary: #8A7560;
+  --theme-card-bg:        #FFFFFF;
+  --theme-card-border:    rgba(156,122,69,0.18);
+  --theme-radius:         5px;
+  --theme-font:           'Cormorant Garamond', Georgia, serif;
+  --theme-is-dark:        0;
+  --theme-diary-opacity:  1;
+}
+
+/* ── Яркие ──────────────────────────────────────────────────────────────── */
+
+html[data-theme="coral"] {
+  --theme-bg:             #FFF1EC;
+  --theme-accent:         #FF6B5C;
+  --theme-accent-2:       #FFB347;
+  --theme-text:           #A8421F;
+  --theme-text-secondary: #B5715A;
+  --theme-card-bg:        #FFFFFF;
+  --theme-card-border:    rgba(255,107,92,0.15);
+  --theme-radius:         12px;
+  --theme-font:           'Baloo 2', sans-serif;
+  --theme-is-dark:        0;
+  --theme-diary-opacity:  0.4;
+}
+
+html[data-theme="ocean"] {
+  --theme-bg:             #EAF1FB;
+  --theme-accent:         #4A7FE0;
+  --theme-accent-2:       #7FC4D4;
+  --theme-text:           #1E4A7A;
+  --theme-text-secondary: #5C7A9E;
+  --theme-card-bg:        #FFFFFF;
+  --theme-card-border:    rgba(74,127,224,0.15);
+  --theme-radius:         12px;
+  --theme-font:           'Quicksand', sans-serif;
+  --theme-is-dark:        0;
+  --theme-diary-opacity:  0.35;
+}
+
+html[data-theme="forest"] {
+  --theme-bg:             #EDF5E8;
+  --theme-accent:         #3FA66B;
+  --theme-accent-2:       #9ED1A0;
+  --theme-text:           #2B5A38;
+  --theme-text-secondary: #5C8A68;
+  --theme-card-bg:        #FFFFFF;
+  --theme-card-border:    rgba(63,166,107,0.15);
+  --theme-radius:         12px;
+  --theme-font:           'Fredoka', sans-serif;
+  --theme-is-dark:        0;
+  --theme-diary-opacity:  0.35;
+}
+
+html[data-theme="sun"] {
+  --theme-bg:             #FFF9E8;
+  --theme-accent:         #F5C04D;
+  --theme-accent-2:       #FADE9E;
+  --theme-text:           #7A5A0A;
+  --theme-text-secondary: #9C8030;
+  --theme-card-bg:        #FFFFFF;
+  --theme-card-border:    rgba(245,192,77,0.2);
+  --theme-radius:         12px;
+  --theme-font:           'Comfortaa', sans-serif;
+  --theme-is-dark:        0;
+  --theme-diary-opacity:  0.3;
+}
+
+/* ── Игровые ────────────────────────────────────────────────────────────── */
+
+html[data-theme="neon"] {
+  --theme-bg:             #1C1B29;
+  --theme-accent:         #7C6BE0;
+  --theme-accent-2:       #9B7FE8;
+  --theme-text:           #E8E6FF;
+  --theme-text-secondary: #A89FC4;
+  --theme-card-bg:        rgba(255,255,255,0.07);
+  --theme-card-border:    rgba(255,255,255,0.12);
+  --theme-radius:         10px;
+  --theme-font:           'Space Grotesk', sans-serif;
+  --theme-is-dark:        1;
+  --theme-diary-opacity:  0;
+}
+
+html[data-theme="craft"] {
+  --theme-bg:             #7FAE5C;
+  --theme-accent:         #D4C896;
+  --theme-accent-2:       #5C8740;
+  --theme-text:           #3D5A28;
+  --theme-text-secondary: #3D5A28;
+  --theme-card-bg:        #D4C896;
+  --theme-card-border:    #5C8740;
+  --theme-radius:         0px;
+  --theme-font:           'Press Start 2P', monospace;
+  --theme-is-dark:        0;
+  --theme-diary-opacity:  0;
+}
+
+html[data-theme="kawaii"] {
+  --theme-bg:             #FFE3EF;
+  --theme-accent:         #F5A8C4;
+  --theme-accent-2:       #FFD6E8;
+  --theme-text:           #C97B9E;
+  --theme-text-secondary: #D89BB3;
+  --theme-card-bg:        #FFFFFF;
+  --theme-card-border:    rgba(245,168,196,0.3);
+  --theme-radius:         20px;
+  --theme-font:           'Mochiy Pop One', sans-serif;
+  --theme-is-dark:        0;
+  --theme-diary-opacity:  0.25;
+}
+
+html[data-theme="scene"] {
+  --theme-bg:             #15131F;
+  --theme-accent:         #FF5AA0;
+  --theme-accent-2:       #6E5AFF;
+  --theme-text:           #FFFFFF;
+  --theme-text-secondary: #A89FC4;
+  --theme-card-bg:        rgba(255,255,255,0.07);
+  --theme-card-border:    rgba(255,255,255,0.12);
+  --theme-radius:         10px;
+  --theme-font:           'Unbounded', sans-serif;
+  --theme-is-dark:        1;
+  --theme-diary-opacity:  0;
+}
+
+/* ── Атмосферные ────────────────────────────────────────────────────────── */
+
+html[data-theme="sunset"] {
+  --theme-bg:             #FFD9A8;
+  --theme-accent:         #7C5BC4;
+  --theme-accent-2:       #FFADC4;
+  --theme-text:           #3A2050;
+  --theme-text-secondary: #5C4470;
+  --theme-card-bg:        rgba(255,255,255,0.85);
+  --theme-card-border:    rgba(124,91,196,0.15);
+  --theme-radius:         10px;
+  --theme-font:           'Zen Maru Gothic', sans-serif;
+  --theme-is-dark:        0;
+  --theme-diary-opacity:  0;
+}
+
+/* ── Взрослые / Люксовые ────────────────────────────────────────────────── */
+
+html[data-theme="emerald"] {
+  --theme-bg:             #0E2A22;
+  --theme-accent:         #C9A668;
+  --theme-accent-2:       #8EB49B;
+  --theme-text:           #E8F0E5;
+  --theme-text-secondary: #8EB49B;
+  --theme-card-bg:        #1B4D3E;
+  --theme-card-border:    rgba(201,166,104,0.4);
+  --theme-radius:         8px;
+  --theme-font:           'Cormorant Garamond', Georgia, serif;
+  --theme-is-dark:        1;
+  --theme-diary-opacity:  0;
+}
+
+html[data-theme="graphite"] {
+  --theme-bg:             #1A1A1D;
+  --theme-accent:         #B08D57;
+  --theme-accent-2:       #D4B896;
+  --theme-text:           #EDEBE5;
+  --theme-text-secondary: #A8A59E;
+  --theme-card-bg:        #2C2C2E;
+  --theme-card-border:    rgba(176,141,87,0.35);
+  --theme-radius:         8px;
+  --theme-font:           'Cinzel', Georgia, serif;
+  --theme-is-dark:        1;
+  --theme-diary-opacity:  0;
+}
+
+/* ── Utility: theme-aware base styles in student cabinet ─────────────────── */
+
+/* When a theme is active, body background follows the theme */
+html[data-theme] body {
+  background-color: var(--theme-bg);
+  color: var(--theme-text);
+}
+
+/* Special background for dark themes */
+html[data-theme="neon"] body {
+  background-color: #1C1B29;
+}
+html[data-theme="scene"] body {
+  background-color: #15131F;
+  background-image: linear-gradient(120deg, rgba(255,90,160,0.18), rgba(110,90,255,0.18), rgba(90,220,255,0.14));
+}
+html[data-theme="sunset"] body {
+  background-color: #FFD9A8;
+  background-image: linear-gradient(180deg, #FFD9A8 0%, #FFADC4 55%, #9B7FE0 100%);
+}
+
+/* Diary bg respects theme opacity */
+html[data-theme] .diary-bg-fixed {
+  opacity: var(--theme-diary-opacity, 1);
+  background-color: var(--theme-bg);
+}
+
+/* Craft theme: uppercase everything in headings/nav */
+html[data-theme="craft"] h1,
+html[data-theme="craft"] h2,
+html[data-theme="craft"] h3,
+html[data-theme="craft"] nav,
+html[data-theme="scene"]  h1,
+html[data-theme="scene"]  h2,
+html[data-theme="graphite"] h1,
+html[data-theme="graphite"] h2 {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
