@@ -38,8 +38,8 @@ export default async function JournalTab({ studentId }: { studentId: string }) {
         return (
           <div
             key={lesson.id}
-            className="bg-white/90 rounded-2xl overflow-hidden flex"
-            style={{ boxShadow: "var(--shadow-card)", border: "1px solid rgba(237,227,213,0.8)" }}
+            className="rounded-2xl overflow-hidden flex"
+            style={{ boxShadow: "var(--shadow-card)", border: "1px solid var(--theme-card-border)" }}
           >
             {/* Левый цветной акцент */}
             <div

@@ -43,9 +43,9 @@ export default function TabNav({
                       boxShadow: "var(--shadow-button)",
                     }
                   : {
-                      background: "rgba(255,255,255,0.75)",
-                      color: "var(--brown-light)",
-                      border: "1.5px solid var(--brown-pale)",
+                      background: "var(--theme-card-bg)",
+                      color: "var(--theme-text-secondary)",
+                      border: "1.5px solid var(--theme-card-border)",
                     }
               }
             >

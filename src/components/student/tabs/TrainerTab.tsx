@@ -71,8 +71,8 @@ export default async function TrainerTab({
         <Link
           key={set.id}
           href={`/student/${code}?tab=trainer&set=${set.id}`}
-          className="bg-white/80 rounded-2xl border p-5 hover:shadow-md transition-all group"
-          style={{ borderColor: "var(--brown-pale)" }}
+          className="rounded-2xl border p-5 hover:shadow-md transition-all group"
+          style={{ background: "var(--theme-card-bg)", borderColor: "var(--theme-card-border)" }}
         >
           <p className="text-3xl mb-3">🃏</p>
           <p className="font-semibold" style={{ color: "var(--brown-dark)" }}>{set.name}</p>

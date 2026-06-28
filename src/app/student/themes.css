@@ -196,12 +196,36 @@ html[data-theme="graphite"] {
 
 /* ── Global theme styles ────────────────────────────────────────────────── */
 
+/* Re-map legacy brown CSS variables to theme-aware equivalents.
+   Student components use var(--brown-dark/mid/light/pale) in inline styles.
+   Overriding them here makes ALL existing components theme-aware
+   without touching each file individually. */
+html[data-theme] {
+  --brown-dark:  var(--theme-text);
+  --brown-mid:   var(--theme-accent);
+  --brown-light: var(--theme-text-secondary);
+  --brown-pale:  var(--theme-card-border);
+  --cream:       var(--theme-card-bg);
+}
+
 /* Apply theme font and base colors to all body text in student cabinet */
 html[data-theme] body {
   background-color: var(--theme-bg);
   color: var(--theme-text);
   font-family: var(--theme-font);
   font-weight: var(--theme-font-weight, 400);
+}
+
+/* White card backgrounds → theme card color on dark themes */
+html[data-theme="neon"] .bg-white,
+html[data-theme="neon"] .bg-white\/90,
+html[data-theme="scene"] .bg-white,
+html[data-theme="scene"] .bg-white\/90,
+html[data-theme="emerald"] .bg-white,
+html[data-theme="emerald"] .bg-white\/90,
+html[data-theme="graphite"] .bg-white,
+html[data-theme="graphite"] .bg-white\/90 {
+  background-color: var(--theme-card-bg) !important;
 }
 
 /* Headings get a bit more weight */

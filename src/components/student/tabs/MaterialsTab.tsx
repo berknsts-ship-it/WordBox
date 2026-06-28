@@ -27,8 +27,8 @@ export default async function MaterialsTab({ studentId }: { studentId: string })
         const icon = m.is_iframe ? "🖥️" : pdf ? "📚" : m.file_name ? "📎" : m.url ? "🔗" : "📄";
 
         return (
-          <div key={m.id} className="bg-white/80 rounded-2xl border overflow-hidden"
-            style={{ borderColor: "var(--brown-pale)" }}>
+          <div key={m.id} className="rounded-2xl border overflow-hidden"
+            style={{ background: "var(--theme-card-bg)", borderColor: "var(--theme-card-border)" }}>
 
             {/* Встроенный фрейм (видео/сайт) */}
             {m.is_iframe && m.url && (

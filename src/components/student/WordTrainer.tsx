@@ -108,7 +108,7 @@ export default function WordTrainer({ words, setName, code }: {
           <Link
             href={`/student/${code}?tab=trainer`}
             className="px-6 py-3 rounded-2xl font-semibold hover:opacity-80 transition-opacity"
-            style={{ background: "var(--brown-pale)", color: "var(--brown-mid)" }}
+            style={{ background: "var(--theme-card-bg)", color: "var(--brown-mid)" }}
           >
             К наборам
           </Link>
@@ -146,7 +146,7 @@ export default function WordTrainer({ words, setName, code }: {
       </div>
 
       {/* Прогресс */}
-      <div className="w-full h-2 rounded-full mb-8 overflow-hidden" style={{ background: "var(--brown-pale)" }}>
+      <div className="w-full h-2 rounded-full mb-8 overflow-hidden" style={{ background: "var(--theme-card-bg)" }}>
         <div
           className="h-full rounded-full transition-all duration-500"
           style={{
@@ -187,7 +187,7 @@ export default function WordTrainer({ words, setName, code }: {
           {/* Обратная сторона — русский */}
           <div
             className="flip-card-back rounded-3xl flex flex-col items-center justify-center p-8 cursor-pointer select-none"
-            style={{ background: "var(--brown-pale)" }}
+            style={{ background: "var(--theme-card-bg)" }}
           >
             <p className="text-4xl font-bold text-center mb-3" style={{ color: "var(--brown-dark)" }}>
               {current.russian}
@@ -214,7 +214,7 @@ export default function WordTrainer({ words, setName, code }: {
         <button
           onClick={() => next(false)}
           className="flex-1 py-3 rounded-2xl font-semibold text-sm hover:opacity-80 transition-opacity"
-          style={{ background: "var(--brown-pale)", color: "var(--brown-mid)" }}
+          style={{ background: "var(--theme-card-bg)", color: "var(--brown-mid)" }}
         >
           🔄 Ещё раз
         </button>

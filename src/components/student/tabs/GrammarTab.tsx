@@ -151,7 +151,7 @@ function Section({ emoji, title, unit, children, open, onToggle }: {
   children: React.ReactNode; open: boolean; onToggle: () => void;
 }) {
   return (
-    <div className="bg-white/80 rounded-3xl border overflow-hidden" style={{ borderColor: "var(--brown-pale)" }}>
+    <div className="rounded-3xl border overflow-hidden" style={{ background: "var(--theme-card-bg)", borderColor: "var(--theme-card-border)" }}>
       <button onClick={onToggle} className="w-full flex items-center gap-3 p-5 text-left">
         <span className="text-xl">{emoji}</span>
         <div className="flex-1 min-w-0">

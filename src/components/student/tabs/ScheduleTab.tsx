@@ -29,13 +29,13 @@ export default async function ScheduleTab({ studentId }: { studentId: string }) 
       {lessons.map((lesson) => (
           <div
             key={lesson.id}
-            className="bg-white/90 rounded-2xl p-4 flex items-center gap-4"
-            style={{ boxShadow: "var(--shadow-card)", border: "1px solid rgba(237,227,213,0.8)" }}
+            className="rounded-2xl p-4 flex items-center gap-4"
+            style={{ background: "var(--theme-card-bg)", boxShadow: "var(--shadow-card)", border: "1px solid var(--theme-card-border)" }}
           >
             {/* Дата */}
             <div
               className="rounded-xl px-3 py-2.5 text-center min-w-[58px] flex-shrink-0"
-              style={{ background: "linear-gradient(135deg, #f5ece3 0%, #ede3d5 100%)", boxShadow: "0 2px 6px rgba(116,7,14,0.15)" }}
+              style={{ background: "color-mix(in srgb, var(--theme-accent) 12%, var(--theme-card-bg))", boxShadow: "0 2px 6px rgba(0,0,0,0.1)" }}
             >
               <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--brown-light)" }}>
                 <LocalMonth iso={lesson.date} />
