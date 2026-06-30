@@ -1,4 +1,12 @@
-export default function WBLogo({ size = 40 }: { size?: number }) {
+export default function WBLogo({
+  size = 40,
+  ringColor = "#9C7A45",
+  textColor = "#4A1414",
+}: {
+  size?: number;
+  ringColor?: string;
+  textColor?: string;
+}) {
   return (
     <svg
       width={size}
@@ -9,9 +17,9 @@ export default function WBLogo({ size = 40 }: { size?: number }) {
       aria-label="Word Box"
     >
       {/* Outer ring */}
-      <circle cx="50" cy="50" r="44" stroke="#9C7A45" strokeWidth="0.9" />
+      <circle cx="50" cy="50" r="44" stroke={ringColor} strokeWidth="1.6" />
       {/* Inner ring */}
-      <circle cx="50" cy="50" r="38.5" stroke="#9C7A45" strokeWidth="0.55" />
+      <circle cx="50" cy="50" r="38" stroke={ringColor} strokeWidth="0.9" />
 
       {/* WB monogram */}
       <text
@@ -21,33 +29,30 @@ export default function WBLogo({ size = 40 }: { size?: number }) {
         dominantBaseline="middle"
         fontFamily="'Cormorant Garamond', var(--font-cormorant), Georgia, serif"
         fontWeight="600"
-        fontSize="22"
-        fill="#4A1414"
+        fontSize="23"
+        fill={textColor}
         letterSpacing="-0.5"
       >
         WB
       </text>
 
-      {/* Horizontal separator */}
-      <line x1="37" y1="58" x2="63" y2="58" stroke="#9C7A45" strokeWidth="0.75" />
-      {/* Centre dot on separator */}
-      <circle cx="50" cy="58" r="1.5" fill="#9C7A45" />
+      {/* Separator line + dot */}
+      <line x1="36" y1="58" x2="64" y2="58" stroke={ringColor} strokeWidth="1.1" />
+      <circle cx="50" cy="58" r="2" fill={ringColor} />
 
       {/* Left laurel stem */}
-      <path d="M47,63 C38,67 25,72 14,75" stroke="#9C7A45" strokeWidth="0.9" strokeLinecap="round" />
-      {/* Left leaves */}
-      <line x1="44" y1="64.5" x2="41" y2="67.5" stroke="#9C7A45" strokeWidth="0.7" strokeLinecap="round" />
-      <line x1="38" y1="67"   x2="35" y2="70"   stroke="#9C7A45" strokeWidth="0.7" strokeLinecap="round" />
-      <line x1="31" y1="69.5" x2="28" y2="72.5" stroke="#9C7A45" strokeWidth="0.7" strokeLinecap="round" />
-      <line x1="23" y1="72"   x2="20" y2="75"   stroke="#9C7A45" strokeWidth="0.7" strokeLinecap="round" />
+      <path d="M47,63 C38,67 25,72 14,75" stroke={ringColor} strokeWidth="1.4" strokeLinecap="round" />
+      <line x1="44" y1="64.5" x2="40" y2="68"   stroke={ringColor} strokeWidth="1.1" strokeLinecap="round" />
+      <line x1="38" y1="67"   x2="34" y2="70.5" stroke={ringColor} strokeWidth="1.1" strokeLinecap="round" />
+      <line x1="31" y1="69.5" x2="27" y2="73"   stroke={ringColor} strokeWidth="1.1" strokeLinecap="round" />
+      <line x1="23" y1="72"   x2="19" y2="75.5" stroke={ringColor} strokeWidth="1.1" strokeLinecap="round" />
 
-      {/* Right laurel stem (mirror) */}
-      <path d="M53,63 C62,67 75,72 86,75" stroke="#9C7A45" strokeWidth="0.9" strokeLinecap="round" />
-      {/* Right leaves */}
-      <line x1="56" y1="64.5" x2="59" y2="67.5" stroke="#9C7A45" strokeWidth="0.7" strokeLinecap="round" />
-      <line x1="62" y1="67"   x2="65" y2="70"   stroke="#9C7A45" strokeWidth="0.7" strokeLinecap="round" />
-      <line x1="69" y1="69.5" x2="72" y2="72.5" stroke="#9C7A45" strokeWidth="0.7" strokeLinecap="round" />
-      <line x1="77" y1="72"   x2="80" y2="75"   stroke="#9C7A45" strokeWidth="0.7" strokeLinecap="round" />
+      {/* Right laurel stem */}
+      <path d="M53,63 C62,67 75,72 86,75" stroke={ringColor} strokeWidth="1.4" strokeLinecap="round" />
+      <line x1="56" y1="64.5" x2="60" y2="68"   stroke={ringColor} strokeWidth="1.1" strokeLinecap="round" />
+      <line x1="62" y1="67"   x2="66" y2="70.5" stroke={ringColor} strokeWidth="1.1" strokeLinecap="round" />
+      <line x1="69" y1="69.5" x2="73" y2="73"   stroke={ringColor} strokeWidth="1.1" strokeLinecap="round" />
+      <line x1="77" y1="72"   x2="81" y2="75.5" stroke={ringColor} strokeWidth="1.1" strokeLinecap="round" />
     </svg>
   );
 }

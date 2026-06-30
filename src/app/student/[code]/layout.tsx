@@ -1,7 +1,7 @@
-import { BookOpen } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import ThemeProvider from "@/components/student/ThemeProvider";
 import ThemePickerPopover from "@/components/student/ThemePickerPopover";
+import StudentHeaderLogo from "@/components/student/StudentHeaderLogo";
 import type { ThemeId } from "@/components/student/themes";
 import "../themes.css";
 
@@ -38,20 +38,9 @@ export default async function StudentLayout({
           }}
         >
           <div className="max-w-6xl mx-auto px-4 sm:px-8 flex items-center gap-2.5 h-14">
-            <div
-              className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-              style={{ background: "var(--theme-accent, #74070E)" }}
-            >
-              <BookOpen size={13} className="text-white" />
+            <div className="flex-1">
+              <StudentHeaderLogo />
             </div>
-            <span
-              className="font-bold text-base flex-1"
-              style={{ color: "var(--theme-accent, #74070E)", fontFamily: "var(--theme-font)" }}
-            >
-              Word Box
-            </span>
-
-            {/* Palette icon → theme picker */}
             <ThemePickerPopover />
           </div>
         </header>

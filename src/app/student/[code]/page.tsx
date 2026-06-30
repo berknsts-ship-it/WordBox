@@ -10,7 +10,7 @@ import GrammarTab from "@/components/student/tabs/GrammarTab";
 import MaterialsTab from "@/components/student/tabs/MaterialsTab";
 import SplashScreen from "@/components/student/SplashScreen";
 import ThemeOnboardingGate from "@/components/student/ThemeOnboardingGate";
-import { CalendarDays, ClipboardList, Star } from "lucide-react";
+import StudentBanner from "@/components/student/StudentBanner";
 
 type Tab = "schedule" | "homework" | "materials" | "board" | "journal" | "trainer" | "grammar";
 const VALID_TABS: Tab[] = ["schedule", "homework", "materials", "board", "journal", "trainer", "grammar"];
@@ -50,59 +50,12 @@ export default async function StudentCabinetPage({
     <ThemeOnboardingGate needsOnboarding={student.theme === null}>
     <SplashScreen code={code}>
       <div>
-        {/* Приветственный баннер */}
-        <div
-          className="relative overflow-hidden rounded-3xl p-5 sm:p-6 mb-6"
-          style={{
-            background: "var(--theme-banner-bg)",
-            boxShadow: "var(--theme-banner-shadow)",
-          }}
-        >
-          {/* Декоративные круги */}
-          <div className="absolute -right-8 -top-8 w-40 h-40 rounded-full"
-            style={{ background: "rgba(255,255,255,0.07)" }} />
-          <div className="absolute -right-2 top-12 w-24 h-24 rounded-full"
-            style={{ background: "rgba(255,255,255,0.05)" }} />
-          <div className="absolute right-16 -bottom-6 w-32 h-32 rounded-full"
-            style={{ background: "rgba(255,255,255,0.05)" }} />
-
-          <div className="relative z-10">
-            <p className="text-sm font-medium mb-1" style={{ color: "var(--theme-banner-subtitle)" }}>
-              Привет,
-            </p>
-            <h1 className="text-2xl sm:text-3xl font-bold mb-4"
-              style={{ fontFamily: "var(--font-lora)", color: "var(--theme-banner-name)", textShadow: "0 1px 8px rgba(0,0,0,0.15)" }}>
-              {student.name}!
-            </h1>
-
-            {/* Мини-статистика */}
-            <div className="flex flex-wrap gap-2 sm:gap-3">
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl"
-                style={{ background: "var(--theme-banner-stat-bg)", backdropFilter: "blur(4px)" }}>
-                <ClipboardList size={14} style={{ color: "var(--theme-banner-name)", opacity: 0.8 }} />
-                <span className="text-sm font-semibold" style={{ color: "var(--theme-banner-name)" }}>
-                  {pendingCount ?? 0} {getWordForm(pendingCount ?? 0, ["задание", "задания", "заданий"])}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl"
-                style={{ background: "var(--theme-banner-stat-bg)", backdropFilter: "blur(4px)" }}>
-                <CalendarDays size={14} style={{ color: "var(--theme-banner-name)", opacity: 0.8 }} />
-                <span className="text-sm font-semibold" style={{ color: "var(--theme-banner-name)" }}>
-                  {lessonsCount ?? 0} {getWordForm(lessonsCount ?? 0, ["урок", "урока", "уроков"])}
-                </span>
-              </div>
-              {(checkedCount ?? 0) > 0 && (
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl"
-                  style={{ background: "var(--theme-banner-stat-bg)", backdropFilter: "blur(4px)" }}>
-                  <Star size={14} style={{ color: "var(--theme-banner-name)", opacity: 0.8 }} />
-                  <span className="text-sm font-semibold" style={{ color: "var(--theme-banner-name)" }}>
-                    {checkedCount} проверено
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        <StudentBanner
+          name={student.name}
+          pendingCount={pendingCount ?? 0}
+          lessonsCount={lessonsCount ?? 0}
+          checkedCount={checkedCount ?? 0}
+        />
 
         <TabNav code={code} activeTab={activeTab} pendingHomework={pendingCount ?? 0} themeId={student.theme} />
 
@@ -123,11 +76,3 @@ export default async function StudentCabinetPage({
   );
 }
 
-function getWordForm(n: number, forms: [string, string, string]): string {
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  if (mod100 >= 11 && mod100 <= 14) return forms[2];
-  if (mod10 === 1) return forms[0];
-  if (mod10 >= 2 && mod10 <= 4) return forms[1];
-  return forms[2];
-}
