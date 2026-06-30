@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import WBLogo from "@/components/WBLogo";
 import { CalendarDays, ClipboardList, PenLine, BookOpen } from "lucide-react";
+import PWAInstallBanner from "@/components/student/PWAInstallBanner";
 
 const FEATURES = [
   { icon: CalendarDays,  title: "Расписание",   desc: "Все твои уроки"     },
@@ -178,6 +179,9 @@ export default function StudentEntryPage() {
             </div>
           ))}
         </div>
+
+        {/* PWA Install */}
+        <PWAInstallBanner />
 
         {/* CTA */}
         <button
