@@ -3844,6 +3844,12 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
             <ToolBtn key={t} active={tool===t} onClick={() => setTool(t)} title="">{icon}</ToolBtn>
           ))}
           <div className="flex-1"/>
+          <button
+            onClick={()=>setShowMoreTools(v=>!v)}
+            className="p-2 rounded-lg border shrink-0 font-bold text-base leading-none"
+            style={{ borderColor:showMoreTools?"var(--brown-dark)":"var(--brown-pale)", color:"var(--brown-dark)", background:showMoreTools?"var(--brown-pale)":"transparent" }}>
+            +
+          </button>
           {role==="tutor" && (
             <button onClick={bringToMe} className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg border-2 font-medium"
               style={{ borderColor:"var(--brown-dark)", color:"var(--brown-dark)" }}>
