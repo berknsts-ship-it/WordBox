@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { CalendarDays, ClipboardList, PenLine, NotebookText, Brain, BookText, FolderOpen } from "lucide-react";
+import { THEME_TAB_ICONS, type ThemeId } from "./themes";
 
 const TABS = [
   { id: "schedule",  label: "Расписание", icon: CalendarDays },
@@ -17,11 +18,15 @@ export default function TabNav({
   code,
   activeTab,
   pendingHomework = 0,
+  themeId,
 }: {
   code: string;
   activeTab: string;
   pendingHomework?: number;
+  themeId?: string | null;
 }) {
+  const themeIcons = themeId ? THEME_TAB_ICONS[themeId as ThemeId] : undefined;
+
   return (
     <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 pb-1 sm:pb-0">
       <div className="flex sm:grid sm:grid-cols-7 gap-1.5 sm:gap-2 w-max sm:w-full">
@@ -29,6 +34,7 @@ export default function TabNav({
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           const showBadge = tab.id === "homework" && pendingHomework > 0;
+          const emojiIcon = themeIcons?.[tab.id];
 
           return (
             <Link
@@ -49,7 +55,10 @@ export default function TabNav({
                     }
               }
             >
-              <Icon size={18} />
+              {emojiIcon
+                ? <span className="text-xl leading-none" aria-hidden="true">{emojiIcon}</span>
+                : <Icon size={18} />
+              }
               <span className="text-xs font-semibold text-center leading-tight whitespace-nowrap">
                 {tab.label}
               </span>

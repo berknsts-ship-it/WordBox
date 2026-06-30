@@ -52,10 +52,10 @@ export default async function StudentCabinetPage({
       <div>
         {/* Приветственный баннер */}
         <div
-          className="relative overflow-hidden rounded-3xl p-6 mb-6"
+          className="relative overflow-hidden rounded-3xl p-5 sm:p-6 mb-6"
           style={{
-            background: "linear-gradient(135deg, #74070E 0%, #8f0e14 50%, #a01018 100%)",
-            boxShadow: "0 4px 24px rgba(59,42,26,0.22)",
+            background: "var(--theme-banner-bg)",
+            boxShadow: "var(--theme-banner-shadow)",
           }}
         >
           {/* Декоративные круги */}
@@ -66,42 +66,36 @@ export default async function StudentCabinetPage({
           <div className="absolute right-16 -bottom-6 w-32 h-32 rounded-full"
             style={{ background: "rgba(255,255,255,0.05)" }} />
 
-          {/* Декоративная буква */}
-          <div className="absolute right-6 top-4 opacity-15 select-none pointer-events-none"
-            style={{ fontFamily: "Georgia, serif", fontSize: "72px", fontStyle: "italic", color: "#fff", lineHeight: 1 }}>
-            A
-          </div>
-
           <div className="relative z-10">
-            <p className="text-sm font-medium mb-1" style={{ color: "rgba(255,255,255,0.65)" }}>
+            <p className="text-sm font-medium mb-1" style={{ color: "var(--theme-banner-subtitle)" }}>
               Привет,
             </p>
-            <h1 className="text-3xl font-bold mb-4"
-              style={{ fontFamily: "var(--font-lora)", color: "#fdf3e3", textShadow: "0 1px 8px rgba(59,42,26,0.25)" }}>
+            <h1 className="text-2xl sm:text-3xl font-bold mb-4"
+              style={{ fontFamily: "var(--font-lora)", color: "var(--theme-banner-name)", textShadow: "0 1px 8px rgba(0,0,0,0.15)" }}>
               {student.name}!
             </h1>
 
             {/* Мини-статистика */}
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-2 sm:gap-3">
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl"
-                style={{ background: "rgba(255,255,255,0.15)", backdropFilter: "blur(4px)" }}>
-                <ClipboardList size={14} className="text-white opacity-80" />
-                <span className="text-sm font-semibold text-white">
+                style={{ background: "var(--theme-banner-stat-bg)", backdropFilter: "blur(4px)" }}>
+                <ClipboardList size={14} style={{ color: "var(--theme-banner-name)", opacity: 0.8 }} />
+                <span className="text-sm font-semibold" style={{ color: "var(--theme-banner-name)" }}>
                   {pendingCount ?? 0} {getWordForm(pendingCount ?? 0, ["задание", "задания", "заданий"])}
                 </span>
               </div>
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl"
-                style={{ background: "rgba(255,255,255,0.15)", backdropFilter: "blur(4px)" }}>
-                <CalendarDays size={14} className="text-white opacity-80" />
-                <span className="text-sm font-semibold text-white">
+                style={{ background: "var(--theme-banner-stat-bg)", backdropFilter: "blur(4px)" }}>
+                <CalendarDays size={14} style={{ color: "var(--theme-banner-name)", opacity: 0.8 }} />
+                <span className="text-sm font-semibold" style={{ color: "var(--theme-banner-name)" }}>
                   {lessonsCount ?? 0} {getWordForm(lessonsCount ?? 0, ["урок", "урока", "уроков"])}
                 </span>
               </div>
               {(checkedCount ?? 0) > 0 && (
                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl"
-                  style={{ background: "rgba(255,255,255,0.15)", backdropFilter: "blur(4px)" }}>
-                  <Star size={14} className="text-white opacity-80" />
-                  <span className="text-sm font-semibold text-white">
+                  style={{ background: "var(--theme-banner-stat-bg)", backdropFilter: "blur(4px)" }}>
+                  <Star size={14} style={{ color: "var(--theme-banner-name)", opacity: 0.8 }} />
+                  <span className="text-sm font-semibold" style={{ color: "var(--theme-banner-name)" }}>
                     {checkedCount} проверено
                   </span>
                 </div>
@@ -110,7 +104,7 @@ export default async function StudentCabinetPage({
           </div>
         </div>
 
-        <TabNav code={code} activeTab={activeTab} pendingHomework={pendingCount ?? 0} />
+        <TabNav code={code} activeTab={activeTab} pendingHomework={pendingCount ?? 0} themeId={student.theme} />
 
         <div className="mt-5">
           {activeTab === "schedule"  && <ScheduleTab  studentId={student.id} />}

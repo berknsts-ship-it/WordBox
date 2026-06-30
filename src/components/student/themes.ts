@@ -1,5 +1,5 @@
 export type ThemeId =
-  | "classic" | "coral" | "ocean" | "forest" | "sun"
+  | "classic" | "ocean" | "forest" | "sun"
   | "neon" | "craft" | "kawaii" | "scene"
   | "sunset" | "emerald" | "graphite";
 
@@ -29,14 +29,6 @@ export const CATEGORY_NAMES: Record<ThemeCategory, string> = {
 
 export const THEMES: ThemeData[] = [
   // ── Яркие ─────────────────────────────────────────────────────────────
-  {
-    id: "coral", name: "Коралл", category: "bright", isDark: false,
-    bg: "#FFF1EC", accent: "#FF6B5C", accent2: "#FFB347",
-    text: "#A8421F", cardBg: "#FFFFFF",
-    fontName: "Nunito",
-    fontFamily: "'Nunito', sans-serif",
-    fontUrl: "https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap",
-  },
   {
     id: "ocean", name: "Океан", category: "bright", isDark: false,
     bg: "#EAF1FB", accent: "#4A7FE0", accent2: "#7FC4D4",
@@ -140,3 +132,51 @@ export const THEMES_BY_CATEGORY: Record<ThemeCategory, ThemeData[]> = {
 };
 
 export const DEFAULT_THEME: ThemeId = "classic";
+
+export const THEME_TAB_ICONS: Partial<Record<ThemeId, Record<string, string>>> = {
+  craft: {
+    schedule:  "⛏️",
+    homework:  "📜",
+    materials: "📦",
+    board:     "🎨",
+    journal:   "📖",
+    trainer:   "⚔️",
+    grammar:   "🔮",
+  },
+  kawaii: {
+    schedule:  "🎀",
+    homework:  "⭐",
+    materials: "🌸",
+    board:     "✏️",
+    journal:   "💕",
+    trainer:   "🍓",
+    grammar:   "🌈",
+  },
+  scene: {
+    schedule:  "🗓️",
+    homework:  "✍️",
+    materials: "💿",
+    board:     "🎤",
+    journal:   "📝",
+    trainer:   "🎵",
+    grammar:   "📖",
+  },
+  sunset: {
+    schedule:  "🌸",
+    homework:  "✨",
+    materials: "🗂️",
+    board:     "🖊️",
+    journal:   "🌙",
+    trainer:   "⚡",
+    grammar:   "📚",
+  },
+  neon: {
+    schedule:  "🎯",
+    homework:  "📋",
+    materials: "💾",
+    board:     "🖥️",
+    journal:   "📊",
+    trainer:   "🕹️",
+    grammar:   "💻",
+  },
+};

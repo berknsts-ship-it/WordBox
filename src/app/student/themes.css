@@ -19,24 +19,16 @@ html[data-theme="classic"] {
   --theme-font-weight:    600;
   --theme-is-dark:        0;
   --theme-diary-opacity:  1;
+
+  /* Welcome banner defaults (overridden per theme below) */
+  --theme-banner-bg:       linear-gradient(135deg, #74070E 0%, #a01018 100%);
+  --theme-banner-shadow:   0 4px 24px rgba(59,42,26,0.22);
+  --theme-banner-subtitle: rgba(255,255,255,0.65);
+  --theme-banner-name:     #fdf3e3;
+  --theme-banner-stat-bg:  rgba(255,255,255,0.15);
 }
 
 /* ── Яркие ──────────────────────────────────────────────────────────────── */
-
-html[data-theme="coral"] {
-  --theme-bg:             #FFF1EC;
-  --theme-accent:         #FF6B5C;
-  --theme-accent-2:       #FFB347;
-  --theme-text:           #8A2E10;
-  --theme-text-secondary: #B5604A;
-  --theme-card-bg:        #FFFFFF;
-  --theme-card-border:    rgba(255,107,92,0.15);
-  --theme-radius:         12px;
-  --theme-font:           'Nunito', sans-serif;
-  --theme-font-weight:    700;
-  --theme-is-dark:        0;
-  --theme-diary-opacity:  0.4;
-}
 
 html[data-theme="ocean"] {
   --theme-bg:             #EAF1FB;
@@ -51,6 +43,8 @@ html[data-theme="ocean"] {
   --theme-font-weight:    600;
   --theme-is-dark:        0;
   --theme-diary-opacity:  0.35;
+  --theme-banner-bg:      linear-gradient(135deg, #2050C0 0%, #3A8EB8 100%);
+  --theme-banner-shadow:  0 4px 24px rgba(50,100,200,0.35);
 }
 
 html[data-theme="forest"] {
@@ -66,6 +60,8 @@ html[data-theme="forest"] {
   --theme-font-weight:    600;
   --theme-is-dark:        0;
   --theme-diary-opacity:  0.35;
+  --theme-banner-bg:      linear-gradient(135deg, #1A6030 0%, #3A8A50 100%);
+  --theme-banner-shadow:  0 4px 24px rgba(20,80,40,0.35);
 }
 
 html[data-theme="sun"] {
@@ -81,6 +77,11 @@ html[data-theme="sun"] {
   --theme-font-weight:    400;
   --theme-is-dark:        0;
   --theme-diary-opacity:  0.3;
+  --theme-banner-bg:      linear-gradient(135deg, #D89000 0%, #F5C835 100%);
+  --theme-banner-shadow:  0 4px 24px rgba(200,150,0,0.3);
+  --theme-banner-subtitle: rgba(100,65,0,0.7);
+  --theme-banner-name:    #5A3500;
+  --theme-banner-stat-bg: rgba(255,255,255,0.4);
 }
 
 /* ── Игровые ────────────────────────────────────────────────────────────── */
@@ -98,6 +99,8 @@ html[data-theme="neon"] {
   --theme-font-weight:    600;
   --theme-is-dark:        1;
   --theme-diary-opacity:  0;
+  --theme-banner-bg:      linear-gradient(135deg, #2A2060 0%, #5A48D8 100%);
+  --theme-banner-shadow:  0 4px 24px rgba(100,90,220,0.5);
 }
 
 html[data-theme="craft"] {
@@ -113,6 +116,9 @@ html[data-theme="craft"] {
   --theme-font-weight:    400;
   --theme-is-dark:        0;
   --theme-diary-opacity:  0;
+  --theme-banner-bg:      linear-gradient(135deg, #3A2E10 0%, #2A4215 100%);
+  --theme-banner-shadow:  0 4px 24px rgba(20,40,10,0.5);
+  --theme-banner-name:    #D4C896;
 }
 
 html[data-theme="kawaii"] {
@@ -128,6 +134,11 @@ html[data-theme="kawaii"] {
   --theme-font-weight:    700;
   --theme-is-dark:        0;
   --theme-diary-opacity:  0.25;
+  --theme-banner-bg:      linear-gradient(135deg, #F09ABE 0%, #F8C5DC 100%);
+  --theme-banner-shadow:  0 4px 24px rgba(200,80,130,0.25);
+  --theme-banner-subtitle: rgba(138,58,94,0.7);
+  --theme-banner-name:    #7A2050;
+  --theme-banner-stat-bg: rgba(255,255,255,0.5);
 }
 
 html[data-theme="scene"] {
@@ -143,6 +154,8 @@ html[data-theme="scene"] {
   --theme-font-weight:    400;
   --theme-is-dark:        1;
   --theme-diary-opacity:  0;
+  --theme-banner-bg:      linear-gradient(135deg, #FF3A82 0%, #6E5AFF 100%);
+  --theme-banner-shadow:  0 4px 24px rgba(255,60,130,0.45);
 }
 
 /* ── Атмосферные ────────────────────────────────────────────────────────── */
@@ -160,6 +173,8 @@ html[data-theme="sunset"] {
   --theme-font-weight:    400;
   --theme-is-dark:        0;
   --theme-diary-opacity:  0;
+  --theme-banner-bg:      linear-gradient(160deg, #FF9B5C 0%, #E87AB3 55%, #8A6AE0 100%);
+  --theme-banner-shadow:  0 4px 24px rgba(200,100,150,0.35);
 }
 
 /* ── Взрослые / Люксовые ────────────────────────────────────────────────── */
@@ -177,6 +192,8 @@ html[data-theme="emerald"] {
   --theme-font-weight:    400;
   --theme-is-dark:        1;
   --theme-diary-opacity:  0;
+  --theme-banner-bg:      linear-gradient(135deg, #0A3828 0%, #1A6050 100%);
+  --theme-banner-shadow:  0 4px 24px rgba(10,50,30,0.5);
 }
 
 html[data-theme="graphite"] {
@@ -192,6 +209,8 @@ html[data-theme="graphite"] {
   --theme-font-weight:    600;
   --theme-is-dark:        1;
   --theme-diary-opacity:  0;
+  --theme-banner-bg:      linear-gradient(135deg, #242028 0%, #403840 100%);
+  --theme-banner-shadow:  0 4px 24px rgba(0,0,0,0.55);
 }
 
 /* ── Global theme styles ────────────────────────────────────────────────── */
@@ -281,4 +300,16 @@ html[data-theme="neon"] body {
 html[data-theme="craft"] body {
   font-size: 11px;
   line-height: 1.8;
+}
+
+/* Kawaii: hearts and soft decorations */
+html[data-theme="kawaii"] h1::after {
+  content: " ♡";
+  opacity: 0.5;
+}
+
+/* Scene: neon glow on active elements */
+html[data-theme="scene"] a[style*="gradient-primary"],
+html[data-theme="scene"] button[style*="gradient-primary"] {
+  box-shadow: 0 0 12px rgba(255,90,160,0.5), 0 0 24px rgba(110,90,255,0.3) !important;
 }
