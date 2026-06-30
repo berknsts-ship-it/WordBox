@@ -8,6 +8,7 @@ import {
   LayoutDashboard, Users, CalendarDays, ClipboardList,
   BookOpen, LogOut, X, Menu, PenLine,
 } from "lucide-react";
+import WBLogo from "@/components/WBLogo";
 
 const NAV = [
   { label: "Главная",          href: "/tutor/dashboard",  icon: LayoutDashboard },
@@ -39,20 +40,15 @@ export default function TutorNav({ userEmail }: { userEmail: string }) {
         <div className="max-w-6xl mx-auto px-4 flex items-center justify-between h-14">
           {/* Лого */}
           <div className="flex items-center gap-6">
-            <Link href="/tutor/dashboard" className="flex items-center gap-2.5 group">
-              <div
-                className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: "var(--gradient-primary)" }}
-              >
-                <BookOpen size={15} className="text-white" />
-              </div>
+            <Link href="/tutor/dashboard" className="flex items-center gap-2 group">
+              <WBLogo size={38} />
               <span
-                className="font-bold text-base"
+                className="font-semibold text-lg leading-none"
                 style={{
-                  fontFamily: "var(--font-lora)",
-                  background: "var(--gradient-primary)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
+                  fontFamily: "var(--font-cormorant), 'Cormorant Garamond', Georgia, serif",
+                  fontWeight: 600,
+                  color: "var(--brown-dark)",
+                  letterSpacing: "0.02em",
                 }}
               >
                 Word Box

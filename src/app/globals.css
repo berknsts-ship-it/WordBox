@@ -17,6 +17,35 @@
   --shadow-nav:    0 2px 24px rgba(28, 10, 11, 0.09);
   --shadow-button: 0 2px 10px rgba(116, 7, 14, 0.35);
   --shadow-hover:  0 4px 20px rgba(28, 10, 11, 0.12);
+
+  /* Tutor cabinet accent palette */
+  --tutor-brass:        #9C7A45;
+  --tutor-accent:       #7A1F1F;
+  --tutor-border:       rgba(156, 122, 69, 0.3);
+
+  /* Metric card icon backgrounds */
+  --metric-students-bg: #A8845A;
+  --metric-lessons-bg:  #5F8B6A;
+  --metric-homework-bg: #B08D57;
+  --metric-payments-bg: #8B8499;
+}
+
+.luxury-label {
+  font-family: var(--font-cormorant), 'Cormorant Garamond', Georgia, serif;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.luxury-card-inset {
+  position: relative;
+}
+.luxury-card-inset::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid var(--tutor-border);
+  pointer-events: none;
 }
 
 @theme inline {

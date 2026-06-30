@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Lora, Nunito } from "next/font/google";
+import { Lora, Nunito, Cormorant_Garamond } from "next/font/google";
 import "./globals.css";
 import BackgroundDecor from "@/components/BackgroundDecor";
 
@@ -12,6 +12,13 @@ const lora = Lora({
 const nunito = Nunito({
   variable: "--font-nunito",
   subsets: ["latin", "cyrillic"],
+});
+
+const cormorant = Cormorant_Garamond({
+  variable: "--font-cormorant",
+  subsets: ["latin", "cyrillic"],
+  weight: ["500", "600"],
+  style: ["normal", "italic"],
 });
 
 export const metadata: Metadata = {
@@ -30,7 +37,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ru" className={`${lora.variable} ${nunito.variable} h-full`}>
+    <html lang="ru" className={`${lora.variable} ${nunito.variable} ${cormorant.variable} h-full`}>
       <body className="min-h-full flex flex-col">
         <BackgroundDecor />
         <div className="relative flex flex-col flex-1" style={{ zIndex: 1 }}>{children}</div>

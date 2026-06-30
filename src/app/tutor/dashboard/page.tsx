@@ -26,7 +26,7 @@ export default async function DashboardPage() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-2xl font-bold" style={{ color: "var(--brown-dark)" }}>
+        <h1 className="text-2xl luxury-label" style={{ color: "var(--brown-dark)" }}>
           Добро пожаловать!
         </h1>
         <p className="mt-1 text-sm" style={{ color: "var(--brown-light)" }}>
@@ -40,7 +40,7 @@ export default async function DashboardPage() {
           label="Учеников"
           value={studentsCount ?? 0}
           gradient="linear-gradient(135deg, #f5efe8 0%, #ede0cc 100%)"
-          iconBg="#a07850"
+          iconBg="var(--metric-students-bg)"
           href="/tutor/students"
         />
         <StatCard
@@ -48,7 +48,7 @@ export default async function DashboardPage() {
           label="Ближайших уроков"
           value={lessonsCount ?? 0}
           gradient="linear-gradient(135deg, #eef4f0 0%, #d8ece0 100%)"
-          iconBg="#6a9e7f"
+          iconBg="var(--metric-lessons-bg)"
           href="/tutor/schedule"
         />
         <StatCard
@@ -56,7 +56,7 @@ export default async function DashboardPage() {
           label="Непроверенных заданий"
           value={homeworkCount ?? 0}
           gradient="linear-gradient(135deg, #f5f0e8 0%, #ece0ca 100%)"
-          iconBg="#b89060"
+          iconBg="var(--metric-homework-bg)"
           href="/tutor/homework"
         />
         <StatCard
@@ -67,7 +67,7 @@ export default async function DashboardPage() {
           gradient={totalDebt > 0
             ? "linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%)"
             : "linear-gradient(135deg, #f5f5f5 0%, #e5e5e5 100%)"}
-          iconBg={totalDebt > 0 ? "#c2410c" : "#9ca3af"}
+          iconBg={totalDebt > 0 ? "var(--tutor-accent)" : "var(--metric-payments-bg)"}
           href="/tutor/students"
         />
       </div>
@@ -108,7 +108,10 @@ function StatCard({ icon: Icon, label, value, displayValue, gradient, iconBg, hr
       <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3" style={{ background: iconBg }}>
         <Icon size={18} className="text-white" />
       </div>
-      <p className="text-3xl font-bold" style={{ color: "var(--brown-dark)" }}>
+      <p
+        className="text-3xl font-semibold luxury-label"
+        style={{ color: "var(--brown-dark)" }}
+      >
         {displayValue ?? value}
       </p>
       <p className="text-sm mt-0.5" style={{ color: "var(--brown-mid)" }}>{label}</p>
