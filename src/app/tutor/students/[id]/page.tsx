@@ -89,32 +89,34 @@ export default async function StudentDetailPage({
 
   return (
     <div>
-      {/* ── Переключатель вида ── */}
-      <div className="flex items-center justify-between mb-5 gap-4">
-        <Link href="/tutor/students" className="text-sm hover:underline shrink-0"
-          style={{ color: "var(--brown-light)" }}>
+      {/* ── Верхняя навигация ── */}
+      <div className="flex items-center justify-between mb-6 gap-4">
+        <Link href="/tutor/students"
+          className="text-xs font-medium tracking-widest uppercase hover:opacity-70 transition-opacity flex items-center gap-1.5"
+          style={{ fontFamily: "var(--font-cormorant), Georgia, serif", color: "var(--tutor-brass)" }}>
           ← Все ученики
         </Link>
 
-        <div className="flex items-center gap-1 rounded-2xl p-1" style={{ background: "var(--brown-pale)" }}>
+        <div className="flex items-center gap-1 rounded-xl p-1"
+          style={{ background: "rgba(156,122,69,0.10)", border: "1px solid rgba(156,122,69,0.20)" }}>
           <Link
             href={`/tutor/students/${id}?tab=lessons`}
-            className="px-4 py-1.5 rounded-xl text-sm font-semibold transition-all"
+            className="px-4 py-1.5 rounded-lg text-xs font-semibold transition-all tracking-wide"
             style={
               !isStudentView
-                ? { background: "var(--brown-mid)", color: "#fff", boxShadow: "var(--shadow-button)" }
-                : { color: "var(--brown-light)" }
+                ? { background: "linear-gradient(135deg, #5e1018, #74070E)", color: "#EDE0CC", boxShadow: "0 2px 8px rgba(116,7,14,0.30)" }
+                : { color: "var(--tutor-brass)" }
             }
           >
             ⚙️ Репетитор
           </Link>
           <Link
             href={`/tutor/students/${id}?view=student&tab=schedule`}
-            className="px-4 py-1.5 rounded-xl text-sm font-semibold transition-all"
+            className="px-4 py-1.5 rounded-lg text-xs font-semibold transition-all tracking-wide"
             style={
               isStudentView
-                ? { background: "var(--brown-mid)", color: "#fff", boxShadow: "var(--shadow-button)" }
-                : { color: "var(--brown-light)" }
+                ? { background: "linear-gradient(135deg, #5e1018, #74070E)", color: "#EDE0CC", boxShadow: "0 2px 8px rgba(116,7,14,0.30)" }
+                : { color: "var(--tutor-brass)" }
             }
           >
             👁 Ученик
@@ -220,53 +222,97 @@ export default async function StudentDetailPage({
       ) : (
         /* ═══════════════════════════════ ВИД РЕПЕТИТОРА ════════════════════════════ */
         <div>
-          {/* Шапка профиля */}
-          <div className="relative overflow-hidden rounded-3xl p-6 mb-5"
-            style={{ background: "var(--gradient-primary)", boxShadow: "0 4px 24px rgba(116,7,14,0.22)" }}>
+          {/* ── Люкс-баннер ученика ── */}
+          <div
+            className="relative overflow-hidden rounded-2xl mb-5"
+            style={{
+              background: "linear-gradient(145deg, #3d0a0e 0%, #5a0e14 50%, #3a0a0d 100%)",
+              padding: "clamp(20px, 3.5vw, 36px) clamp(20px, 4vw, 44px)",
+              boxShadow: "0 8px 40px rgba(28,10,11,0.22), inset 0 0 0 1px rgba(196,164,104,0.22)",
+            }}
+          >
+            {/* Corner brackets */}
+            {(["tl","tr","bl","br"] as const).map(pos => (
+              <div key={pos} className="absolute w-5 h-5" style={{
+                top:    pos.startsWith("t") ? 10 : "auto",
+                bottom: pos.startsWith("b") ? 10 : "auto",
+                left:   pos.endsWith("l")   ? 10 : "auto",
+                right:  pos.endsWith("r")   ? 10 : "auto",
+                borderTop:    pos.startsWith("t") ? "1px solid rgba(196,164,104,0.55)" : "none",
+                borderBottom: pos.startsWith("b") ? "1px solid rgba(196,164,104,0.55)" : "none",
+                borderLeft:   pos.endsWith("l")   ? "1px solid rgba(196,164,104,0.55)" : "none",
+                borderRight:  pos.endsWith("r")   ? "1px solid rgba(196,164,104,0.55)" : "none",
+              }} />
+            ))}
 
-            {/* Декор */}
-            <div className="absolute -right-8 -top-8 w-44 h-44 rounded-full" style={{ background: "rgba(255,255,255,0.07)" }} />
-            <div className="absolute -right-2 top-14 w-28 h-28 rounded-full" style={{ background: "rgba(255,255,255,0.05)" }} />
-            <div className="absolute left-1/2 -bottom-12 w-52 h-52 rounded-full" style={{ background: "rgba(255,255,255,0.04)" }} />
-
-            {/* Word Box watermark */}
-            <div className="absolute right-6 bottom-4 select-none pointer-events-none"
-              style={{ fontFamily: "var(--font-lora)", fontSize: "30px", fontStyle: "italic", color: "rgba(255,255,255,0.13)", letterSpacing: "0.02em" }}>
-              Word Box
-            </div>
+            {/* Top gold strip */}
+            <div className="absolute top-0 left-12 right-12 h-px" style={{ background: "linear-gradient(90deg, transparent, rgba(196,164,104,0.45), transparent)" }} />
 
             <div className="relative z-10 flex items-center gap-5 flex-wrap sm:flex-nowrap">
               {/* Аватар */}
-              <div className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 text-3xl font-bold"
-                style={{ background: "rgba(255,255,255,0.18)", backdropFilter: "blur(8px)", color: "#fdf3e3", fontFamily: "var(--font-lora)" }}>
+              <div
+                className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 font-bold"
+                style={{
+                  background: "rgba(196,164,104,0.15)",
+                  border: "1px solid rgba(196,164,104,0.30)",
+                  color: "#C4A468",
+                  fontFamily: "var(--font-cormorant), Georgia, serif",
+                  fontSize: "1.8rem",
+                  fontStyle: "italic",
+                }}
+              >
                 {student.name[0].toUpperCase()}
               </div>
 
               {/* Имя и мета */}
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold tracking-widest uppercase mb-1.5"
-                  style={{ color: "rgba(255,255,255,0.50)" }}>
-                  Word Box · Кабинет ученика
+                <p className="text-xs tracking-[0.22em] mb-2" style={{
+                  fontFamily: "var(--font-cormorant), Georgia, serif",
+                  fontWeight: 500,
+                  color: "rgba(196,164,104,0.65)",
+                }}>
+                  WORD BOX · КАБИНЕТ УЧЕНИКА
                 </p>
-                <h1 className="text-3xl font-bold leading-tight"
-                  style={{ fontFamily: "var(--font-lora)", color: "#fdf3e3", textShadow: "0 1px 8px rgba(59,42,26,0.3)" }}>
+                <h1 style={{
+                  fontFamily: "var(--font-cormorant), 'Cormorant Garamond', Georgia, serif",
+                  fontWeight: 600,
+                  fontStyle: "italic",
+                  fontSize: "clamp(1.8rem, 4vw, 2.6rem)",
+                  color: "#EDE0CC",
+                  letterSpacing: "-0.01em",
+                  lineHeight: 1.05,
+                }}>
                   {student.name}
                 </h1>
-                {student.email && (
-                  <p className="text-sm mt-1" style={{ color: "rgba(255,255,255,0.60)" }}>{student.email}</p>
-                )}
                 {student.textbook && (
-                  <p className="text-xs mt-1 font-medium" style={{ color: "rgba(255,255,255,0.45)" }}>
+                  <p className="text-xs mt-1.5 tracking-wider" style={{ color: "rgba(196,164,104,0.55)" }}>
                     {student.textbook === "english_file_elementary" ? "English File Elementary" : "Solutions 3rd Ed. Elementary"}
                   </p>
                 )}
               </div>
 
               {/* Код доступа */}
-              <div className="text-center rounded-2xl px-5 py-3 flex-shrink-0"
-                style={{ background: "rgba(255,255,255,0.15)", backdropFilter: "blur(8px)" }}>
-                <p className="text-xs font-semibold mb-1" style={{ color: "rgba(255,255,255,0.65)" }}>Код доступа</p>
-                <p className="text-2xl font-bold tracking-widest" style={{ color: "#fff" }}>
+              <div
+                className="text-center rounded-xl px-5 py-3 flex-shrink-0"
+                style={{
+                  background: "rgba(196,164,104,0.10)",
+                  border: "1px solid rgba(196,164,104,0.28)",
+                }}
+              >
+                <p className="text-xs tracking-[0.18em] mb-1.5" style={{
+                  fontFamily: "var(--font-cormorant), Georgia, serif",
+                  color: "rgba(196,164,104,0.65)",
+                }}>
+                  КОД ДОСТУПА
+                </p>
+                <p style={{
+                  fontFamily: "var(--font-cormorant), Georgia, serif",
+                  fontWeight: 600,
+                  fontSize: "1.8rem",
+                  letterSpacing: "0.15em",
+                  color: "#EDE0CC",
+                  lineHeight: 1,
+                }}>
                   {student.access_code}
                 </p>
                 <CopyLinkButton code={student.access_code} />
@@ -274,64 +320,65 @@ export default async function StudentDetailPage({
             </div>
           </div>
 
-          <div className="flex justify-end mb-2">
+          <div className="flex justify-end mb-4">
             <DeleteStudentButton studentId={id} studentName={student.name} />
           </div>
 
           {student.notes && (
-            <div className="rounded-2xl px-4 py-3 text-sm mb-6"
-              style={{ background: "var(--brown-pale)", color: "var(--brown-mid)" }}>
+            <div className="rounded-xl px-4 py-3 text-sm mb-5"
+              style={{ background: "rgba(156,122,69,0.08)", border: "1px solid rgba(156,122,69,0.20)", color: "var(--tutor-brass)" }}>
               📋 {student.notes}
             </div>
           )}
 
-          {/* Учебник */}
-          <div className="bg-white/80 rounded-2xl border px-4 py-3 mb-3 flex items-center gap-3"
-            style={{ borderColor: "var(--brown-pale)" }}>
-            <span className="text-lg shrink-0">📚</span>
-            <form action={updateTextbook.bind(null, id)} className="flex gap-2 flex-1 min-w-0">
-              <select name="textbook" defaultValue={student.textbook ?? ""}
-                className="flex-1 min-w-0 rounded-xl px-3 py-2 text-sm focus:outline-none"
-                style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}>
-                <option value="">Учебник не выбран</option>
-                <option value="english_file_elementary">English File Elementary</option>
-                <option value="solutions_elementary">Solutions 3rd Ed. Elementary</option>
-              </select>
-              <button type="submit"
-                className="shrink-0 rounded-xl px-4 py-2 text-sm font-semibold text-white hover:opacity-80 transition-opacity"
-                style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-button)" }}>
-                Сохранить
-              </button>
-            </form>
-          </div>
+          {/* Учебник + доска */}
+          <div className="space-y-2 mb-6">
+            <div className="rounded-xl px-4 py-3 flex items-center gap-3"
+              style={{ background: "rgba(253,248,242,0.85)", boxShadow: "inset 0 0 0 1px rgba(156,122,69,0.20)" }}>
+              <span className="text-base shrink-0 opacity-70">📚</span>
+              <form action={updateTextbook.bind(null, id)} className="flex gap-2 flex-1 min-w-0">
+                <select name="textbook" defaultValue={student.textbook ?? ""}
+                  className="flex-1 min-w-0 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                  style={{ background: "transparent", border: "none", color: "var(--brown-dark)" }}>
+                  <option value="">Учебник не выбран</option>
+                  <option value="english_file_elementary">English File Elementary</option>
+                  <option value="solutions_elementary">Solutions 3rd Ed. Elementary</option>
+                </select>
+                <button type="submit"
+                  className="shrink-0 rounded-lg px-4 py-1.5 text-xs font-semibold tracking-wide uppercase hover:opacity-80 transition-opacity"
+                  style={{ background: "linear-gradient(135deg, #5e1018, #74070E)", color: "#EDE0CC", boxShadow: "0 2px 8px rgba(116,7,14,0.28)" }}>
+                  Сохранить
+                </button>
+              </form>
+            </div>
 
-          {/* Доска */}
-          <div className="bg-white/80 rounded-2xl border px-4 py-3 mb-6 flex items-center gap-3"
-            style={{ borderColor: "var(--brown-pale)" }}>
-            <span className="text-lg shrink-0">🖊️</span>
-            <form action={updateCanvasUrl.bind(null, id)} className="flex gap-2 flex-1 min-w-0">
-              <input name="canvas_url" type="url" defaultValue={student.canvas_url ?? ""}
-                placeholder="Ссылка на доску (Miro, Figma, Notion...)"
-                className="flex-1 min-w-0 rounded-xl px-3 py-2 text-sm focus:outline-none"
-                style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
-              />
-              <button type="submit"
-                className="shrink-0 rounded-xl px-4 py-2 text-sm font-semibold text-white hover:opacity-80 transition-opacity"
-                style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-button)" }}>
-                Сохранить
-              </button>
-            </form>
+            <div className="rounded-xl px-4 py-3 flex items-center gap-3"
+              style={{ background: "rgba(253,248,242,0.85)", boxShadow: "inset 0 0 0 1px rgba(156,122,69,0.20)" }}>
+              <span className="text-base shrink-0 opacity-70">🖊️</span>
+              <form action={updateCanvasUrl.bind(null, id)} className="flex gap-2 flex-1 min-w-0">
+                <input name="canvas_url" type="url" defaultValue={student.canvas_url ?? ""}
+                  placeholder="Ссылка на доску (Miro, Figma, Notion...)"
+                  className="flex-1 min-w-0 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                  style={{ background: "transparent", border: "none", color: "var(--brown-dark)" }}
+                />
+                <button type="submit"
+                  className="shrink-0 rounded-lg px-4 py-1.5 text-xs font-semibold tracking-wide uppercase hover:opacity-80 transition-opacity"
+                  style={{ background: "linear-gradient(135deg, #5e1018, #74070E)", color: "#EDE0CC", boxShadow: "0 2px 8px rgba(116,7,14,0.28)" }}>
+                  Сохранить
+                </button>
+              </form>
+            </div>
           </div>
 
           {/* Вкладки репетитора */}
           <div className="flex gap-2 overflow-x-auto pb-1 mb-6">
             {TUTOR_TABS.map((t) => (
               <Link key={t.id} href={`/tutor/students/${id}?tab=${t.id}`}
-                className="px-4 py-2.5 rounded-2xl text-sm font-semibold whitespace-nowrap transition-all"
+                className="px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all"
                 style={
                   tutorActiveTab === t.id
-                    ? { background: "var(--brown-mid)", color: "#fff" }
-                    : { background: "rgba(255,255,255,0.7)", color: "var(--brown-light)", border: "1.5px solid var(--brown-pale)" }
+                    ? { background: "linear-gradient(135deg, #5e1018, #74070E)", color: "#EDE0CC", boxShadow: "0 3px 10px rgba(116,7,14,0.28)" }
+                    : { background: "rgba(253,248,242,0.85)", color: "var(--tutor-brass)", border: "1px solid rgba(156,122,69,0.22)" }
                 }>
                 {t.label}
               </Link>
