@@ -40,15 +40,16 @@ export default function TutorNav({ userEmail }: { userEmail: string }) {
         <div className="max-w-6xl mx-auto px-4 flex items-center justify-between h-14">
           {/* Лого */}
           <div className="flex items-center gap-6">
-            <Link href="/tutor/dashboard" className="flex items-center gap-2 group">
-              <WBLogo size={38} />
+            <Link href="/tutor/dashboard" className="flex items-center gap-2.5 group">
+              <WBLogo size={44} ringColor="#9C7A45" textColor="#4A1414" />
               <span
-                className="font-semibold text-lg leading-none"
+                className="leading-none"
                 style={{
                   fontFamily: "var(--font-cormorant), 'Cormorant Garamond', Georgia, serif",
                   fontWeight: 600,
-                  color: "var(--brown-dark)",
-                  letterSpacing: "0.02em",
+                  fontSize: "1.25rem",
+                  color: "#4A1414",
+                  letterSpacing: "0.06em",
                 }}
               >
                 Word Box
