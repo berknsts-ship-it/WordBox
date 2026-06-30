@@ -38,7 +38,7 @@ export default function TutorBoardHub({
   const student = students.find(s => s.id === selectedId) ?? null;
 
   return (
-    <div className="flex overflow-hidden rounded-3xl border" style={{ height: "calc(100vh - 5.5rem)", borderColor: "var(--brown-pale)" }}>
+    <div className="flex overflow-hidden rounded-3xl border" style={{ height: "calc(100dvh - 9.5rem)", borderColor: "var(--brown-pale)" }}>
 
       {/* Sidebar — список учеников */}
       <div className="flex flex-col shrink-0 border-r overflow-hidden"

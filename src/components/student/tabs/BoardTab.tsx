@@ -92,7 +92,7 @@ export default function BoardTab({
     new Date(iso).toLocaleDateString("ru", { day: "numeric", month: "long", year: "numeric" });
 
   return (
-    <div className="flex flex-col" style={{ height: "calc(100vh - 140px)", minHeight: 500 }}>
+    <div className="flex flex-col flex-1 min-h-0">
       {/* Toolbar */}
       {role === "tutor" && (
         <div className="flex items-center gap-2 px-3 py-2 border-b flex-wrap shrink-0"
@@ -149,7 +149,7 @@ export default function BoardTab({
       <div className="flex flex-1 overflow-hidden">
         {/* Canvas + Audio/Video */}
         <div className="flex flex-col flex-1 overflow-hidden min-h-0">
-          <div className="flex-1 overflow-hidden">
+          <div className="flex flex-col flex-1 overflow-hidden min-h-0">
             <WhiteboardCanvas ref={canvasRef} roomId={studentId} role={role} />
           </div>
           <SyncedAudio roomId={studentId} role={role} />

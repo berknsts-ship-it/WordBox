@@ -46,30 +46,39 @@ export default async function StudentCabinetPage({
         .eq("student_id", student.id).eq("status", "checked"),
     ]);
 
+  const isBoard = activeTab === "board";
+
   return (
     <ThemeOnboardingGate needsOnboarding={student.theme === null}>
     <SplashScreen code={code}>
       <div>
-        <StudentBanner
-          name={student.name}
-          pendingCount={pendingCount ?? 0}
-          lessonsCount={lessonsCount ?? 0}
-          checkedCount={checkedCount ?? 0}
-        />
+        {!isBoard && (
+          <StudentBanner
+            name={student.name}
+            pendingCount={pendingCount ?? 0}
+            lessonsCount={lessonsCount ?? 0}
+            checkedCount={checkedCount ?? 0}
+          />
+        )}
 
         <TabNav code={code} activeTab={activeTab} pendingHomework={pendingCount ?? 0} themeId={student.theme} />
 
-        <div className="mt-5">
-          {activeTab === "schedule"  && <ScheduleTab  studentId={student.id} />}
-          {activeTab === "homework"  && <HomeworkTab  studentId={student.id} />}
-          {activeTab === "materials" && <MaterialsTab studentId={student.id} />}
-          {activeTab === "board"     && <BoardTab     studentId={student.id} role="student" />}
-          {activeTab === "journal"   && <JournalTab   studentId={student.id} />}
-          {activeTab === "trainer"   && (
-            <TrainerTab studentId={student.id} code={code} activeSetId={set} />
-          )}
-          {activeTab === "grammar"   && <GrammarTab textbook={student.textbook ?? null} />}
-        </div>
+        {activeTab === "board" ? (
+          <div className="-mx-4 sm:mx-0 flex flex-col" style={{ height: "calc(100dvh - 140px)", minHeight: 320, marginBottom: "-1.25rem" }}>
+            <BoardTab studentId={student.id} role="student" />
+          </div>
+        ) : (
+          <div className="mt-5">
+            {activeTab === "schedule"  && <ScheduleTab  studentId={student.id} />}
+            {activeTab === "homework"  && <HomeworkTab  studentId={student.id} />}
+            {activeTab === "materials" && <MaterialsTab studentId={student.id} />}
+            {activeTab === "journal"   && <JournalTab   studentId={student.id} />}
+            {activeTab === "trainer"   && (
+              <TrainerTab studentId={student.id} code={code} activeSetId={set} />
+            )}
+            {activeTab === "grammar"   && <GrammarTab textbook={student.textbook ?? null} />}
+          </div>
+        )}
       </div>
     </SplashScreen>
     </ThemeOnboardingGate>
