@@ -27,7 +27,10 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: "Word Box",
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
+  },
+  icons: {
+    apple: "/apple-touch-icon.png",
   },
 };
 
