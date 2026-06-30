@@ -18,16 +18,34 @@
   --shadow-button: 0 2px 10px rgba(116, 7, 14, 0.35);
   --shadow-hover:  0 4px 20px rgba(28, 10, 11, 0.12);
 
-  /* Tutor cabinet accent palette */
+  /* Tutor luxury palette */
   --tutor-brass:        #9C7A45;
+  --tutor-brass-light:  #C4A468;
   --tutor-accent:       #7A1F1F;
-  --tutor-border:       rgba(156, 122, 69, 0.3);
+  --tutor-border:       rgba(156, 122, 69, 0.28);
+  --tutor-border-strong: rgba(156, 122, 69, 0.50);
+
+  /* Luxury dark panels */
+  --luxury-dark-1: #1c0a0b;
+  --luxury-dark-2: #120d04;
+  --luxury-dark-3: #0d1a0f;
+  --luxury-dark-4: #111118;
+  --luxury-cream:  #EDE0CC;
+  --luxury-gold:   #C4A468;
+  --luxury-gold-dim: rgba(196, 164, 104, 0.70);
 
   /* Metric card icon backgrounds */
-  --metric-students-bg: #A8845A;
-  --metric-lessons-bg:  #5F8B6A;
-  --metric-homework-bg: #B08D57;
-  --metric-payments-bg: #8B8499;
+  --metric-students-bg: #7a4e2a;
+  --metric-lessons-bg:  #3a6349;
+  --metric-homework-bg: #7a5a28;
+  --metric-payments-bg: #5a5268;
+
+  /* Stat card gradients — бордовый, оливковый, тёплые тёмные */
+  --stat-students:  linear-gradient(145deg, #5e1018 0%, #74070E 100%);
+  --stat-lessons:   linear-gradient(145deg, #3b4d10 0%, #4E6813 100%);
+  --stat-homework:  linear-gradient(145deg, #5a3a12 0%, #72511c 100%);
+  --stat-payments:  linear-gradient(145deg, #3a3745 0%, #4d4a5e 100%);
+  --stat-debt:      linear-gradient(145deg, #6b2008 0%, #8a2c0a 100%);
 }
 
 .luxury-label {
@@ -36,6 +54,7 @@
   letter-spacing: 0.04em;
 }
 
+/* Thin gold inset border on any card */
 .luxury-card-inset {
   position: relative;
 }
@@ -46,6 +65,60 @@
   border-radius: inherit;
   border: 1px solid var(--tutor-border);
   pointer-events: none;
+}
+
+/* Gold top accent strip for stat cards */
+.luxury-stat-strip::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 20px;
+  right: 20px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--luxury-gold), transparent);
+  opacity: 0.55;
+}
+
+/* Standard page title for tutor pages */
+.tutor-page-header {
+  margin-bottom: 2rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--tutor-border);
+}
+.tutor-page-header h1 {
+  font-family: var(--font-cormorant), 'Cormorant Garamond', Georgia, serif;
+  font-weight: 600;
+  font-size: clamp(1.75rem, 3vw, 2.25rem);
+  color: var(--luxury-dark-1);
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+}
+.tutor-page-header p {
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--tutor-brass);
+  font-family: var(--font-cormorant), Georgia, serif;
+  font-weight: 500;
+}
+
+/* Luxury section label (replaces plain h2) */
+.luxury-section-label {
+  font-family: var(--font-cormorant), Georgia, serif;
+  font-weight: 500;
+  font-size: 0.72rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--tutor-brass);
+}
+
+/* White luxury card standard */
+.luxury-card {
+  background: rgba(253, 248, 242, 0.88);
+  backdrop-filter: blur(10px);
+  border-radius: 1rem;
+  box-shadow: 0 4px 24px rgba(28, 10, 11, 0.08), inset 0 0 0 1px var(--tutor-border);
 }
 
 @theme inline {
