@@ -128,7 +128,7 @@ export default async function DashboardPage() {
           icon={Users}
           label="Учеников"
           value={studentsCount ?? 0}
-          bg="var(--stat-students)"
+          bg="linear-gradient(145deg, #5e1018 0%, #74070E 100%)"
           iconColor="#c4875a"
           href="/tutor/students"
         />
@@ -136,15 +136,15 @@ export default async function DashboardPage() {
           icon={CalendarDays}
           label="Ближайших уроков"
           value={lessonsCount ?? 0}
-          bg="var(--stat-lessons)"
-          iconColor="#6ea882"
+          bg="linear-gradient(145deg, #3b4d10 0%, #4E6813 100%)"
+          iconColor="#8fbf6a"
           href="/tutor/schedule"
         />
         <DarkStatCard
           icon={ClipboardList}
           label="Непроверенных заданий"
           value={homeworkCount ?? 0}
-          bg="var(--stat-homework)"
+          bg="linear-gradient(145deg, #5a3a12 0%, #72511c 100%)"
           iconColor="#c4a468"
           href="/tutor/homework"
         />
@@ -153,8 +153,10 @@ export default async function DashboardPage() {
           label={totalDebt > 0 ? "Не оплачено" : "Долгов нет"}
           value={totalDebt}
           displayValue={totalDebt > 0 ? `${totalDebt.toLocaleString("ru")} ₽` : "✓"}
-          bg={totalDebt > 0 ? "var(--stat-debt)" : "var(--stat-payments)"}
-          iconColor={totalDebt > 0 ? "#e07a5f" : "#8b8499"}
+          bg={totalDebt > 0
+            ? "linear-gradient(145deg, #6b2008 0%, #8a2c0a 100%)"
+            : "linear-gradient(145deg, #3a3745 0%, #4d4a5e 100%)"}
+          iconColor={totalDebt > 0 ? "#e07a5f" : "#9d97b8"}
           href="/tutor/students"
         />
       </div>
