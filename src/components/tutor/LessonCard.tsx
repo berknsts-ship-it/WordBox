@@ -15,8 +15,18 @@ type Lesson = {
   price_rub: number | null;
 };
 
-// Extracts the datetime-local value directly from the stored string without timezone conversion.
-// "2026-06-28T17:00:00" → "2026-06-28T17:00"  (what was stored = what the form shows)
+// Parses ISO date string as LOCAL time — no timezone conversion.
+// Supabase returns naive timestamps; we must NOT let new Date() shift them.
+function parseNaive(iso: string): Date {
+  return new Date(
+    parseInt(iso.slice(0, 4),  10),
+    parseInt(iso.slice(5, 7),  10) - 1,
+    parseInt(iso.slice(8, 10), 10),
+    parseInt(iso.slice(11, 13), 10),
+    parseInt(iso.slice(14, 16), 10),
+  );
+}
+
 function toDatetimeLocal(iso: string) {
   return iso.slice(0, 16);
 }
@@ -25,7 +35,7 @@ export default function LessonCard({ lesson, studentId }: { lesson: Lesson; stud
   const [editing, setEditing] = useState(false);
   const [pending, startTransition] = useTransition();
 
-  const date = new Date(lesson.date);
+  const date = parseNaive(lesson.date);
   const isPast = date < new Date();
   const isCancelled = lesson.status === "cancelled";
   const payStatus = (lesson.payment_status ?? "unpaid") as "paid" | "unpaid";

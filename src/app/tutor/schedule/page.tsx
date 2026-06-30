@@ -2,30 +2,41 @@ import { createClient } from "@/lib/supabase/server";
 import { addLesson, deleteLesson } from "@/app/actions/lessons";
 import LessonStatusPicker from "@/components/tutor/LessonStatusPicker";
 
+// Parse stored ISO as naive local time — prevents timezone shift on display.
+function parseNaive(iso: string): Date {
+  return new Date(
+    parseInt(iso.slice(0, 4),   10),
+    parseInt(iso.slice(5, 7),   10) - 1,
+    parseInt(iso.slice(8, 10),  10),
+    parseInt(iso.slice(11, 13), 10),
+    parseInt(iso.slice(14, 16), 10),
+  );
+}
+
 function groupByDate(lessons: Lesson[]): Record<string, Lesson[]> {
   const groups: Record<string, Lesson[]> = {};
   for (const lesson of lessons) {
-    const key = new Date(lesson.date).toDateString();
+    const key = lesson.date.slice(0, 10); // "2026-06-30"
     if (!groups[key]) groups[key] = [];
     groups[key].push(lesson);
   }
   return groups;
 }
 
-function formatDateLabel(dateStr: string): string {
-  const date = new Date(dateStr);
-  const today = new Date();
-  const tomorrow = new Date();
-  tomorrow.setDate(today.getDate() + 1);
+function formatDateLabel(dateKey: string): string {
+  const date = new Date(
+    parseInt(dateKey.slice(0, 4),  10),
+    parseInt(dateKey.slice(5, 7),  10) - 1,
+    parseInt(dateKey.slice(8, 10), 10),
+  );
+  const now = new Date();
+  const today    = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
 
-  if (date.toDateString() === today.toDateString()) return "Сегодня";
-  if (date.toDateString() === tomorrow.toDateString()) return "Завтра";
+  if (date.getTime() === today.getTime())    return "Сегодня";
+  if (date.getTime() === tomorrow.getTime()) return "Завтра";
 
-  return date.toLocaleDateString("ru", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
+  return date.toLocaleDateString("ru", { weekday: "long", day: "numeric", month: "long" });
 }
 
 type Lesson = {
@@ -217,7 +228,7 @@ export default async function SchedulePage() {
 }
 
 function LessonCard({ lesson }: { lesson: Lesson }) {
-  const date = new Date(lesson.date);
+  const date = parseNaive(lesson.date);
   const s = lesson.students;
   const studentName = (Array.isArray(s) ? (s as {name:string}[])[0]?.name : (s as {name:string}|null)?.name) ?? "Ученик";
   const initials = studentName[0].toUpperCase();
