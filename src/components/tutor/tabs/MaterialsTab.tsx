@@ -1,14 +1,37 @@
 import { createClient } from "@/lib/supabase/server";
 import { addMaterial, deleteMaterial } from "@/app/actions/materials";
 import { FileUploadField } from "@/components/tutor/FileUploadField";
+import MaterialAssignPanel from "@/components/tutor/MaterialAssignPanel";
 
 export default async function TutorMaterialsTab({ studentId }: { studentId: string }) {
   const supabase = await createClient();
-  const { data: materials } = await supabase
-    .from("materials")
-    .select("id, title, content, url, file_name, is_iframe, created_at")
-    .eq("student_id", studentId)
-    .order("created_at", { ascending: false });
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const [
+    { data: materials },
+    { data: allStudents },
+    { data: assignmentRows },
+  ] = await Promise.all([
+    supabase.from("materials")
+      .select("id, title, content, url, file_name, is_iframe, created_at, student_id")
+      .eq("student_id", studentId)
+      .order("created_at", { ascending: false }),
+    supabase.from("students")
+      .select("id, name")
+      .eq("tutor_id", user!.id)
+      .neq("id", studentId)
+      .order("name"),
+    supabase.from("material_assignments")
+      .select("material_id, student_id"),
+  ]);
+
+  // Build a map: material_id → assigned student_ids (via junction table, excluding current student)
+  const assignmentMap = new Map<string, string[]>();
+  for (const row of assignmentRows ?? []) {
+    if (row.student_id === studentId) continue;
+    if (!assignmentMap.has(row.material_id)) assignmentMap.set(row.material_id, []);
+    assignmentMap.get(row.material_id)!.push(row.student_id);
+  }
 
   return (
     <div className="space-y-6">
@@ -125,9 +148,18 @@ export default async function TutorMaterialsTab({ studentId }: { studentId: stri
                     )}
                   </div>
                 </div>
-                <form action={deleteMaterial.bind(null, m.id, studentId)}>
-                  <button type="submit" className="text-xs text-red-400 hover:text-red-600 px-2 py-1 shrink-0">✕</button>
-                </form>
+                <div className="flex items-center gap-2 shrink-0">
+                  {allStudents && allStudents.length > 0 && (
+                    <MaterialAssignPanel
+                      materialId={m.id}
+                      allStudents={allStudents}
+                      assignedIds={assignmentMap.get(m.id) ?? []}
+                    />
+                  )}
+                  <form action={async () => { "use server"; await deleteMaterial(m.id, studentId); }}>
+                    <button type="submit" className="text-xs text-red-400 hover:text-red-600 px-2 py-1 shrink-0">✕</button>
+                  </form>
+                </div>
               </div>
             </div>
           ))}

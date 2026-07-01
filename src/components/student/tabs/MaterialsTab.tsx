@@ -10,13 +10,32 @@ function isPdf(fileName: string | null, url: string | null) {
 
 export default async function MaterialsTab({ studentId }: { studentId: string }) {
   const supabase = await createClient();
-  const { data: materials } = await supabase
-    .from("materials")
-    .select("id, title, content, url, file_name, is_iframe, created_at")
-    .eq("student_id", studentId)
-    .order("created_at", { ascending: false });
 
-  if (!materials || materials.length === 0) {
+  const [{ data: directMaterials }, { data: assignedRows }] = await Promise.all([
+    supabase.from("materials")
+      .select("id, title, content, url, file_name, is_iframe, created_at")
+      .eq("student_id", studentId)
+      .order("created_at", { ascending: false }),
+    supabase.from("material_assignments")
+      .select("material_id")
+      .eq("student_id", studentId),
+  ]);
+
+  const directIds = new Set((directMaterials ?? []).map(m => m.id));
+  const junctionIds = (assignedRows ?? []).map(r => r.material_id).filter(id => !directIds.has(id));
+  let junctionMaterials: typeof directMaterials = [];
+  if (junctionIds.length > 0) {
+    const { data } = await supabase.from("materials")
+      .select("id, title, content, url, file_name, is_iframe, created_at")
+      .in("id", junctionIds);
+    junctionMaterials = data ?? [];
+  }
+  const materials = [
+    ...(directMaterials ?? []),
+    ...junctionMaterials,
+  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  if (materials.length === 0) {
     return <EmptyState />;
   }
 
