@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHandle } from "react";
+import { flushSync } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 import {
   Pencil, Eraser, Trash2, Type, Highlighter, MousePointer2,
   BookOpen, ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut,
   Maximize2, Hand, Navigation, Undo2, Redo2, Pointer, Lock, Unlock, ImagePlus, Link, FileText,
-  Shapes, LayoutTemplate, Map as MapIcon, Minimize2, Magnet,
+  Shapes, LayoutTemplate, Map as MapIcon, Minimize2, Magnet, Smile, Sparkles,
+  ChevronsUp, ChevronsDown, ChevronUp, ChevronDown,
 } from "lucide-react";
 
 // ── types ─────────────────────────────────────────────────────────────────────
@@ -29,7 +31,7 @@ type TextItem = {
   x: number; y: number; text: string; font: string; color: string;
   fontSize: number; bold: boolean; italic: boolean; align: TextAlign;
   bgColor?: string; bgOpacity?: number; opacity?: number;
-  locked?: boolean; pdfPage?: number;
+  locked?: boolean; pdfPage?: number; isSymbol?: boolean;
 };
 type FrameItem = {
   type: "frame"; id: string;
@@ -923,6 +925,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
   const [fnFormula,   setFnFormula]   = useState("");
   const [fnError,     setFnError]     = useState(false);
   const [showFnPanel, setShowFnPanel] = useState(false);
+  const [isMobile,    setIsMobile]    = useState(false);
 
   // undo/redo
   type HistoryEntry =
@@ -945,6 +948,8 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
   // inertia
   const inertiaRef = useRef<{ vx: number; vy: number; rafId: number } | null>(null);
   const lastPanPt  = useRef<{ cx: number; cy: number; t: number } | null>(null);
+  // gesture disambiguation: pending draw that switches from pan to draw on drag
+  const touchDrawPending = useRef<{ cx: number; cy: number; wx: number; wy: number } | null>(null);
 
   // select
   const [selectedId,  setSelectedId_]  = useState<string | null>(null);
@@ -1007,7 +1012,6 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
   const [frameFontSize,    setFrameFontSize]    = useState(14);
   const [showFrameMenu,    setShowFrameMenu]    = useState(false);
   const liveFrameRef = useRef<{ wx1: number; wy1: number; wx2: number; wy2: number } | null>(null);
-  const [frameLabelEdit, setFrameLabelEdit] = useState<{ id: string; text: string } | null>(null);
 
 
   // laser / cursor overlays
@@ -1029,6 +1033,9 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
   const [imgDialog,    setImgDialog]    = useState(false);
   const [imgUrl,       setImgUrl]       = useState("");
   const [imgUploading, setImgUploading] = useState(false);
+  const [aiLoading,   setAiLoading]   = useState(false);
+  const aiInputRef = useRef<HTMLInputElement>(null);
+  const [imgError,     setImgError]     = useState<string | null>(null);
 
   // shape tool
   const [shapeKind,     setShapeKind]     = useState<ShapeKind>("rect");
@@ -1062,6 +1069,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
   const [emojiSearch, setEmojiSearch] = useState("");
   const [pendingSymbol, setPendingSymbol]   = useState<string | null>(null);
   const [pendingSymbolPos, setPendingSymbolPos] = useState<{ sx: number; sy: number } | null>(null);
+  const [touchDragging, setTouchDragging] = useState(false);
 
   // ── render ──────────────────────────────────────────────────────────────────
   const render = useCallback(() => {
@@ -1113,6 +1121,27 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
     ctx.restore();
     renderMinimapFnRef.current();
   }, [shapeKind, color, size, shapeFill, frameShape, frameColor, frameFill, frameOpacity, frameBorderWidth]);
+
+  // ── mobile detection ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    // Touch devices under 1024px (phones + tablets) use bottom sheet for text input.
+    // Tablets at ≥640px still see the desktop sidebar/toolbar layout via CSS,
+    // but text editing goes through the keyboard-friendly bottom sheet.
+    const check = () => setIsMobile(
+      (navigator.maxTouchPoints > 0 || 'ontouchstart' in window) && window.innerWidth < 1024
+    );
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  // ── resize textarea when font size changes (A+/A- buttons) ──────────────────
+  useEffect(() => {
+    const ta = textRef.current;
+    if (!ta || !textInput) return;
+    ta.style.height = "auto";
+    ta.style.height = ta.scrollHeight + "px";
+  }, [fontSize, textInput]);
 
   // ── resize observer — DPR-aware canvas sizing ────────────────────────────────
   useEffect(() => {
@@ -1702,7 +1731,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
     // Finalize multi-drag
     if (multiDragRef.current) {
       const { origItems } = multiDragRef.current;
-      pushHistory({ type:"clear", saved: [...origItems.values()] }); // rough history
+      pushHistory({ type:"clear", saved: [...itemsRef.current].map(i => origItems.get(i.id) ?? i) }); // save pre-drag positions
       for (const id of origItems.keys()) {
         const item = itemsRef.current.find(i => i.id === id);
         if (item) send({ type:"update", item });
@@ -1769,71 +1798,104 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
   // ── touch ─────────────────────────────────────────────────────────────────────
   const onTouchStart = (e: React.TouchEvent) => {
     e.preventDefault();
-    if (textInput !== null) { commitText(); return; }
-    if (e.touches.length === 2) {
+    if (textInput !== null) { textRef.current?.blur(); return; }
+    if (e.touches.length > 1) {
+      if (selDragRef.current) { selDragRef.current = null; setTouchDragging(false); }
       livePathRef.current = null;
-      const r = containerRef.current!.getBoundingClientRect();
-      const dx = e.touches[1].clientX - e.touches[0].clientX;
-      const dy = e.touches[1].clientY - e.touches[0].clientY;
-      pinchDist.current = Math.sqrt(dx*dx + dy*dy);
-      pinchMid.current  = { x: (e.touches[0].clientX+e.touches[1].clientX)/2-r.left, y: (e.touches[0].clientY+e.touches[1].clientY)/2-r.top };
+      liveShapeRef.current = null;
+      panning.current = false;
+      touchDrawPending.current = null;
+      eraserActiveRef.current = false;
+      if (e.touches.length === 2) {
+        const r = containerRef.current!.getBoundingClientRect();
+        const dx = e.touches[1].clientX - e.touches[0].clientX;
+        const dy = e.touches[1].clientY - e.touches[0].clientY;
+        pinchDist.current = Math.sqrt(dx*dx + dy*dy);
+        pinchMid.current  = { x: (e.touches[0].clientX+e.touches[1].clientX)/2-r.left, y: (e.touches[0].clientY+e.touches[1].clientY)/2-r.top };
+      }
       return;
     }
     const { cx, cy } = clientXY(e);
     const w = s2w(cx, cy);
     stopInertia();
-    if (tool === "hand" || tool === "select") {
-      // one-finger pan for hand/select when not hitting an element
-      const hit = tool === "select"
-        ? [...itemsRef.current].reverse().find(item => hitTest(item, w.x, w.y))
-        : null;
-      if (tool === "hand" || !hit) {
-        panning.current = true;
-        panOrigin.current = { cx, cy, vx: viewRef.current.panX, vy: viewRef.current.panY };
-        lastPanPt.current = { cx, cy, t: Date.now() };
-        return;
-      }
-      // hit exists — start touch drag
-      if (!hit.locked) {
-        setSelectedId(hit.id); setSelectedIds(new Set([hit.id]));
-        selDragRef.current = { mode:"move", id: hit.id, wx0: w.x, wy0: w.y, origItem: { ...hit } };
-      } else if (role === "tutor") {
-        setSelectedId(hit.id); setSelectedIds(new Set([hit.id]));
+    touchDrawPending.current = null;
+
+    // place pending symbol first
+    if (pendingSymbol) {
+      placeSymbol(pendingSymbol, w.x, w.y, pendingSymbol.length === 1 && pendingSymbol.codePointAt(0)! > 127 ? 48 : 32);
+      setPendingSymbol(null); setPendingSymbolPos(null); return;
+    }
+
+    // Always hit-test: tapping any item selects it regardless of tool
+    const hit = [...itemsRef.current].reverse().find(item => hitTest(item, w.x, w.y));
+    if (hit) {
+      if (hit.locked) {
+        if (role === "tutor") { setSelectedId(hit.id); setSelectedIds(new Set([hit.id])); }
+      } else {
+        setSelectedId(hit.id);
+        setSelectedIds(new Set([hit.id]));
+        selDragRef.current = { mode: "move", id: hit.id, wx0: w.x, wy0: w.y, origItem: { ...hit } };
+        flushSync(() => setTouchDragging(true));
       }
       return;
     }
+
+    // No item hit — deselect and handle by tool
+    setSelectedId(null); setSelectedIds(new Set());
+
     if (tool === "text") {
-      for (let i = itemsRef.current.length - 1; i >= 0; i--) {
-        const it = itemsRef.current[i];
-        if (it.type === "text" && hitTest(it, w.x, w.y)) {
-          const ti = it as TextItem;
-          editingIdRef.current = ti.id; setEditingId(ti.id);
-          setTextInput({ wx: ti.x, wy: ti.y }); setTextValue(ti.text);
-          setBold(ti.bold); setItalic(ti.italic); setAlign(ti.align); setFontSize(ti.fontSize);
-          const fi = FONTS.findIndex(f => f.family === ti.font); setFontIdx(fi >= 0 ? fi : 0);
-          render();
-          setTimeout(() => { const ta = textRef.current; if (!ta) return; ta.focus(); ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px"; }, 30);
-          return;
-        }
-      }
-      setTextInput({ wx: w.x, wy: w.y }); setTextValue(""); setTimeout(() => textRef.current?.focus(), 50); return;
+      setTextInput({ wx: w.x, wy: w.y }); setTextValue("");
+      setTimeout(() => textRef.current?.focus(), 50); return;
     }
     if (tool === "laser") return;
-    if (tool === "eraser") { eraserActiveRef.current = true; eraserRadiusRef.current = size * 3; eraseAt(w.x, w.y); return; }
-    const pathId = uid();
-    const hl = tool === "highlight";
-    const c = hl ? hlColor : color;
-    const s = hl ? Math.max(size * 3, 20) : size;
-    livePathRef.current = {
-      type:"path", id: pathId, points:[w], color:c, size:s, eraser:false, highlight:hl,
-      ...(!hl && opacity < 100 ? { opacity } : {}),
-      ...(pdfPageRef.current !== null ? { pdfPage: pdfPageRef.current } : {}),
-    };
+
+    // All other tools: start panning. Drawing tools (pen/highlight/eraser/shape)
+    // will switch from pan to draw once the finger moves more than the threshold.
+    panning.current = true;
+    panOrigin.current = { cx, cy, vx: viewRef.current.panX, vy: viewRef.current.panY };
+    lastPanPt.current = { cx, cy, t: Date.now() };
+    if (tool === "pen" || tool === "highlight" || tool === "eraser" || tool === "shape") {
+      touchDrawPending.current = { cx, cy, wx: w.x, wy: w.y };
+    }
   };
 
   const onTouchMove = (e: React.TouchEvent) => {
     e.preventDefault();
     const r = containerRef.current!.getBoundingClientRect();
+
+    // Gesture disambiguation: switch from pan to draw once finger moves >8px
+    if (touchDrawPending.current && e.touches.length === 1) {
+      const moveCx = e.touches[0].clientX - r.left;
+      const moveCy = e.touches[0].clientY - r.top;
+      const dist = Math.hypot(moveCx - touchDrawPending.current.cx, moveCy - touchDrawPending.current.cy);
+      if (dist > 8) {
+        const start = touchDrawPending.current;
+        touchDrawPending.current = null;
+        panning.current = false;
+        const sw = s2w(moveCx, moveCy);
+        if (tool === "eraser") {
+          eraserActiveRef.current = true; eraserRadiusRef.current = size * 3;
+          eraseAt(start.wx, start.wy); eraseAt(sw.x, sw.y);
+        } else if (tool === "shape") {
+          const sp = snapPt(start.wx, start.wy);
+          liveShapeRef.current = { wx1: sp.x, wy1: sp.y, wx2: sw.x, wy2: sw.y };
+        } else {
+          const hl = tool === "highlight";
+          const c = hl ? hlColor : color;
+          const s = hl ? Math.max(size * 3, 20) : size;
+          const pathId = uid();
+          livePathRef.current = {
+            type:"path", id:pathId, points:[{x:start.wx,y:start.wy}, sw],
+            color:c, size:s, eraser:false, highlight:hl,
+            ...(!hl && opacity < 100 ? { opacity } : {}),
+            ...(pdfPageRef.current !== null ? { pdfPage: pdfPageRef.current } : {}),
+          };
+          render();
+        }
+        return;
+      }
+    }
+
     if (e.touches.length === 2) {
       const dx = e.touches[1].clientX - e.touches[0].clientX;
       const dy = e.touches[1].clientY - e.touches[0].clientY;
@@ -1850,18 +1912,38 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
       lastPanPt.current = { cx, cy, t: Date.now() };
       return;
     }
+    const w = s2w(cx, cy);
+    broadcastCursor(w.x, w.y);
     if (selDragRef.current) {
       const drag = selDragRef.current;
-      const ww = s2w(cx, cy);
       const idx = itemsRef.current.findIndex(i => i.id === drag.id);
-      if (idx >= 0 && drag.mode === "move") {
-        itemsRef.current[idx] = shiftItem(drag.origItem, ww.x - drag.wx0, ww.y - drag.wy0);
-        setPanVer(v => v + 1); render();
+      if (idx >= 0) {
+        if (drag.mode === "move") {
+          itemsRef.current[idx] = shiftItem(drag.origItem, w.x - drag.wx0, w.y - drag.wy0);
+        } else if (drag.mode === "resize-img" || drag.mode === "resize-frame") {
+          const orig = drag.origItem as ImageItem | FrameItem;
+          const dx = w.x - drag.wx0, dy = w.y - drag.wy0;
+          let { x, y, w: ow, h: oh } = orig;
+          if (drag.corner === "se") { ow = Math.max(20, ow + dx); oh = Math.max(20, oh + dy); }
+          else if (drag.corner === "sw") { x = x + dx; ow = Math.max(20, ow - dx); oh = Math.max(20, oh + dy); }
+          else if (drag.corner === "ne") { y = y + dy; ow = Math.max(20, ow + dx); oh = Math.max(20, oh - dy); }
+          else { x = x + dx; y = y + dy; ow = Math.max(20, ow - dx); oh = Math.max(20, oh - dy); }
+          itemsRef.current[idx] = { ...orig, x, y, w: ow, h: oh };
+        } else if (drag.mode === "resize") {
+          const item = itemsRef.current[idx] as TextItem;
+          const tb = textBounds({ ...item, fontSize: drag.origFontSize } as TextItem);
+          const newDiag = Math.max(20, Math.hypot(w.x - tb.x0, w.y - tb.y0));
+          (itemsRef.current[idx] as TextItem).fontSize = Math.max(8, Math.round(drag.origFontSize * newDiag / drag.origDiag));
+        }
+        render();
       }
       return;
     }
-    const w = s2w(cx, cy);
-    broadcastCursor(w.x, w.y);
+    if (tool === "shape" && liveShapeRef.current) {
+      const sp = snapPt(w.x, w.y);
+      liveShapeRef.current.wx2 = sp.x; liveShapeRef.current.wy2 = sp.y;
+      render(); return;
+    }
     if (tool === "laser") { setOwnLaser(w); if (ownLaserTimer.current) clearTimeout(ownLaserTimer.current); ownLaserTimer.current = setTimeout(() => setOwnLaser(null), 2500); send({ type:"laser", x:w.x, y:w.y }); return; }
     if (tool === "eraser" && eraserActiveRef.current) { eraseAt(w.x, w.y); return; }
     if (!livePathRef.current) return;
@@ -1872,6 +1954,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
 
   const onTouchEnd = (e: React.TouchEvent) => {
     e.preventDefault();
+    touchDrawPending.current = null;
     if (e.touches.length < 2 && panning.current) {
       panning.current = false;
       const last = lastPanPt.current;
@@ -1886,8 +1969,10 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
       }
       lastPanPt.current = null;
     }
-    if (selDragRef.current) {
+    if (e.touches.length === 0 && selDragRef.current) {
       const drag = selDragRef.current;
+      selDragRef.current = null;
+      setTouchDragging(false);
       const idx = itemsRef.current.findIndex(i => i.id === drag.id);
       if (idx >= 0) {
         const next = itemsRef.current[idx];
@@ -1896,7 +1981,20 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
           send({ type:"update", item: next });
         }
       }
-      selDragRef.current = null;
+    }
+    if (e.touches.length === 0 && liveShapeRef.current) {
+      const ls = liveShapeRef.current; liveShapeRef.current = null;
+      const fw = Math.abs(ls.wx2 - ls.wx1), fh = Math.abs(ls.wy2 - ls.wy1);
+      if (fw > 4 || fh > 4) {
+        const item: DrawItem = {
+          type:"shape", id:uid(), shape:shapeKind,
+          x1:Math.min(ls.wx1,ls.wx2), y1:Math.min(ls.wy1,ls.wy2),
+          x2:Math.max(ls.wx1,ls.wx2), y2:Math.max(ls.wy1,ls.wy2),
+          color, size, fill: shapeFill ? color+"33" : undefined,
+          ...(pdfPageRef.current !== null ? { pdfPage: pdfPageRef.current } : {}),
+        };
+        itemsRef.current.push(item); render(); send({ type:"path", item }); pushHistory({ type:"add", item });
+      }
     }
     if (e.touches.length === 0 && livePathRef.current) {
       const item = livePathRef.current; livePathRef.current = null;
@@ -1938,28 +2036,36 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
   // ── add image ─────────────────────────────────────────────────────────────────
   const addImageToBoard = (url: string) => {
     if (!url.trim()) return;
-    const { zoom, panX, panY } = viewRef.current;
-    const canvas = canvasRef.current;
-    const cx = canvas ? (canvas.width / 2 - panX) / zoom : 200;
-    const cy = canvas ? (canvas.height / 2 - panY) / zoom : 200;
+    setImgError(null);
     const DEFAULT_W = 400;
-    const item: ImageItem = {
-      type: "image", id: uid(),
-      x: cx - DEFAULT_W / 2, y: cy - 150,
-      w: DEFAULT_W, h: 300,
-      url,
-      ...(pdfPageRef.current !== null ? { pdfPage: pdfPageRef.current } : {}),
+    const placeItem = (w: number, h: number) => {
+      const { zoom, panX, panY } = viewRef.current;
+      const container = containerRef.current;
+      const cx = container ? (container.clientWidth / 2 - panX) / zoom : 200;
+      const cy = container ? (container.clientHeight / 2 - panY) / zoom : 200;
+      const item: ImageItem = {
+        type: "image", id: uid(),
+        x: cx - w / 2, y: cy - h / 2,
+        w, h, url,
+        ...(pdfPageRef.current !== null ? { pdfPage: pdfPageRef.current } : {}),
+      };
+      itemsRef.current.push(item); render();
+      send({ type: "path", item }); pushHistory({ type: "add", item });
+      setImgDialog(false); setImgUrl("");
     };
-    // Try to get natural size from cache
+    // Try cache first (instant)
     const cached = getCachedImage(url, () => {});
     if (cached) {
       const ratio = cached.naturalHeight / cached.naturalWidth;
-      item.h = Math.round(DEFAULT_W * ratio);
-      item.y = cy - item.h / 2;
+      placeItem(DEFAULT_W, Math.round(DEFAULT_W * ratio));
+      return;
     }
-    itemsRef.current.push(item); render();
-    send({ type: "path", item }); pushHistory({ type: "add", item });
-    setImgDialog(false); setImgUrl("");
+    // Pre-load to validate URL and get dimensions
+    const img = new window.Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => placeItem(DEFAULT_W, Math.max(50, Math.round(DEFAULT_W * img.naturalHeight / img.naturalWidth)));
+    img.onerror = () => setImgError("Не удалось загрузить изображение. Проверьте ссылку.");
+    img.src = url;
   };
 
   const [fullscreenVideo, setFullscreenVideo] = useState<string | null>(null);
@@ -2071,11 +2177,51 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
   };
 
 
+  const handleAiLayout = async (file: File) => {
+    setAiLoading(true);
+    try {
+      const form = new FormData();
+      form.append("image", file);
+      const res = await fetch("/api/ai-layout", { method: "POST", body: form });
+      if (!res.ok) throw new Error("AI failed");
+      const { items } = await res.json();
+      if (!Array.isArray(items) || items.length === 0) return;
+
+      // Bounding box of returned items
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const it of items) {
+        minX = Math.min(minX, it.x); minY = Math.min(minY, it.y);
+        maxX = Math.max(maxX, it.x + (it.w ?? 200));
+        maxY = Math.max(maxY, it.y + (it.h ?? 40));
+      }
+      // Center layout on current viewport
+      const cont = containerRef.current!;
+      const { zoom, panX, panY } = viewRef.current;
+      const cx = (cont.clientWidth  / 2 - panX) / zoom;
+      const cy = (cont.clientHeight / 2 - panY) / zoom;
+      const dx = cx - (minX + maxX) / 2;
+      const dy = cy - (minY + maxY) / 2;
+
+      for (const raw of items) {
+        const item = { ...raw, id: uid(), x: raw.x + dx, y: raw.y + dy };
+        itemsRef.current.push(item);
+        send({ type: "path", item });
+        pushHistory({ type: "add", item });
+      }
+      render();
+    } catch (err) {
+      console.error("AI layout:", err);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   const placeSymbol = (sym: string, wx: number, wy: number, fs = 32) => {
     const item: TextItem = {
       type: "text", id: uid(), x: wx, y: wy,
       text: sym, font: "Arial, sans-serif",
       color, fontSize: fs, bold: false, italic: false, align: "center",
+      isSymbol: true,
       ...(pdfPageRef.current !== null ? { pdfPage: pdfPageRef.current } : {}),
     };
     itemsRef.current.push(item); render();
@@ -2155,6 +2301,22 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
     pushHistory({ type:"update", idx, prev, next });
     itemsRef.current[idx] = next; render();
     send({ type:"update", item: next });
+  };
+
+  // ── layer order helpers ──────────────────────────────────────────────────────
+  const reorderItem = (id: string, dir: "front" | "back" | "forward" | "backward") => {
+    const arr = itemsRef.current;
+    const idx = arr.findIndex(i => i.id === id);
+    if (idx < 0) return;
+    pushHistory({ type:"clear", saved: [...arr] });
+    const item = arr.splice(idx, 1)[0];
+    if      (dir === "front")    arr.push(item);
+    else if (dir === "back")     arr.unshift(item);
+    else if (dir === "forward")  arr.splice(Math.min(idx + 1, arr.length), 0, item);
+    else                         arr.splice(Math.max(idx - 1, 0), 0, item);
+    render();
+    send({ type:"clear" });
+    arr.forEach(i => send({ type:"path", item: i }));
   };
 
   // ── board dice/wheel helpers ─────────────────────────────────────────────────
@@ -2496,7 +2658,13 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
   // ── JSX ───────────────────────────────────────────────────────────────────────
   // closes all sidebar popups (shape/frame/emoji panels)
   const closeSidePanels = () => { setShowShapeMenu(false); setShowFrameMenu(false); setShowEmojiPicker(false); };
-  const pickTool = (t: Tool) => { setTool(t); closeSidePanels(); };
+  const pickTool = (t: Tool) => {
+    liveShapeRef.current = null;
+    livePathRef.current = null;
+    eraserActiveRef.current = false;
+    render();
+    setTool(t); closeSidePanels();
+  };
 
   // keyboard shortcuts
   useEffect(() => {
@@ -2524,7 +2692,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
   }, []);
 
   return (
-    <div className="flex flex-1 overflow-hidden select-none">
+    <div className="flex flex-1 overflow-hidden select-none" style={{ touchAction: "none" }}>
 
       {/* Vertical sidebar */}
       <aside className="hidden sm:flex flex-col items-center gap-1 py-2 border-r shrink-0 relative transition-all duration-200"
@@ -2782,124 +2950,6 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
             </div>
           </>)}
 
-          {/* Symbol picker (shown when activated from more-tools) */}
-          {showSymbols && (
-            <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 px-4"
-              style={{ background:"rgba(0,0,0,0.2)" }}
-              onClick={e=>{ if(e.target===e.currentTarget) setShowSymbols(false); }}>
-              <div className="rounded-2xl border shadow-xl overflow-hidden"
-                style={{ background:"white", borderColor:"var(--brown-pale)", width:340 }}>
-                <div className="flex border-b overflow-x-auto" style={{ borderColor:"var(--brown-pale)" }}>
-                  {Object.keys(SYMBOLS).map(tab => (
-                    <button key={tab} onClick={() => setSymTab(tab)}
-                      className="text-xs px-3 py-2 shrink-0 whitespace-nowrap"
-                      style={{ color: symTab===tab?"var(--brown-dark)":"var(--brown-light)",
-                               fontWeight: symTab===tab?600:400,
-                               borderBottom: symTab===tab?"2px solid var(--brown-dark)":"2px solid transparent" }}>
-                      {tab}
-                    </button>
-                  ))}
-                </div>
-                <div className="p-2 grid grid-cols-8 gap-1 max-h-48 overflow-y-auto">
-                  {SYMBOLS[symTab].map(sym => (
-                    <button key={sym} onClick={() => { insertSymbol(sym); setShowSymbols(false); }}
-                      className="w-8 h-8 rounded-lg border hover:opacity-70 text-base flex items-center justify-center"
-                      style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
-                      {sym}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Dice panel */}
-          {showDice && (
-            <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 px-4"
-              style={{ background:"rgba(0,0,0,0.2)" }}
-              onClick={e=>{ if(e.target===e.currentTarget) setShowDice(false); }}>
-              <div className="rounded-2xl border shadow-xl p-4 w-56"
-                style={{ background:"white", borderColor:"var(--brown-pale)" }}>
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-xs font-medium" style={{ color:"var(--brown-dark)" }}>Кубиков:</span>
-                  {[1,2,3,4,5,6].map(n => (
-                    <button key={n} onClick={() => setDiceCount(n)}
-                      className="w-7 h-7 rounded-lg border-2 text-xs font-bold transition-all"
-                      style={{ borderColor: diceCount===n?"var(--brown-dark)":"var(--brown-pale)", color:"var(--brown-dark)", opacity: diceCount===n?1:0.5 }}>
-                      {n}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex gap-2 mb-3">
-                  <button onClick={rollDice} disabled={diceRolling}
-                    className="flex-1 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-60"
-                    style={{ background:"var(--gradient-primary)" }}>
-                    {diceRolling ? "Бросаю..." : "Бросить!"}
-                  </button>
-                  {role === "tutor" && (
-                    <button onClick={() => { addDiceToBoard(diceCount); setShowDice(false); }}
-                      className="px-3 py-2 rounded-xl text-xs border-2 font-medium"
-                      style={{ borderColor:"var(--brown-dark)", color:"var(--brown-dark)" }}
-                      title="Добавить кубик на доску">
-                      + Доска
-                    </button>
-                  )}
-                </div>
-                {diceResult.length > 0 && (
-                  <div className="flex gap-1.5 justify-center flex-wrap">
-                    {diceResult.map((v, i) => (
-                      <span key={i} className="text-4xl leading-none select-none">{DICE_FACES[v-1]}</span>
-                    ))}
-                    {diceCount > 1 && (
-                      <div className="w-full text-center text-sm font-bold mt-1" style={{ color:"var(--brown-dark)" }}>
-                        Сумма: {diceResult.reduce((a,b)=>a+b,0)}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Wheel panel */}
-          {showWheel && (
-            <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 px-4"
-              style={{ background:"rgba(0,0,0,0.2)" }}
-              onClick={e=>{ if(e.target===e.currentTarget) setShowWheel(false); }}>
-              <div className="rounded-2xl border shadow-xl p-4 w-72"
-                style={{ background:"white", borderColor:"var(--brown-pale)" }}>
-                <div className="flex justify-center mb-3">
-                  <canvas ref={wheelCanvasRef} width={220} height={220} className="rounded-xl"/>
-                </div>
-                {wheelResult && (
-                  <div className="text-center mb-3 px-3 py-2 rounded-xl font-bold text-sm"
-                    style={{ background:"var(--brown-pale)", color:"var(--brown-dark)" }}>
-                    🎉 {wheelResult}
-                  </div>
-                )}
-                <div className="flex gap-2 mb-3">
-                  <button onClick={spinWheel} disabled={wheelSpinning}
-                    className="flex-1 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-60"
-                    style={{ background:"var(--gradient-primary)" }}>
-                    {wheelSpinning ? "Крутится..." : "Крутить!"}
-                  </button>
-                  {role === "tutor" && (
-                    <button onClick={() => { addWheelToBoard(); setShowWheel(false); }}
-                      className="px-3 py-2 rounded-xl text-xs border-2 font-medium"
-                      style={{ borderColor:"var(--brown-dark)", color:"var(--brown-dark)" }}
-                      title="Добавить колесо на доску">
-                      + Доска
-                    </button>
-                  )}
-                </div>
-                <textarea value={wheelItems} onChange={e => { setWheelItems(e.target.value); setWheelResult(null); }}
-                  rows={4} placeholder="Вариант 1&#10;Вариант 2&#10;..."
-                  className="w-full px-3 py-2 rounded-xl border outline-none text-xs resize-none"
-                  style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}/>
-              </div>
-            </div>
-          )}
-
           {/* Right side: ruling + pdf + zoom + undo/redo + clear */}
           <div className="ml-auto flex items-center gap-1 shrink-0">
             <button onClick={undo} disabled={!canUndo} title="Ctrl+Z" className="p-1.5 rounded-lg border disabled:opacity-25" style={{ borderColor:"var(--brown-pale)" }}><Undo2 size={14} style={{ color:"var(--brown-dark)" }}/></button>
@@ -2925,6 +2975,36 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
                 ))}
               </div>
             )}
+            {/* f(x) button — вставить график */}
+            <div className="relative">
+              <button onClick={() => setShowFnPanel(p => !p)}
+                title="Вставить график функции (y = x², sin(x), 2x+1…)"
+                className="text-xs font-bold px-2 py-1 rounded-lg border-2 font-mono"
+                style={{ borderColor: showFnPanel?"var(--brown-dark)":"var(--brown-pale)", color:"var(--brown-dark)", background: showFnPanel?"var(--brown-pale)":"white" }}>
+                f(x)
+              </button>
+              {showFnPanel && (
+                <div className="absolute top-full mt-1 right-0 z-30 bg-white rounded-xl border shadow-lg p-2"
+                  style={{ borderColor:"var(--brown-pale)", minWidth:280 }}>
+                  <div className="text-xs mb-1.5" style={{ color:"var(--brown-mid)" }}>
+                    График вставляется как объект — можно двигать и масштабировать
+                  </div>
+                  <form className="flex items-center gap-1" onSubmit={e => { e.preventDefault(); addFunction(); setShowFnPanel(false); }}>
+                    <span className="text-sm font-mono shrink-0" style={{ color:"var(--brown-mid)" }}>y =</span>
+                    <input value={fnFormula} onChange={e => { setFnFormula(e.target.value); setFnError(false); }}
+                      placeholder="x², sin(x), 2x+1…" autoComplete="off" spellCheck={false} autoFocus
+                      className="text-sm font-mono px-2 py-1 rounded-lg border outline-none flex-1"
+                      style={{ borderColor: fnError ? "#e05050" : "var(--brown-pale)", background:"#fdf8f0", color:"var(--brown-dark)" }}/>
+                    <button type="submit" disabled={!fnFormula.trim()}
+                      className="text-sm px-3 py-1 rounded-lg font-medium shrink-0 disabled:opacity-40"
+                      style={{ background:"var(--gradient-primary)", color:"white" }}>
+                      Добавить
+                    </button>
+                  </form>
+                  {fnError && <div className="text-xs mt-1" style={{ color:"#e05050" }}>Неверная формула. Примеры: x^2, sin(x), 2*x+1</div>}
+                </div>
+              )}
+            </div>
             <Sep/>
             {pdfMaterials.length > 0 && role === "tutor" && (
               <div className="relative">
@@ -3008,10 +3088,18 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
           if (hit) return; // let item handle its own dblclick
           setTextInput({ wx: w.x, wy: w.y }); setTextValue("");
           setTimeout(() => textRef.current?.focus(), 30);
+        }}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={() => {
+          selDragRef.current = null; setTouchDragging(false);
+          livePathRef.current = null; liveShapeRef.current = null;
+          panning.current = false; eraserActiveRef.current = false;
+          touchDrawPending.current = null;
         }}>
 
-        <canvas ref={canvasRef} className="absolute inset-0" style={{ touchAction:"none" }}
-          onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} />
+        <canvas ref={canvasRef} className="absolute inset-0" style={{ touchAction:"none" }} />
 
         {/* Video overlays */}
         {itemsRef.current.filter(it => it.type === "video").map(it => {
@@ -3021,9 +3109,11 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
           const sw = ep.x - sp.x, sh = ep.y - sp.y;
           const selected = selectedId === vi.id || selectedIds.has(vi.id);
           const locked = vi.locked;
+          const isDraggingThis = touchDragging && selectedId === vi.id;
           return (
             <div key={vi.id} className="absolute"
-              style={{ left: sp.x, top: sp.y, width: sw, height: sh, zIndex: 20 }}
+              style={{ left: sp.x, top: sp.y, width: sw, height: sh, zIndex: 20,
+                visibility: isDraggingThis ? "hidden" : undefined }}
               onMouseDown={e => {
                 e.stopPropagation();
                 setSelectedId(vi.id); setSelectedIds(new Set());
@@ -3042,23 +3132,24 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
                 <Maximize2 size={12}/>
               </button>
               {/* Resize handles */}
-              {selected && !locked && (["nw","ne","sw","se"] as const).map(corner => {
+              {selected && !locked && !touchDragging && (["nw","ne","sw","se"] as const).map(corner => {
                 const isRight = corner.endsWith("e"), isBottom = corner.startsWith("s");
+                const startResize = (clientX: number, clientY: number) => {
+                  const rect = containerRef.current!.getBoundingClientRect();
+                  const ww = (clientX - rect.left - viewRef.current.panX) / viewRef.current.zoom;
+                  const wh = (clientY - rect.top  - viewRef.current.panY) / viewRef.current.zoom;
+                  selDragRef.current = { mode:"resize-img", id: vi.id, corner, wx0: ww, wy0: wh, origItem: { ...vi } };
+                };
                 return (
                   <div key={corner} className="absolute pointer-events-auto"
                     style={{
                       [isRight?"right":"left"]: -7, [isBottom?"bottom":"top"]: -7,
-                      width:14, height:14, cursor:`${corner}-resize`, zIndex:32,
+                      width:18, height:18, cursor:`${corner}-resize`, zIndex:32,
                       background:"white", border:"2px solid #4a80f0", borderRadius:3,
                     }}
-                    onMouseDown={e => {
-                      e.stopPropagation();
-                      const rect = containerRef.current!.getBoundingClientRect();
-                      const ww = (e.clientX - rect.left - viewRef.current.panX) / viewRef.current.zoom;
-                      const wh = (e.clientY - rect.top  - viewRef.current.panY) / viewRef.current.zoom;
-                      selDragRef.current = { mode:"resize-img", id: vi.id, corner,
-                        wx0: ww, wy0: wh, origItem: { ...vi } };
-                    }}/>
+                    onMouseDown={e => { e.stopPropagation(); startResize(e.clientX, e.clientY); }}
+                    onTouchStart={e => { e.stopPropagation(); e.preventDefault(); startResize(e.touches[0].clientX, e.touches[0].clientY); }}
+                  />
                 );
               })}
             </div>
@@ -3075,7 +3166,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
           return (
             <div key={fi.id} className="absolute pointer-events-none"
               style={{ left: sp.x, top: sp.y, width: sw, height: sh, zIndex: 18 }}>
-              {selected && (
+              {selected && !touchDragging && (
                 <>
                   <div className="absolute inset-0" style={{ outline: "2px solid #4a80f0" }} />
                   {!fi.locked && (["nw","ne","sw","se"] as const).map(corner => {
@@ -3110,6 +3201,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
           const ep = w2s(di.x + di.w, di.y + di.h);
           const sw = ep.x - sp.x, sh = ep.y - sp.y;
           const sel = selectedId === di.id || selectedIds.has(di.id);
+          if (touchDragging && selectedId === di.id) return null;
           return (
             <DiceOverlay key={di.id} item={di} sp={sp} sw={sw} sh={sh} selected={sel}
               onRoll={result => updateBoardItem({ ...di, result })} />
@@ -3123,6 +3215,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
           const ep = w2s(wi.x + wi.w, wi.y + wi.h);
           const sw = ep.x - sp.x, sh = ep.y - sp.y;
           const sel = selectedId === wi.id || selectedIds.has(wi.id);
+          if (touchDragging && selectedId === wi.id) return null;
           return (
             <WheelOverlay key={wi.id} item={wi} sp={sp} sw={sw} sh={sh} selected={sel}
               onAngleUpdate={angle => updateBoardItem({ ...wi, angle })}
@@ -3187,9 +3280,11 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
           </div>
         )}
         {pendingSymbol && (
-          <div className="absolute bottom-20 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-xl text-xs font-medium shadow-lg pointer-events-none select-none"
+          <div className="absolute bottom-20 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium shadow-lg pointer-events-auto select-none"
             style={{ background:"var(--brown-dark)", color:"white", zIndex:51 }}>
-            Кликните на доску чтобы разместить · Esc — отмена
+            <span className="pointer-events-none">Тапни на доску чтобы разместить</span>
+            <button onClick={() => { setPendingSymbol(null); setPendingSymbolPos(null); }}
+              className="ml-1 text-white opacity-70 hover:opacity-100 font-bold text-sm leading-none">✕</button>
           </div>
         )}
 
@@ -3224,51 +3319,56 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
             <div className="absolute" style={{ left:tl.x, top:tl.y, width:sw, height:sh,
               border:"2px solid #4a80f0", background:"rgba(74,128,240,0.04)",
               borderRadius:4, zIndex:30 }}>
-              {/* Badge */}
-              <div className="absolute pointer-events-none flex items-center gap-2"
-                style={{ top:-28, left:0 }}>
-                <div className="rounded-lg px-2 py-0.5 text-xs font-medium text-white flex items-center gap-1"
-                  style={{ background:"#4a80f0" }}>
-                  {items.length} объекта
-                </div>
-              </div>
-              {/* Toolbar: duplicate + delete */}
-              <div className="absolute pointer-events-auto flex items-center gap-1"
-                style={{ top:-28, right:0 }}>
-                <button onMouseDown={e => e.stopPropagation()}
-                  onClick={() => {
-                    const sel = itemsRef.current.filter(i => selectedIds.has(i.id));
-                    const duped = sel.map(i => shiftItem({ ...i, id: uid() }, 24, 24));
-                    duped.forEach(item => { itemsRef.current.push(item); send({ type:"path", item }); pushHistory({ type:"add", item }); });
-                    render();
-                  }}
-                  className="rounded-lg px-2 py-0.5 text-xs font-medium flex items-center gap-1 hover:opacity-80 border"
-                  style={{ background:"white", borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
-                  ⧉ Дубль
-                </button>
-                <button onMouseDown={e => e.stopPropagation()}
-                  onClick={() => {
-                    pushHistory({ type:"clear", saved:[...itemsRef.current] });
-                    const toRemove = new Set(selectedIds);
-                    itemsRef.current = itemsRef.current.filter(i => !toRemove.has(i.id));
-                    render(); send({ type:"clear" });
-                    itemsRef.current.forEach(item => send({ type:"path", item }));
-                    setSelectedIds(new Set()); setSelectedId(null);
-                  }}
-                  className="rounded-lg px-2 py-0.5 text-xs font-medium text-white flex items-center gap-1 hover:opacity-80"
-                  style={{ background:"#e05030" }}>
-                  <Trash2 size={11}/> Удалить
-                </button>
-              </div>
+              {/* Badge + toolbar — flip below group if near top of canvas */}
+              {(() => {
+                const vOff = tl.y > 32 ? -28 : sh + 4;
+                return (
+                  <>
+                    <div className="absolute pointer-events-none flex items-center gap-2"
+                      style={{ top: vOff, left: 0 }}>
+                      <div className="rounded-lg px-2 py-0.5 text-xs font-medium text-white flex items-center gap-1"
+                        style={{ background:"#4a80f0" }}>
+                        {items.length} объекта
+                      </div>
+                    </div>
+                    <div className="absolute pointer-events-auto flex items-center gap-1"
+                      style={{ top: vOff, right: 0 }}>
+                      <button onMouseDown={e => e.stopPropagation()}
+                        onClick={() => {
+                          const sel = itemsRef.current.filter(i => selectedIds.has(i.id));
+                          const duped = sel.map(i => shiftItem({ ...i, id: uid() }, 24, 24));
+                          duped.forEach(item => { itemsRef.current.push(item); send({ type:"path", item }); pushHistory({ type:"add", item }); });
+                          render();
+                        }}
+                        className="rounded-lg px-2 py-0.5 text-xs font-medium flex items-center gap-1 hover:opacity-80 border"
+                        style={{ background:"white", borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
+                        ⧉ Дубль
+                      </button>
+                      <button onMouseDown={e => e.stopPropagation()}
+                        onClick={() => {
+                          pushHistory({ type:"clear", saved:[...itemsRef.current] });
+                          const toRemove = new Set(selectedIds);
+                          itemsRef.current = itemsRef.current.filter(i => !toRemove.has(i.id));
+                          render(); send({ type:"clear" });
+                          itemsRef.current.forEach(item => send({ type:"path", item }));
+                          setSelectedIds(new Set()); setSelectedId(null);
+                        }}
+                        className="rounded-lg px-2 py-0.5 text-xs font-medium text-white flex items-center gap-1 hover:opacity-80"
+                        style={{ background:"#e05030" }}>
+                        <Trash2 size={11}/> Удалить
+                      </button>
+                    </div>
+                  </>
+                );
+              })()}
               {/* Drag hint */}
-              <div className="absolute inset-0 cursor-move"
-                style={{ zIndex:1 }}/>
+              <div className="absolute inset-0 cursor-move" style={{ zIndex:1 }}/>
             </div>
           );
         })()}
 
-        {/* Selection overlay */}
-        {selectedItem && tool === "select" && (() => {
+        {/* Selection overlay — hidden while touch-dragging to avoid stale DOM position */}
+        {selectedItem && !touchDragging && (() => {
           const bounds = itemBounds(selectedItem);
           const PAD = 8 / zoom;
           const tl = w2s(bounds.x0 - PAD, bounds.y0 - PAD);
@@ -3279,36 +3379,85 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
             <div className="absolute pointer-events-none"
               style={{ left:tl.x, top:tl.y, width:sw, height:sh,
                 border: locked ? "2px dashed #e09020" : "2px dashed #4a80f0",
-                borderRadius:4, zIndex:30 }}>
+                borderRadius:4, zIndex:30, touchAction:"none" }}>
               {/* Lock button — tutor only */}
               {role === "tutor" && (
                 <button className="absolute pointer-events-auto flex items-center justify-center rounded"
-                  style={{ left:-10, top:-10, width:22, height:22, zIndex:31, cursor:"pointer",
+                  style={{ left:-12, top:-12, width:28, height:28, zIndex:31, cursor:"pointer",
                     background: locked?"#e09020":"#4a80f0", border:"none" }}
                   onMouseDown={e => e.stopPropagation()}
+                  onTouchStart={e => e.stopPropagation()}
+                  onTouchEnd={e => e.stopPropagation()}
                   onClick={() => toggleLock(selectedItem.id)}>
-                  {locked ? <Unlock size={11} color="white"/> : <Lock size={11} color="white"/>}
+                  {locked ? <Unlock size={13} color="white"/> : <Lock size={13} color="white"/>}
                 </button>
               )}
-              {/* Duplicate + Crop buttons (top-right area) */}
+              {/* Duplicate + Crop + Color + Layer + Delete buttons — flip below item if near top of canvas */}
               <div className="absolute pointer-events-auto flex items-center gap-1"
-                style={{ top:-28, right:0 }}>
-                <button onMouseDown={e=>e.stopPropagation()}
+                style={{ top: tl.y > 36 ? -28 : sh + 4, right:0, zIndex:36 }}>
+                <button onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()}
                   onClick={() => { const d=shiftItem({...selectedItem,id:uid()},24,24); itemsRef.current.push(d); send({type:"path",item:d}); pushHistory({type:"add",item:d}); render(); }}
-                  className="rounded-lg px-2 py-0.5 text-xs font-medium border hover:opacity-80"
-                  style={{ background:"white", borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>⧉ Дубль</button>
+                  className="rounded-lg px-2 py-1 text-xs font-medium border hover:opacity-80"
+                  title="Дублировать"
+                  style={{ background:"white", borderColor:"var(--brown-pale)", color:"var(--brown-dark)", minHeight:28 }}>⧉</button>
                 {selectedItem.type === "image" && (
-                  <button onMouseDown={e=>e.stopPropagation()} onClick={() => setCropId(selectedItem.id)}
-                    className="rounded-lg px-2 py-0.5 text-xs font-medium border hover:opacity-80"
-                    style={{ background:"white", borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>✂ Обрезать</button>
+                  <button onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()} onClick={() => setCropId(selectedItem.id)}
+                    className="rounded-lg px-2 py-1 text-xs font-medium border hover:opacity-80"
+                    title="Обрезать"
+                    style={{ background:"white", borderColor:"var(--brown-pale)", color:"var(--brown-dark)", minHeight:28 }}>✂</button>
                 )}
+                {/* Layer order buttons */}
+                <button onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()}
+                  onClick={() => reorderItem(selectedItem.id, "forward")}
+                  className="rounded-lg px-1.5 py-1 text-xs font-medium border hover:opacity-80 flex items-center justify-center"
+                  title="Вперёд"
+                  style={{ background:"white", borderColor:"var(--brown-pale)", color:"var(--brown-dark)", minHeight:28 }}>
+                  <ChevronUp size={14}/>
+                </button>
+                <button onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()}
+                  onClick={() => reorderItem(selectedItem.id, "backward")}
+                  className="rounded-lg px-1.5 py-1 text-xs font-medium border hover:opacity-80 flex items-center justify-center"
+                  title="Назад"
+                  style={{ background:"white", borderColor:"var(--brown-pale)", color:"var(--brown-dark)", minHeight:28 }}>
+                  <ChevronDown size={14}/>
+                </button>
+                <button onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()}
+                  onClick={() => reorderItem(selectedItem.id, "front")}
+                  className="rounded-lg px-1.5 py-1 text-xs font-medium border hover:opacity-80 flex items-center justify-center"
+                  title="На передний план"
+                  style={{ background:"white", borderColor:"var(--brown-pale)", color:"var(--brown-dark)", minHeight:28 }}>
+                  <ChevronsUp size={14}/>
+                </button>
+                <button onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()}
+                  onClick={() => reorderItem(selectedItem.id, "back")}
+                  className="rounded-lg px-1.5 py-1 text-xs font-medium border hover:opacity-80 flex items-center justify-center"
+                  title="На задний план"
+                  style={{ background:"white", borderColor:"var(--brown-pale)", color:"var(--brown-dark)", minHeight:28 }}>
+                  <ChevronsDown size={14}/>
+                </button>
+                <button onMouseDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()}
+                  onClick={() => {
+                    const toRemove = new Set(selectedIds.size > 0 ? selectedIds : [selectedItem.id]);
+                    pushHistory({ type:"clear", saved:[...itemsRef.current] });
+                    itemsRef.current = itemsRef.current.filter(i => !toRemove.has(i.id));
+                    render(); send({ type:"clear" });
+                    itemsRef.current.forEach(item => send({ type:"path", item }));
+                    setSelectedId(null);
+                    setSelectedIds(new Set());
+                  }}
+                  className="rounded-lg px-2 py-1 text-xs font-medium text-white hover:opacity-80 flex items-center justify-center"
+                  style={{ background:"#e05030", minHeight:28, minWidth:28 }}>
+                  <Trash2 size={12}/>
+                </button>
               </div>
-              {/* Edit button — text double-click */}
-              {selectedItem.type === "text" && (
-                <button className="absolute pointer-events-auto flex items-center justify-center rounded"
-                  style={{ right:-10, top:-10, width:22, height:22, zIndex:31, cursor:"pointer",
-                    background:"#4a80f0", border:"none" }}
+              {/* Edit button — text (mobile-friendly size) */}
+              {selectedItem.type === "text" && !selectedItem.isSymbol && !(selectedItem.align === "center" && [...selectedItem.text].every(c => c.codePointAt(0)! > 127)) && (
+                <button className="absolute pointer-events-auto flex items-center justify-center rounded-lg"
+                  style={{ right:-14, top:-14, width:34, height:34, zIndex:31, cursor:"pointer",
+                    background:"#4a80f0", border:"2px solid white", boxShadow:"0 2px 8px rgba(74,128,240,0.4)" }}
                   onMouseDown={e => e.stopPropagation()}
+                  onTouchStart={e => e.stopPropagation()}
+                  onTouchEnd={e => e.stopPropagation()}
                   onClick={() => {
                     const ti = selectedItem as TextItem;
                     editingIdRef.current = ti.id; setEditingId(ti.id);
@@ -3323,14 +3472,40 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
                       ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px";
                     }, 30);
                   }}>
-                  <Pencil size={11} color="white"/>
+                  <Pencil size={14} color="white"/>
                 </button>
+              )}
+              {/* Text color panel — below the selection */}
+              {selectedItem.type === "text" && !locked && (
+                <div className="absolute pointer-events-auto flex items-center gap-1 px-2 py-1 rounded-xl border shadow-md"
+                  style={{ top: sh + 6, left: 0, background:"white", borderColor:"var(--brown-pale)", zIndex:35, whiteSpace:"nowrap" }}
+                  onMouseDown={e => e.stopPropagation()}
+                  onTouchStart={e => e.stopPropagation()}
+                  onTouchEnd={e => e.stopPropagation()}>
+                  {(["#1a1a1a","#e05030","#4a80f0","#2a9d5c","#e0a020","#9b59b6","#ffffff"] as const).map(c => (
+                    <button key={c}
+                      onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}
+                      onClick={() => updateBoardItem({...selectedItem as TextItem, color: c})}
+                      className="w-5 h-5 rounded-full shrink-0 border-2"
+                      style={{ background: c, borderColor: (selectedItem as TextItem).color === c ? "#4a80f0" : "var(--brown-pale)" }}/>
+                  ))}
+                  <label className="relative w-5 h-5 rounded-full border-2 cursor-pointer overflow-hidden shrink-0"
+                    title="Другой цвет"
+                    style={{ borderColor:"var(--brown-pale)", background:(selectedItem as TextItem).color }}>
+                    <input type="color" value={(selectedItem as TextItem).color}
+                      onChange={e => updateBoardItem({...selectedItem as TextItem, color: e.target.value})}
+                      className="absolute opacity-0 inset-0 w-full h-full cursor-pointer"/>
+                  </label>
+                </div>
               )}
               {/* Resize handle — text only */}
               {selectedItem.type === "text" && !locked && (
                 <div className="absolute pointer-events-auto"
-                  style={{ right:-7, bottom:-7, width:14, height:14, cursor:"se-resize",
-                    background:"white", border:"2px solid #4a80f0", borderRadius:3 }}
+                  style={{ right:-9, bottom:-9, width:24, height:24, cursor:"se-resize",
+                    background:"white", border:"2px solid #4a80f0", borderRadius:4,
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    fontSize:10, color:"#4a80f0", userSelect:"none",
+                    touchAction:"none" }}
                   onMouseDown={e => {
                     e.stopPropagation();
                     const ti = selectedItem as TextItem;
@@ -3342,7 +3517,20 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
                       origFontSize: ti.fontSize,
                       origDiag: Math.max(20, Math.hypot(tb.w, tb.h)),
                     };
-                  }}/>
+                  }}
+                  onTouchStart={e => {
+                    e.stopPropagation(); e.preventDefault();
+                    const ti = selectedItem as TextItem;
+                    const tb = textBounds(ti);
+                    const rect = containerRef.current!.getBoundingClientRect();
+                    selDragRef.current = { mode:"resize", id:ti.id,
+                      wx0: (e.touches[0].clientX - rect.left - viewRef.current.panX) / viewRef.current.zoom,
+                      wy0: (e.touches[0].clientY - rect.top  - viewRef.current.panY) / viewRef.current.zoom,
+                      origItem: { ...ti },
+                      origFontSize: ti.fontSize,
+                      origDiag: Math.max(20, Math.hypot(tb.w, tb.h)),
+                    };
+                  }}>↘</div>
               )}
               {/* Resize handles — image and frame */}
               {(selectedItem.type === "image" || selectedItem.type === "frame") && !locked && (
@@ -3353,16 +3541,25 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
                     return (
                       <div key={corner} className="absolute pointer-events-auto"
                         style={{
-                          [isRight?"right":"left"]: -7,
-                          [isBottom?"bottom":"top"]: -7,
-                          width:14, height:14, cursor:`${corner}-resize`,
+                          [isRight?"right":"left"]: -10,
+                          [isBottom?"bottom":"top"]: -10,
+                          width:20, height:20, cursor:`${corner}-resize`,
                           background:"white", border:"2px solid #4a80f0", borderRadius:3, zIndex:32,
+                          touchAction:"none",
                         }}
                         onMouseDown={e => {
                           e.stopPropagation();
                           const rect = containerRef.current!.getBoundingClientRect();
                           const ww = (e.clientX - rect.left - viewRef.current.panX) / viewRef.current.zoom;
                           const wh = (e.clientY - rect.top  - viewRef.current.panY) / viewRef.current.zoom;
+                          selDragRef.current = { mode, id: selectedItem.id, corner,
+                            wx0: ww, wy0: wh, origItem: { ...selectedItem } };
+                        }}
+                        onTouchStart={e => {
+                          e.stopPropagation(); e.preventDefault();
+                          const rect = containerRef.current!.getBoundingClientRect();
+                          const ww = (e.touches[0].clientX - rect.left - viewRef.current.panX) / viewRef.current.zoom;
+                          const wh = (e.touches[0].clientY - rect.top  - viewRef.current.panY) / viewRef.current.zoom;
                           selDragRef.current = { mode, id: selectedItem.id, corner,
                             wx0: ww, wy0: wh, origItem: { ...selectedItem } };
                         }}/>
@@ -3420,138 +3617,36 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
           const bgCss = textBgOpacity > 0
             ? textBgColor + Math.round(textBgOpacity * 2.55).toString(16).padStart(2,"0")
             : "transparent";
-          const containerW = containerRef.current?.clientWidth ?? 800;
-          const isMobile = containerW < 520;
-
-          // Helper: button that never steals focus from textarea
-          const TBtn = ({ children, active, onAct, style }: { children: React.ReactNode; active?: boolean; onAct: () => void; style?: React.CSSProperties }) => (
-            <button
-              onMouseDown={e => e.preventDefault()}
-              onClick={onAct}
-              onTouchStart={e => e.preventDefault()}
-              onTouchEnd={e => { e.stopPropagation(); onAct(); }}
-              style={{ display:"flex", alignItems:"center", justifyContent:"center", borderRadius:10,
-                border:`2px solid ${active ? "#4a80f0" : "transparent"}`,
-                background: active ? "#eef2ff" : "transparent",
-                color:"var(--brown-dark)", cursor:"pointer", ...style }}>
-              {children}
-            </button>
-          );
-
-          // ── Inline textarea (same for both mobile and desktop) ──
-          const handleStyle: React.CSSProperties = {
-            position:"absolute", width:10, height:10, borderRadius:"50%",
-            background:"white", border:"2px solid #4a80f0", pointerEvents:"none",
-          };
-          const textareaEl = (
-            <div className="absolute" style={{ left:textScr.x, top:textScr.y, zIndex:50 }}
-              onMouseDown={e => e.stopPropagation()}
-              onTouchStart={e => e.stopPropagation()}>
-              <textarea ref={textRef} value={textValue}
-                onChange={e => {
-                  const val = e.target.value;
-                  setTextValue(val);
-                  const el = e.target;
-                  const lines = val.split("\n");
-                  const span = document.createElement("span");
-                  span.style.cssText = `position:absolute;visibility:hidden;white-space:pre;font:${
-                    el.style.fontStyle} ${el.style.fontWeight} ${el.style.fontSize} ${el.style.fontFamily
-                  };padding:${el.style.padding}`;
-                  document.body.appendChild(span);
-                  const maxW = Math.max(...lines.map(l => { span.textContent = l||"M"; return span.getBoundingClientRect().width; }));
-                  document.body.removeChild(span);
-                  el.style.width = Math.max(maxW + 24, Math.round(60 * zoom)) + "px";
-                  el.style.height = "auto";
-                  el.style.height = el.scrollHeight + "px";
-                }}
-                onKeyDown={e => {
-                  if (e.key === "Escape") { e.preventDefault(); setTextInput(null); editingIdRef.current=null; setEditingId(null); render(); }
-                  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commitText(); }
-                }}
-                rows={1} placeholder="Текст..."
-                style={{ display:"block", fontSize:fontSize*zoom+"px", fontFamily:FONTS[fontIdx].family,
-                  fontWeight:bold?"bold":"normal", fontStyle:italic?"italic":"normal", textAlign:align,
-                  color, caretColor:color,
-                  backgroundColor: bgCss === "transparent" ? "transparent" : bgCss,
-                  border: "1.5px solid #4a80f0",
-                  borderRadius: 3, outline: "none",
-                  padding: `${3*zoom}px ${6*zoom}px`,
-                  minWidth: Math.max(40, 60*zoom)+"px",
-                  lineHeight: 1.5, resize: "none", overflow: "hidden",
-                  whiteSpace: "pre", WebkitAppearance: "none",
-                } as React.CSSProperties} />
-              <div style={{ ...handleStyle, top:-5, left:-5 }}/>
-              <div style={{ ...handleStyle, top:-5, right:-5 }}/>
-              <div style={{ ...handleStyle, bottom:-5, left:-5 }}/>
-              <div style={{ ...handleStyle, bottom:-5, right:-5 }}/>
-            </div>
-          );
-
-          if (isMobile) {
-            // ── Mobile: compact bottom strip with big touch targets ──
-            const B = 44; // button size px
-            return (
-              <>
-                {textareaEl}
-                <div className="absolute bottom-0 left-0 right-0 pointer-events-auto flex items-center gap-1 px-3 py-2 border-t"
-                  style={{ background:"white", borderColor:"var(--brown-pale)", zIndex:60 }}
-                  onTouchStart={e => e.stopPropagation()}>
-                  {/* A- */}
-                  <TBtn onAct={() => setFontSize(s => Math.max(8, s - 2))} style={{ width:B, height:B, fontSize:13, fontWeight:"bold" }}>A-</TBtn>
-                  {/* Size display */}
-                  <span style={{ minWidth:30, textAlign:"center", fontSize:13, color:"var(--brown-dark)", fontWeight:500 }}>{fontSize}</span>
-                  {/* A+ */}
-                  <TBtn onAct={() => setFontSize(s => Math.min(200, s + 4))} style={{ width:B, height:B, fontSize:13, fontWeight:"bold" }}>A+</TBtn>
-                  <div style={{ width:1, height:28, background:"var(--brown-pale)", margin:"0 2px" }}/>
-                  {/* Bold */}
-                  <TBtn active={bold} onAct={() => setBold(b=>!b)} style={{ width:B, height:B, fontSize:15, fontWeight:"bold" }}>B</TBtn>
-                  {/* Italic */}
-                  <TBtn active={italic} onAct={() => setItalic(i=>!i)} style={{ width:B, height:B, fontSize:15, fontStyle:"italic", fontFamily:"Georgia,serif" }}>I</TBtn>
-                  <div style={{ width:1, height:28, background:"var(--brown-pale)", margin:"0 2px" }}/>
-                  {/* Color swatch */}
-                  <label style={{ position:"relative", width:B, height:B, borderRadius:10, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer" }}
-                    onTouchStart={e => e.stopPropagation()}>
-                    <span style={{ fontSize:16, fontWeight:"bold", color, lineHeight:1 }}>A</span>
-                    <input type="color" value={color} onChange={e => setColor(e.target.value)}
-                      style={{ position:"absolute", opacity:0, inset:0, cursor:"pointer" }}/>
-                  </label>
-                  <div style={{ flex:1 }}/>
-                  {/* Done */}
-                  <TBtn onAct={commitText}
-                    style={{ height:B, paddingLeft:20, paddingRight:20, fontSize:14, fontWeight:600,
-                      background:"var(--gradient-primary)", color:"white", border:"none", borderRadius:12 }}>
-                    Готово
-                  </TBtn>
-                </div>
-              </>
-            );
-          }
-
-          // ── Desktop: floating toolbar above text ──
           const Sep2 = () => <div className="w-px h-5 mx-1 shrink-0" style={{ background:"#e0d8d0" }}/>;
           const TOOLBAR_H = 44;
           const TOOLBAR_W = 480;
           const containerH = containerRef.current?.clientHeight ?? 600;
+          const containerW = containerRef.current?.clientWidth ?? 800;
+          // Position toolbar just above the text, clamped inside canvas
           const toolbarTop = Math.max(4, Math.min(textScr.y - TOOLBAR_H - 8, containerH - TOOLBAR_H - 4));
           const toolbarLeft = Math.max(4, Math.min(textScr.x - TOOLBAR_W / 2, containerW - TOOLBAR_W - 4));
           return (
             <>
-              <div className="absolute pointer-events-auto flex items-center gap-0.5 px-2 py-1 rounded-2xl shadow-2xl border"
-                style={{ top:toolbarTop, left:toolbarLeft, width:TOOLBAR_W,
+              {/* ── Floating toolbar above text (desktop only — touch devices use bottom sheet) ── */}
+              {!isMobile && <div className="absolute pointer-events-auto hidden sm:flex items-center gap-0.5 px-2 py-1 rounded-2xl shadow-2xl border"
+                style={{ top: toolbarTop, left: toolbarLeft, width: TOOLBAR_W,
                   background:"white", borderColor:"var(--brown-pale)", zIndex:60 }}
                 onMouseDown={e => e.preventDefault()}>
+                {/* Font */}
                 <select value={fontIdx} onChange={e=>setFontIdx(+e.target.value)} onMouseDown={e=>e.stopPropagation()}
                   className="border-0 rounded outline-none"
                   style={{ color:"var(--brown-dark)", height:28, maxWidth:76, fontSize:11 }}>
                   {FONTS.map((f,i)=><option key={i} value={i}>{f.label}</option>)}
                 </select>
                 <Sep2/>
+                {/* Size — editable input */}
                 <input type="number" value={fontSize} min={8} max={200}
                   onChange={e=>setFontSize(Math.max(8,Math.min(200,+e.target.value)))}
                   onMouseDown={e=>e.stopPropagation()}
                   className="border rounded text-center outline-none"
                   style={{ color:"var(--brown-dark)", width:40, height:28, fontSize:12, borderColor:"var(--brown-pale)" }}/>
                 <Sep2/>
+                {/* Bold / Italic / Underline-placeholder */}
                 <button onMouseDown={e=>e.preventDefault()} onClick={()=>setBold(b=>!b)}
                   className="w-8 h-8 rounded-lg text-sm font-bold border-2 flex items-center justify-center transition-all"
                   style={{ borderColor:bold?"#4a80f0":"transparent", color:"var(--brown-dark)", background:bold?"#eef2ff":"transparent" }}>B</button>
@@ -3559,6 +3654,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
                   className="w-8 h-8 rounded-lg text-sm italic border-2 flex items-center justify-center transition-all"
                   style={{ fontFamily:"Georgia,serif", borderColor:italic?"#4a80f0":"transparent", color:"var(--brown-dark)", background:italic?"#eef2ff":"transparent" }}>I</button>
                 <Sep2/>
+                {/* Alignment */}
                 {(["left","center","right"] as TextAlign[]).map(a=>(
                   <button key={a} onMouseDown={e=>e.preventDefault()} onClick={()=>setAlign(a)}
                     className="w-8 h-8 rounded-lg border-2 flex items-center justify-center transition-all"
@@ -3571,12 +3667,14 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
                   </button>
                 ))}
                 <Sep2/>
+                {/* Text color */}
                 <label className="relative flex flex-col items-center gap-0.5 cursor-pointer w-8 h-8 rounded-lg hover:bg-gray-50 justify-center" title="Цвет текста">
                   <span className="font-bold leading-none" style={{ color:"var(--brown-dark)", fontSize:14 }}>A</span>
                   <div className="w-5 h-1 rounded-full" style={{ background:color }}/>
                   <input type="color" value={color} onChange={e=>setColor(e.target.value)}
                     className="absolute opacity-0 inset-0 cursor-pointer" onMouseDown={e=>e.stopPropagation()}/>
                 </label>
+                {/* Bg color */}
                 <label className="relative flex flex-col items-center gap-0.5 cursor-pointer w-8 h-8 rounded-lg hover:bg-gray-50 justify-center" title="Фон">
                   <div className="w-5 h-5 rounded border-2" style={{ background:textBgOpacity>0?textBgColor:"transparent", borderColor:"var(--brown-pale)" }}/>
                   <input type="color" value={textBgColor}
@@ -3593,8 +3691,127 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
                 <button onMouseDown={e=>e.preventDefault()} onClick={commitText}
                   className="px-3 h-8 rounded-xl text-xs font-semibold text-white shrink-0"
                   style={{ background:"var(--gradient-primary)" }}>Готово</button>
-              </div>
-              {textareaEl}
+              </div>}
+              {/* ── Inline textarea — Miro-style: desktop only ── */}
+              {!isMobile && (() => {
+                const handleStyle: React.CSSProperties = {
+                  position:"absolute", width:10, height:10, borderRadius:"50%",
+                  background:"white", border:"2px solid #4a80f0", pointerEvents:"none",
+                };
+                return (
+                  <div className="absolute" style={{ left:textScr.x, top:textScr.y, zIndex:50 }}
+                    onMouseDown={e => e.stopPropagation()}>
+                    <textarea ref={textRef} value={textValue}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setTextValue(val);
+                        // measure width via hidden span for accuracy
+                        const el = e.target;
+                        const lines = val.split("\n");
+                        const span = document.createElement("span");
+                        span.style.cssText = `position:absolute;visibility:hidden;white-space:pre;font:${
+                          el.style.fontStyle} ${el.style.fontWeight} ${el.style.fontSize} ${el.style.fontFamily
+                        };padding:${el.style.padding}`;
+                        document.body.appendChild(span);
+                        const maxW = Math.max(...lines.map(l => { span.textContent = l||"M"; return span.getBoundingClientRect().width; }));
+                        document.body.removeChild(span);
+                        el.style.width = Math.max(maxW + 24, Math.round(60 * zoom)) + "px";
+                        el.style.height = "auto";
+                        el.style.height = el.scrollHeight + "px";
+                      }}
+                      onKeyDown={e => {
+                        if (e.key === "Escape") { e.preventDefault(); setTextInput(null); editingIdRef.current=null; setEditingId(null); render(); }
+                        if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commitText(); }
+                      }}
+                      rows={1} placeholder="Текст..."
+                      style={{ display:"block", fontSize:fontSize*zoom+"px", fontFamily:FONTS[fontIdx].family,
+                        fontWeight:bold?"bold":"normal", fontStyle:italic?"italic":"normal", textAlign:align,
+                        color, caretColor:color,
+                        backgroundColor: bgCss === "transparent" ? "transparent" : bgCss,
+                        border: "1.5px solid #4a80f0",
+                        borderRadius: 3,
+                        outline: "none",
+                        padding: `${3*zoom}px ${6*zoom}px`,
+                        minWidth: Math.max(40, 60*zoom)+"px",
+                        lineHeight: 1.5, resize: "none", overflow: "hidden",
+                        whiteSpace: "pre",
+                        WebkitAppearance: "none",
+                      } as React.CSSProperties} />
+                    {/* Corner handles — like Miro selection */}
+                    <div style={{ ...handleStyle, top:-5, left:-5 }}/>
+                    <div style={{ ...handleStyle, top:-5, right:-5 }}/>
+                    <div style={{ ...handleStyle, bottom:-5, left:-5 }}/>
+                    <div style={{ ...handleStyle, bottom:-5, right:-5 }}/>
+                  </div>
+                );
+              })()}
+
+              {/* ── Mobile bottom sheet — fixed, keyboard-aware, escapes overflow-hidden ── */}
+              {isMobile && (() => {
+                const cancel = () => { setTextInput(null); editingIdRef.current=null; setEditingId(null); render(); };
+                return (
+                  <div style={{ position:"fixed", inset:0, zIndex:300, touchAction:"auto" }} onClick={cancel}
+                    onTouchStart={e=>e.stopPropagation()} onTouchMove={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()}>
+                    <div style={{
+                      position:"absolute", bottom:0, left:0, right:0,
+                      background:"white", borderRadius:"20px 20px 0 0",
+                      borderTop:"2px solid #e8ddd2",
+                      boxShadow:"0 -4px 24px rgba(0,0,0,0.15)",
+                    }} onClick={e => e.stopPropagation()}>
+                      {/* Controls */}
+                      <div style={{ display:"flex", alignItems:"center", gap:6, padding:"10px 12px", borderBottom:"1px solid #e8ddd2", overflowX:"auto", touchAction:"pan-x" }}>
+                        <button onPointerDown={e=>e.preventDefault()} onClick={()=>setFontSize(s=>Math.max(8,s-2))}
+                          style={{ minWidth:36, height:36, borderRadius:8, border:"1.5px solid #e8ddd2", fontSize:13, fontWeight:"bold", color:"#3A2117", background:"white", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>A−</button>
+                        <span style={{ fontSize:13, color:"#3A2117", width:30, textAlign:"center", flexShrink:0 }}>{fontSize}</span>
+                        <button onPointerDown={e=>e.preventDefault()} onClick={()=>setFontSize(s=>Math.min(200,s+2))}
+                          style={{ minWidth:36, height:36, borderRadius:8, border:"1.5px solid #e8ddd2", fontSize:13, fontWeight:"bold", color:"#3A2117", background:"white", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>A+</button>
+                        <div style={{ width:1, height:24, background:"#e8ddd2", flexShrink:0 }}/>
+                        <button onPointerDown={e=>e.preventDefault()} onClick={()=>setBold(b=>!b)}
+                          style={{ width:36, height:36, borderRadius:8, border:`1.5px solid ${bold?"#4a80f0":"#e8ddd2"}`, fontWeight:"bold", fontSize:15, color:"#3A2117", background:bold?"#eef2ff":"white", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>B</button>
+                        <button onPointerDown={e=>e.preventDefault()} onClick={()=>setItalic(i=>!i)}
+                          style={{ width:36, height:36, borderRadius:8, border:`1.5px solid ${italic?"#4a80f0":"#e8ddd2"}`, fontStyle:"italic", fontFamily:"Georgia,serif", fontSize:15, color:"#3A2117", background:italic?"#eef2ff":"white", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>I</button>
+                        <label style={{ position:"relative", width:36, height:36, borderRadius:8, border:"1.5px solid #e8ddd2", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", cursor:"pointer", flexShrink:0, gap:2 }}>
+                          <span style={{ fontWeight:"bold", fontSize:14, color, lineHeight:"1" }}>A</span>
+                          <div style={{ width:20, height:3, borderRadius:2, background:color }}/>
+                          <input type="color" value={color} onChange={e=>setColor(e.target.value)} style={{ position:"absolute", opacity:0, inset:0, cursor:"pointer" }}/>
+                        </label>
+                        <div style={{ flex:1 }}/>
+                        <button onPointerDown={e=>e.preventDefault()} onClick={cancel}
+                          style={{ height:36, padding:"0 12px", borderRadius:10, border:"1.5px solid #e8ddd2", fontSize:13, color:"#3A2117", background:"white", flexShrink:0 }}>Отмена</button>
+                        <button onPointerDown={e=>e.preventDefault()} onClick={commitText}
+                          style={{ height:36, padding:"0 14px", borderRadius:10, fontSize:13, fontWeight:600, color:"white", background:"linear-gradient(135deg,#74070E,#a01018)", border:"none", flexShrink:0 }}>Готово</button>
+                      </div>
+                      {/* Textarea — keyboard pushes this up naturally on mobile */}
+                      <div style={{ padding:"10px 14px 24px" }}>
+                        <textarea
+                          ref={textRef}
+                          value={textValue}
+                          onChange={e => {
+                            setTextValue(e.target.value);
+                            const ta = e.target;
+                            ta.style.height = "auto";
+                            ta.style.height = ta.scrollHeight + "px";
+                          }}
+                          placeholder="Введите текст..."
+                          autoFocus
+                          rows={2}
+                          style={{
+                            width:"100%", boxSizing:"border-box",
+                            fontSize: Math.min(fontSize, 28)+"px",
+                            fontFamily: FONTS[fontIdx].family,
+                            fontWeight: bold?"bold":"normal",
+                            fontStyle: italic?"italic":"normal",
+                            color,
+                            border:"1.5px solid #e8ddd2", borderRadius:12,
+                            padding:"10px 12px", resize:"none", outline:"none", lineHeight:1.5,
+                            overflow:"hidden",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
             </>
           );
         })()}
@@ -3680,7 +3897,8 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
         {/* Wheel edit dialog */}
         {editWheelId && (
           <div className="fixed inset-0 z-[160] flex items-center justify-center p-4" style={{ background:"rgba(0,0,0,0.4)" }}
-            onClick={e => { if (e.target === e.currentTarget) setEditWheelId(null); }}>
+            onClick={e => { if (e.target === e.currentTarget) setEditWheelId(null); }}
+            onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()}>
             <div className="w-full max-w-sm rounded-2xl border shadow-2xl p-5"
               style={{ background:"white", borderColor:"var(--brown-pale)" }}>
               <div className="font-semibold mb-3 text-sm" style={{ color:"var(--brown-dark)" }}>🎡 Варианты колеса</div>
@@ -3703,7 +3921,8 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
         {/* Emoji picker panel — fixed, right of sidebar */}
         {showEmojiPicker && (
           <div className="absolute inset-y-0 left-0 z-[100] flex"
-            onClick={e => { if (e.target === e.currentTarget) setShowEmojiPicker(false); }}>
+            onClick={e => { if (e.target === e.currentTarget) setShowEmojiPicker(false); }}
+            onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()}>
             <div className="flex flex-col shadow-2xl border-r h-full"
               style={{ width:320, background:"white", borderColor:"var(--brown-pale)" }}>
               {/* Header */}
@@ -3760,7 +3979,8 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
         {imgDialog && (
           <div className="absolute inset-0 flex items-center justify-center z-50"
             style={{ background:"rgba(0,0,0,0.35)" }}
-            onClick={() => setImgDialog(false)}>
+            onClick={() => setImgDialog(false)}
+            onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()}>
             <div className="rounded-2xl border shadow-2xl p-5 w-full max-w-sm mx-4"
               style={{ background:"white", borderColor:"var(--brown-pale)" }}
               onClick={e => e.stopPropagation()}>
@@ -3771,12 +3991,12 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
                 <div>
                   <div className="text-xs mb-1.5 font-medium" style={{ color:"var(--brown-mid)" }}>URL изображения</div>
                   <div className="flex gap-2">
-                    <input value={imgUrl} onChange={e => setImgUrl(e.target.value)}
+                    <input value={imgUrl} onChange={e => { setImgUrl(e.target.value); setImgError(null); }}
                       onKeyDown={e => e.key==="Enter" && addImageToBoard(imgUrl)}
                       placeholder="https://..."
-                      autoFocus
+                      autoFocus={!isMobile}
                       className="flex-1 px-3 py-2 rounded-xl border outline-none text-sm"
-                      style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}/>
+                      style={{ borderColor: imgError ? "#e05050" : "var(--brown-pale)", color:"var(--brown-dark)" }}/>
                     <button onClick={() => addImageToBoard(imgUrl)}
                       disabled={!imgUrl.trim()}
                       className="px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-40"
@@ -3784,6 +4004,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
                       <Link size={14}/>
                     </button>
                   </div>
+                  {imgError && <div className="text-xs mt-1" style={{ color:"#e05050" }}>{imgError}</div>}
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="flex-1 h-px" style={{ background:"var(--brown-pale)" }}/>
@@ -3809,7 +4030,8 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
         {/* Table size picker */}
         {showTablePicker && (
           <div className="fixed inset-0 z-[160] flex items-center justify-center p-4" style={{ background:"rgba(0,0,0,0.4)" }}
-            onClick={e => { if (e.target === e.currentTarget) setShowTablePicker(false); }}>
+            onClick={e => { if (e.target === e.currentTarget) setShowTablePicker(false); }}
+            onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()}>
             <div className="rounded-2xl border shadow-2xl p-5 w-72" style={{ background:"white", borderColor:"var(--brown-pale)" }}>
               <div className="font-semibold mb-4 text-sm" style={{ color:"var(--brown-dark)" }}>⊞ Создать таблицу</div>
               <div className="flex items-center gap-3 mb-3">
@@ -3842,6 +4064,154 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
                   className="px-4 py-2 rounded-xl border text-sm"
                   style={{ borderColor:"var(--brown-pale)", color:"var(--brown-light)" }}>Отмена</button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Symbol picker */}
+        {showSymbols && (
+          <div className="fixed inset-0 z-[250] flex items-start justify-center pt-16 px-4"
+            style={{ background:"rgba(0,0,0,0.2)" }}
+            onTouchStart={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}
+            onClick={e=>{ if(e.target===e.currentTarget) setShowSymbols(false); }}>
+            <div className="rounded-2xl border shadow-xl overflow-hidden"
+              style={{ background:"white", borderColor:"var(--brown-pale)", width:340 }}>
+              <div className="flex border-b overflow-x-auto" style={{ borderColor:"var(--brown-pale)" }}>
+                {Object.keys(SYMBOLS).map(tab => (
+                  <button key={tab} onClick={() => setSymTab(tab)}
+                    className="text-xs px-3 py-2 shrink-0 whitespace-nowrap"
+                    style={{ color: symTab===tab?"var(--brown-dark)":"var(--brown-light)",
+                             fontWeight: symTab===tab?600:400,
+                             borderBottom: symTab===tab?"2px solid var(--brown-dark)":"2px solid transparent" }}>
+                    {tab}
+                  </button>
+                ))}
+              </div>
+              <div className="p-2 grid grid-cols-8 gap-1 max-h-48 overflow-y-auto">
+                {SYMBOLS[symTab].map(sym => (
+                  <button key={sym} onClick={() => { insertSymbol(sym); setShowSymbols(false); }}
+                    className="w-8 h-8 rounded-lg border hover:opacity-70 text-base flex items-center justify-center"
+                    style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
+                    {sym}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Dice panel */}
+        {showDice && (
+          <div className="fixed inset-0 z-[250] flex items-start justify-center pt-16 px-4"
+            style={{ background:"rgba(0,0,0,0.2)" }}
+            onTouchStart={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}
+            onClick={e=>{ if(e.target===e.currentTarget) setShowDice(false); }}>
+            <div className="rounded-2xl border shadow-xl p-4 w-56"
+              style={{ background:"white", borderColor:"var(--brown-pale)" }}>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-xs font-medium" style={{ color:"var(--brown-dark)" }}>Кубиков:</span>
+                {[1,2,3,4,5,6].map(n => (
+                  <button key={n} onClick={() => setDiceCount(n)}
+                    className="w-7 h-7 rounded-lg border-2 text-xs font-bold transition-all"
+                    style={{ borderColor: diceCount===n?"var(--brown-dark)":"var(--brown-pale)", color:"var(--brown-dark)", opacity: diceCount===n?1:0.5 }}>
+                    {n}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-2 mb-3">
+                <button onClick={rollDice} disabled={diceRolling}
+                  className="flex-1 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-60"
+                  style={{ background:"var(--gradient-primary)" }}>
+                  {diceRolling ? "Бросаю..." : "Бросить!"}
+                </button>
+                {role === "tutor" && (
+                  <button onClick={() => { addDiceToBoard(diceCount); setShowDice(false); }}
+                    className="px-3 py-2 rounded-xl text-xs border-2 font-medium"
+                    style={{ borderColor:"var(--brown-dark)", color:"var(--brown-dark)" }}
+                    title="Добавить кубик на доску">
+                    + Доска
+                  </button>
+                )}
+              </div>
+              {diceResult.length > 0 && (
+                <div className="flex gap-2 justify-center flex-wrap">
+                  {diceResult.map((v, i) => (
+                    <DiceFaceSvg key={i} value={v} size={48} rolling={diceRolling}/>
+                  ))}
+                  {diceCount > 1 && (
+                    <div className="w-full text-center text-sm font-bold mt-1" style={{ color:"var(--brown-dark)" }}>
+                      Сумма: {diceResult.reduce((a,b)=>a+b,0)}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* f(x) panel — mobile sheet (desktop uses the absolute dropdown in context bar) */}
+        {showFnPanel && (
+          <div className="sm:hidden fixed inset-0 z-[250] flex items-end justify-center pb-4 px-4"
+            style={{ background:"rgba(0,0,0,0.2)" }}
+            onTouchStart={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}
+            onClick={e=>{ if(e.target===e.currentTarget) setShowFnPanel(false); }}>
+            <div className="w-full max-w-sm rounded-2xl border shadow-xl p-4"
+              style={{ background:"white", borderColor:"var(--brown-pale)" }}>
+              <div className="text-sm font-semibold mb-1" style={{ color:"var(--brown-dark)" }}>График функции</div>
+              <div className="text-xs mb-3" style={{ color:"var(--brown-mid)" }}>График вставляется как объект на доску</div>
+              <form className="flex items-center gap-2" onSubmit={e => { e.preventDefault(); addFunction(); setShowFnPanel(false); }}>
+                <span className="text-sm font-mono shrink-0" style={{ color:"var(--brown-mid)" }}>y =</span>
+                <input value={fnFormula} onChange={e => { setFnFormula(e.target.value); setFnError(false); }}
+                  placeholder="x², sin(x), 2x+1…" autoComplete="off" spellCheck={false} autoFocus
+                  className="text-sm font-mono px-3 py-2 rounded-xl border outline-none flex-1"
+                  style={{ borderColor: fnError ? "#e05050" : "var(--brown-pale)", background:"#fdf8f0", color:"var(--brown-dark)" }}/>
+                <button type="submit" disabled={!fnFormula.trim()}
+                  className="text-sm px-4 py-2 rounded-xl font-medium shrink-0 disabled:opacity-40"
+                  style={{ background:"var(--gradient-primary)", color:"white" }}>
+                  OK
+                </button>
+              </form>
+              {fnError && <div className="text-xs mt-2" style={{ color:"#e05050" }}>Неверная формула. Примеры: x^2, sin(x), 2*x+1</div>}
+            </div>
+          </div>
+        )}
+
+        {/* Wheel panel */}
+        {showWheel && (
+          <div className="fixed inset-0 z-[250] flex items-start justify-center pt-16 px-4"
+            style={{ background:"rgba(0,0,0,0.2)" }}
+            onTouchStart={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}
+            onClick={e=>{ if(e.target===e.currentTarget) setShowWheel(false); }}>
+            <div className="rounded-2xl border shadow-xl p-4 w-72"
+              style={{ background:"white", borderColor:"var(--brown-pale)" }}>
+              <div className="flex justify-center mb-3">
+                <canvas ref={wheelCanvasRef} width={220} height={220} className="rounded-xl"/>
+              </div>
+              {wheelResult && (
+                <div className="text-center mb-3 px-3 py-2 rounded-xl font-bold text-sm"
+                  style={{ background:"var(--brown-pale)", color:"var(--brown-dark)" }}>
+                  🎉 {wheelResult}
+                </div>
+              )}
+              <div className="flex gap-2 mb-3">
+                <button onClick={spinWheel} disabled={wheelSpinning}
+                  className="flex-1 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-60"
+                  style={{ background:"var(--gradient-primary)" }}>
+                  {wheelSpinning ? "Крутится..." : "Крутить!"}
+                </button>
+                {role === "tutor" && (
+                  <button onClick={() => { addWheelToBoard(); setShowWheel(false); }}
+                    className="px-3 py-2 rounded-xl text-xs border-2 font-medium"
+                    style={{ borderColor:"var(--brown-dark)", color:"var(--brown-dark)" }}
+                    title="Добавить колесо на доску">
+                    + Доска
+                  </button>
+                )}
+              </div>
+              <textarea value={wheelItems} onChange={e => { setWheelItems(e.target.value); setWheelResult(null); }}
+                rows={4} placeholder="Вариант 1&#10;Вариант 2&#10;..."
+                className="w-full px-3 py-2 rounded-xl border outline-none text-xs resize-none"
+                style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}/>
             </div>
           </div>
         )}
@@ -3889,70 +4259,214 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
             <MapIcon size={16}/>
           </button>
         </div>
+
+        {/* Hidden input for AI layout upload — always mounted */}
+        <input ref={aiInputRef} type="file" accept="image/*" className="hidden"
+          onChange={e => { const f = e.target.files?.[0]; if(f) { handleAiLayout(f); e.target.value = ""; } }}/>
+
+        {/* Mobile zoom HUD — top center, always visible, tap % to reset */}
+        <div className="sm:hidden absolute top-2 left-1/2 z-[55] flex items-center rounded-full pointer-events-auto select-none"
+          style={{ transform:"translateX(-50%)", background:"rgba(255,255,255,0.94)", border:"1px solid var(--brown-pale)", boxShadow:"0 1px 6px rgba(0,0,0,0.13)" }}>
+          <button onClick={() => zoomCenter(1/1.3)} onTouchEnd={e=>e.stopPropagation()} className="px-2 py-1.5 rounded-l-full hover:opacity-70"
+            style={{ color:"var(--brown-dark)" }}><ZoomOut size={14}/></button>
+          <button
+            onClick={() => {
+              const c = containerRef.current;
+              if (!c) return;
+              const { zoom, panX, panY } = viewRef.current;
+              const cx = c.clientWidth / 2, cy = c.clientHeight / 2;
+              applyView(1, cx - (cx - panX) / zoom, cy - (cy - panY) / zoom);
+            }}
+            onTouchEnd={e=>e.stopPropagation()}
+            className="text-xs font-bold px-1 tabular-nums"
+            title="Сбросить до 100%"
+            style={{ minWidth:44, textAlign:"center", color: vpZoom !== 100 ? "#e05030" : "var(--brown-dark)" }}>
+            {vpZoom}%
+          </button>
+          <button onClick={() => zoomCenter(1.3)} onTouchEnd={e=>e.stopPropagation()} className="px-2 py-1.5 rounded-r-full hover:opacity-70"
+            style={{ color:"var(--brown-dark)" }}><ZoomIn size={14}/></button>
+        </div>
       </div>
 
       {/* Mobile toolbar */}
-      <div className="flex sm:hidden flex-col border-t shrink-0" style={{ borderColor:"var(--brown-pale)", background:"white" }}>
-        <div className="flex items-center gap-1 px-2 py-1.5 border-b overflow-x-auto" style={{ borderColor:"var(--brown-pale)" }}>
+      <div className="flex sm:hidden flex-col border-t shrink-0" style={{ borderColor:"var(--brown-pale)", background:"white" }}
+        onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
+        {/* Row 1: tools + controls */}
+        <div className="flex items-center gap-1 px-2 py-1.5 border-b overflow-x-auto" style={{ borderColor:"var(--brown-pale)", touchAction:"pan-x" }}>
           {([
-            { t:"select" as Tool, icon:<Pointer size={17}/> },
-            { t:"pen" as Tool,       icon:<Pencil size={17}/> },
-            { t:"highlight" as Tool, icon:<Highlighter size={17}/> },
-            { t:"eraser" as Tool,    icon:<Eraser size={17}/> },
-            { t:"text" as Tool,      icon:<Type size={17}/> },
-            { t:"laser" as Tool,     icon:<MousePointer2 size={17}/> },
-            { t:"hand" as Tool,      icon:<Hand size={17}/> },
+            { t:"select" as Tool, icon:<Pointer size={19}/> },
+            { t:"pen" as Tool,       icon:<Pencil size={19}/> },
+            { t:"highlight" as Tool, icon:<Highlighter size={19}/> },
+            { t:"eraser" as Tool,    icon:<Eraser size={19}/> },
+            { t:"text" as Tool,      icon:<Type size={19}/> },
+            { t:"laser" as Tool,     icon:<MousePointer2 size={19}/> },
+            { t:"hand" as Tool,      icon:<Hand size={19}/> },
           ] as const).map(({ t, icon }) => (
-            <ToolBtn key={t} active={tool===t} onClick={() => setTool(t)} title="">{icon}</ToolBtn>
+            <ToolBtn key={t} active={tool===t}
+              onClick={() => { commitText(); pickTool(t); }}
+              title="">{icon}</ToolBtn>
           ))}
-          <div className="flex-1"/>
-          <button
-            onClick={()=>setShowMoreTools(v=>!v)}
-            className="p-2 rounded-lg border shrink-0 font-bold text-base leading-none"
-            style={{ borderColor:showMoreTools?"var(--brown-dark)":"var(--brown-pale)", color:"var(--brown-dark)", background:showMoreTools?"var(--brown-pale)":"transparent" }}>
-            +
-          </button>
+          {/* Shapes */}
+          <ToolBtn active={tool==="shape"} onClick={() => { commitText(); setTool("shape"); setShowShapeMenu(false); }} title="">
+            <Shapes size={19}/>
+          </ToolBtn>
+          {/* Image */}
+          <ToolBtn active={false} onClick={() => { commitText(); pickTool("image"); setImgDialog(true); }} title="">
+            <ImagePlus size={19}/>
+          </ToolBtn>
+          {/* More tools "+" */}
+          <ToolBtn active={showMoreTools} onClick={() => setShowMoreTools(v => !v)} title="">
+            <span className="text-base font-bold leading-none">+</span>
+          </ToolBtn>
+          <div className="flex-1 shrink-0 min-w-2"/>
           {role==="tutor" && (
-            <button onClick={bringToMe} className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg border-2 font-medium"
+            <button onClick={bringToMe} className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg border-2 font-medium shrink-0"
               style={{ borderColor:"var(--brown-dark)", color:"var(--brown-dark)" }}>
               <Navigation size={12}/> Ко мне
             </button>
           )}
-          <button onClick={undo} disabled={!canUndo} className="p-2 rounded-lg border disabled:opacity-25" style={{ borderColor:"var(--brown-pale)" }}><Undo2 size={16} style={{ color:"var(--brown-dark)" }}/></button>
-          <button onClick={redo} disabled={!canRedo} className="p-2 rounded-lg border disabled:opacity-25" style={{ borderColor:"var(--brown-pale)" }}><Redo2 size={16} style={{ color:"var(--brown-dark)" }}/></button>
-          <button onClick={() => zoomCenter(1/1.3)} className="p-2 rounded-lg border" style={{ borderColor:"var(--brown-pale)" }}><ZoomOut size={16} style={{ color:"var(--brown-dark)" }}/></button>
-          <span className="text-xs w-9 text-center" style={{ color:"var(--brown-mid)" }}>{vpZoom}%</span>
-          <button onClick={() => zoomCenter(1.3)} className="p-2 rounded-lg border" style={{ borderColor:"var(--brown-pale)" }}><ZoomIn size={16} style={{ color:"var(--brown-dark)" }}/></button>
-          <button onClick={() => applyView(1,0,0)} className="p-2 rounded-lg border" style={{ borderColor:"var(--brown-pale)" }}><Maximize2 size={16} style={{ color:"var(--brown-dark)" }}/></button>
+          <button onClick={undo} disabled={!canUndo} className="p-2 rounded-lg border disabled:opacity-25 shrink-0" style={{ borderColor:"var(--brown-pale)" }}><Undo2 size={16} style={{ color:"var(--brown-dark)" }}/></button>
+          <button onClick={redo} disabled={!canRedo} className="p-2 rounded-lg border disabled:opacity-25 shrink-0" style={{ borderColor:"var(--brown-pale)" }}><Redo2 size={16} style={{ color:"var(--brown-dark)" }}/></button>
+          <button onClick={() => applyView(1,0,0)} className="p-2 rounded-lg border shrink-0" style={{ borderColor:"var(--brown-pale)" }}><Maximize2 size={16} style={{ color:"var(--brown-dark)" }}/></button>
         </div>
-        <div className="flex items-center gap-2 px-2 py-1.5">
-          {tool==="highlight"
-            ? <div className="flex gap-2 overflow-x-auto">{HIGHLIGHT_COLORS.map(c=><button key={c} onClick={()=>setHlColor(c)} className="shrink-0 rounded-full border-2" style={{ width:28,height:28,background:c,borderColor:hlColor===c?"var(--brown-dark)":"transparent" }}/>)}</div>
-            : (tool==="pen"||tool==="eraser")
-            ? <div className="flex gap-2 overflow-x-auto">{COLORS.map(c=><button key={c} onClick={()=>setColor(c)} className="shrink-0 rounded-full border-2" style={{ width:28,height:28,background:c,borderColor:color===c?"var(--brown-dark)":"transparent",boxShadow:c==="#ffffff"?"inset 0 0 0 1px #bbb":undefined }}/>)}</div>
-            : null
-          }
-          <div className="flex gap-0.5 ml-auto items-center">
+        {/* More tools panel */}
+        {showMoreTools && (
+          <div className="flex items-center gap-1.5 px-2 py-2 border-b overflow-x-auto" style={{ borderColor:"var(--brown-pale)", touchAction:"pan-x" }}>
+            <button onClick={()=>{setShowSymbols(v=>!v);setShowMoreTools(false);}}
+              className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl border shrink-0"
+              style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
+              <span className="text-lg">∑</span><span className="text-xs">Символы</span>
+            </button>
+            <button onClick={()=>{setShowDice(v=>!v);setShowMoreTools(false);}}
+              className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl border shrink-0"
+              style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
+              <span className="text-lg">🎲</span><span className="text-xs">Кубик</span>
+            </button>
+            <button onClick={()=>{setShowWheel(v=>!v);setShowMoreTools(false);}}
+              className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl border shrink-0"
+              style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
+              <span className="text-lg">🎡</span><span className="text-xs">Колесо</span>
+            </button>
+            <button onClick={()=>{setShowFnPanel(v=>!v);setShowMoreTools(false);}}
+              className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl border shrink-0"
+              style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
+              <span className="text-sm font-bold font-mono leading-none mb-0.5">f(x)</span><span className="text-xs">График</span>
+            </button>
+            {role==="tutor" && (
+              <button onClick={()=>{setShowTablePicker(v=>!v);setShowMoreTools(false);}}
+                className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl border shrink-0"
+                style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
+                <span className="text-lg">⊞</span><span className="text-xs">Таблица</span>
+              </button>
+            )}
+            {role==="tutor" && (
+              <label className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl border shrink-0 cursor-pointer"
+                style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
+                <FileText size={20}/><span className="text-xs">PDF</span>
+                <input type="file" accept=".pdf,application/pdf" className="hidden"
+                  onChange={e=>{const f=e.target.files?.[0];if(!f)return;e.target.value="";setShowMoreTools(false);openPdfPicker(URL.createObjectURL(f));}}/>
+              </label>
+            )}
+            {role==="tutor" && (
+              <label className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl border shrink-0 cursor-pointer"
+                style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
+                <span className="text-lg">🎬</span><span className="text-xs">Видео</span>
+                <input type="file" accept="video/*" className="hidden"
+                  onChange={e=>{const f=e.target.files?.[0];if(!f)return;e.target.value="";setShowMoreTools(false);addVideoToBoard(URL.createObjectURL(f));}}/>
+              </label>
+            )}
+          </div>
+        )}
+        {/* Row 2: context — sizes + colors / shapes / ruling */}
+        <div className="flex items-center gap-2 px-2 py-1.5 overflow-x-auto" style={{ touchAction:"pan-x" }}>
+          {/* Text tool hint */}
+          {tool==="text" && !textInput && (
+            <div className="flex items-center gap-2 text-xs shrink-0" style={{ color:"var(--brown-light)" }}>
+              <Type size={13} style={{ color:"var(--brown-mid)" }}/>
+              Нажмите на доску, чтобы добавить текст
+            </div>
+          )}
+          {/* Brush sizes for pen/highlight/eraser/shape */}
+          {(tool==="pen"||tool==="eraser"||tool==="highlight"||tool==="shape") && (
+            <div className="flex gap-1 shrink-0">
+              {SIZES.map(s => (
+                <button key={s} onClick={() => setSize(s)}
+                  className="flex items-center justify-center rounded-full border-2 shrink-0 transition-all"
+                  style={{ width:38, height:38, borderColor:size===s?"var(--brown-dark)":"var(--brown-pale)", opacity:size===s?1:0.4 }}>
+                  <div className="rounded-full" style={{ width:Math.min(s+2,22), height:Math.min(s+2,22), background:"var(--brown-dark)" }}/>
+                </button>
+              ))}
+            </div>
+          )}
+          {/* Shape kind picker */}
+          {tool==="shape" && (
+            <div className="flex gap-1 shrink-0">
+              <div className="w-px mx-0.5 self-stretch" style={{ background:"var(--brown-pale)" }}/>
+              {SHAPE_KINDS.map(k => (
+                <button key={k.v} onClick={() => setShapeKind(k.v)}
+                  className="w-10 h-10 rounded-lg border-2 text-base flex items-center justify-center shrink-0 transition-all"
+                  style={{ borderColor:shapeKind===k.v?"var(--brown-dark)":"transparent", opacity:shapeKind===k.v?1:0.45 }}
+                  title={k.label}>
+                  {k.icon}
+                </button>
+              ))}
+            </div>
+          )}
+          {/* Color swatches + custom picker */}
+          {(tool==="pen"||tool==="eraser"||tool==="shape") && (
+            <div className="flex gap-1.5 items-center shrink-0">
+              <div className="w-px mx-0.5 self-stretch" style={{ background:"var(--brown-pale)" }}/>
+              {COLORS.map(c => (
+                <button key={c} onClick={() => setColor(c)}
+                  className="rounded-full border-2 shrink-0"
+                  style={{ width:34,height:34,background:c,borderColor:color===c?"var(--brown-dark)":"transparent",boxShadow:c==="#ffffff"?"inset 0 0 0 1px #bbb":undefined }}/>
+              ))}
+              <label className="relative rounded-full border-2 shrink-0 overflow-hidden cursor-pointer"
+                style={{ width:34,height:34,borderColor:!COLORS.includes(color)?"var(--brown-dark)":"var(--brown-pale)",background:color }}
+                title="Свой цвет">
+                <input type="color" value={color} onChange={e => setColor(e.target.value)}
+                  className="absolute opacity-0 w-full h-full cursor-pointer" style={{ top:0,left:0 }}/>
+              </label>
+            </div>
+          )}
+          {tool==="highlight" && (
+            <div className="flex gap-1.5 items-center shrink-0">
+              <div className="w-px mx-0.5 self-stretch" style={{ background:"var(--brown-pale)" }}/>
+              {HIGHLIGHT_COLORS.map(c => (
+                <button key={c} onClick={() => setHlColor(c)}
+                  className="rounded-full border-2 shrink-0"
+                  style={{ width:34,height:34,background:c,borderColor:hlColor===c?"var(--brown-dark)":"transparent" }}/>
+              ))}
+              <label className="relative rounded-full border-2 shrink-0 overflow-hidden cursor-pointer"
+                style={{ width:34,height:34,borderColor:!HIGHLIGHT_COLORS.includes(hlColor)?"var(--brown-dark)":"var(--brown-pale)",background:hlColor }}
+                title="Свой цвет">
+                <input type="color" value={hlColor} onChange={e => setHlColor(e.target.value)}
+                  className="absolute opacity-0 w-full h-full cursor-pointer" style={{ top:0,left:0 }}/>
+              </label>
+            </div>
+          )}
+          {/* Ruling + clear (always at end) */}
+          <div className="flex gap-0.5 ml-auto items-center shrink-0">
             {RULING_OPTIONS.map(({ v, title }) => (
               <button key={v} onClick={() => setRuling(v)} title={title}
                 className="flex items-center justify-center rounded-lg border-2"
-                style={{ width:32, height:32, borderColor:ruling===v?"var(--brown-dark)":"var(--brown-pale)", color:"var(--brown-dark)", opacity:ruling===v?1:0.4 }}>
+                style={{ width:36, height:36, borderColor:ruling===v?"var(--brown-dark)":"var(--brown-pale)", color:"var(--brown-dark)", opacity:ruling===v?1:0.4 }}>
                 <RulingIcon v={v}/>
               </button>
             ))}
-            {(ruling === "lines" || ruling === "grid" || ruling === "calligraphy") && (
+            {(ruling==="lines"||ruling==="grid"||ruling==="calligraphy") && (
               <div className="flex gap-0.5 ml-1">
                 {(["S","M","L"] as RulingSize[]).map(sz => (
                   <button key={sz} onClick={() => setSzRuling(sz)}
                     className="text-xs font-bold rounded border-2"
-                    style={{ width:24, height:24, borderColor: rulingSize===sz?"var(--brown-dark)":"var(--brown-pale)", color:"var(--brown-dark)", opacity: rulingSize===sz?1:0.4 }}>
+                    style={{ width:32, height:32, borderColor:rulingSize===sz?"var(--brown-dark)":"var(--brown-pale)", color:"var(--brown-dark)", opacity:rulingSize===sz?1:0.4 }}>
                     {sz}
                   </button>
                 ))}
               </div>
             )}
           </div>
-          <button onClick={handleClear} className="p-2 rounded-lg border" style={{ borderColor:"#f0c0b0", color:"#c06040" }}><Trash2 size={17}/></button>
+          <button onClick={handleClear} className="p-2 rounded-lg border shrink-0" style={{ borderColor:"#f0c0b0", color:"#c06040" }}><Trash2 size={17}/></button>
         </div>
       </div>
       </div>
@@ -4110,6 +4624,28 @@ function SideBtn({ active, onClick, title, children }: { active?:boolean; onClic
   );
 }
 
+// ── DiceFaceSvg ───────────────────────────────────────────────────────────────
+const DICE_PIPS: Record<number, [number,number][]> = {
+  1: [[0.5, 0.5]],
+  2: [[0.75, 0.25], [0.25, 0.75]],
+  3: [[0.75, 0.25], [0.5, 0.5], [0.25, 0.75]],
+  4: [[0.25, 0.25], [0.75, 0.25], [0.25, 0.75], [0.75, 0.75]],
+  5: [[0.25, 0.25], [0.75, 0.25], [0.5, 0.5], [0.25, 0.75], [0.75, 0.75]],
+  6: [[0.25, 0.25], [0.25, 0.5], [0.25, 0.75], [0.75, 0.25], [0.75, 0.5], [0.75, 0.75]],
+};
+function DiceFaceSvg({ value, size, rolling }: { value: number; size: number; rolling?: boolean }) {
+  const pips = DICE_PIPS[value] ?? DICE_PIPS[1];
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100"
+      style={{ filter: rolling ? "blur(2px)" : "none", transition:"filter 0.08s", flexShrink:0 }}>
+      <rect x={3} y={3} width={94} height={94} rx={18} ry={18} fill="white"/>
+      {pips.map(([cx, cy], i) => (
+        <circle key={i} cx={cx*100} cy={cy*100} r={9} fill="#3D0C15"/>
+      ))}
+    </svg>
+  );
+}
+
 // ── DiceOverlay ───────────────────────────────────────────────────────────────
 function DiceOverlay({ item, sp, sw, sh, selected, onRoll }:
   { item: DiceItem; sp:{x:number;y:number}; sw:number; sh:number; selected:boolean; onRoll:(r:number[])=>void }) {
@@ -4134,29 +4670,26 @@ function DiceOverlay({ item, sp, sw, sh, selected, onRoll }:
     }, 70);
   };
 
-  const FACES = ["⚀","⚁","⚂","⚃","⚄","⚅"];
-  const fs = Math.min(sw / (item.count * 1.5), sh * 0.45, 56);
+  const diceSize = Math.min(Math.floor((sw - 16) / item.count) - 4, Math.floor(sh * 0.55), 64);
 
   return (
-    <div className="absolute flex flex-col items-center justify-center rounded-xl select-none overflow-hidden"
+    <div className="absolute flex flex-col items-center justify-center rounded-2xl select-none"
       style={{ left:sp.x, top:sp.y, width:sw, height:sh, zIndex:20,
-        background:"linear-gradient(135deg,#1a1a2e,#16213e)",
-        outline: selected ? "2px solid #4a80f0" : "none" }}
+        background:"#f8f0e4",
+        boxShadow: selected ? "0 0 0 2px #4a80f0, 0 4px 16px rgba(59,42,26,0.14)" : "0 4px 16px rgba(59,42,26,0.14)" }}
       onTouchStart={e => { touchRef.current = { y:e.touches[0].clientY, t:Date.now() }; e.stopPropagation(); }}
       onTouchEnd={e => { e.stopPropagation(); const dy=touchRef.current.y-e.changedTouches[0].clientY; if(Math.abs(dy)>35)roll(); }}>
-      <div className="flex gap-1 justify-center flex-wrap px-2 mb-1">
+      <div className="flex gap-2 justify-center flex-wrap px-2 mb-1">
         {display.map((v,i) => (
-          <span key={i} style={{ fontSize:fs, lineHeight:1, filter:rolling?"blur(2px)":"none", transition:"filter 0.08s" }}>
-            {FACES[v-1]}
-          </span>
+          <DiceFaceSvg key={i} value={v} size={diceSize} rolling={rolling}/>
         ))}
       </div>
       {item.count > 1 && !rolling && (
-        <div style={{ color:"#ffffff99", fontSize:11 }}>= {display.reduce((a,b)=>a+b,0)}</div>
+        <div style={{ color:"var(--brown-light)", fontSize:11 }}>= {display.reduce((a,b)=>a+b,0)}</div>
       )}
       <button onClick={e=>{e.stopPropagation();roll();}} disabled={rolling}
         className="mt-1 px-3 py-0.5 rounded-lg text-xs font-medium"
-        style={{ background:rolling?"#444":"#4a80f0", color:"#fff", opacity:rolling?0.6:1 }}>
+        style={{ background:rolling?"var(--brown-pale)":"var(--gradient-primary)", color:rolling?"var(--brown-mid)":"#fff", opacity:rolling?0.7:1 }}>
         {rolling?"...":"Бросить"}
       </button>
     </div>
