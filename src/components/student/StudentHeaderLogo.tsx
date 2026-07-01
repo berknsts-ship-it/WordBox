@@ -35,17 +35,28 @@ export default function StudentHeaderLogo() {
     );
   }
 
+  // For Craft, --theme-accent is cream (#D4C896) — use accent-2 (darker green) for icon bg
+  const iconBg = theme === "craft"
+    ? "var(--theme-accent-2)"
+    : "var(--theme-accent)";
+
   return (
     <div className="flex items-center gap-2">
       <div
-        className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-        style={{ background: "var(--theme-accent, #74070E)" }}
+        className="w-7 h-7 flex items-center justify-center flex-shrink-0"
+        style={{
+          background: iconBg,
+          borderRadius: "var(--theme-radius, 8px)",
+        }}
       >
         <BookOpen size={13} className="text-white" />
       </div>
       <span
-        className="font-bold text-base"
-        style={{ color: "var(--theme-accent, #74070E)", fontFamily: "var(--theme-font)" }}
+        className="font-bold text-base tracking-wide"
+        style={{
+          color: "var(--theme-text)",
+          fontFamily: "system-ui, -apple-system, sans-serif",
+        }}
       >
         Word Box
       </span>

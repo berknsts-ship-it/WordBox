@@ -13,12 +13,12 @@ const LUXURY_PALETTE: Record<string, { gold: string; goldBorder: string; subtitl
 // per-theme glyph: [задания, уроки, проверено]
 const THEME_GLYPHS: Record<string, [string, string, string]> = {
   ocean:  ["◌", "◆", "✦"],
-  forest: ["✿", "◆", "★"],
-  sun:    ["✦", "◎", "★"],
+  forest: ["✿", "◆", "✶"],
+  sun:    ["✦", "◎", "✶"],
   neon:   ["◈", "◉", "✦"],
-  craft:  ["■", "◆", "★"],
-  kawaii: ["♡", "✿", "★"],
-  sunset: ["◆", "◇", "★"],
+  craft:  ["■", "◆", "✶"],
+  kawaii: ["♡", "✿", "✶"],
+  sunset: ["◆", "◇", "✶"],
   scene:  ["♪", "✦", "◇"],
 };
 
@@ -200,18 +200,23 @@ function CraftDecor() {
         <rect x="20" y="70" width="18" height="4" fill="rgba(118,78,28,0.52)"/>
         <rect x="40" y="70" width="18" height="4" fill="rgba(140,88,38,0.52)"/>
         <rect x="60" y="70" width="18" height="4" fill="rgba(118,78,28,0.52)"/>
-        {/* Pixel stars — twinkle */}
-        <g className="wb-twinkle">
-          <rect x="40" y="10" width="4" height="4" fill="rgba(255,255,255,0.55)"/>
+        {/* Six-pointed pixel stars — twinkle */}
+        {/* Star polygon: 12 points, outer r=4, inner r=2, centered 4,4 in 8×8 box */}
+        <g className="wb-twinkle" transform="translate(38, 8)">
+          <polygon points="4,0 5,2.27 7.46,2 6,4 7.46,6 5,5.73 4,8 3,5.73 0.54,6 2,4 0.54,2 3,2.27"
+            fill="rgba(255,255,255,0.58)"/>
         </g>
-        <g className="wb-twinkle" style={{ animationDelay: "0.7s" }}>
-          <rect x="64" y="4"  width="4" height="4" fill="rgba(255,255,255,0.48)"/>
+        <g className="wb-twinkle" style={{ animationDelay: "0.7s" }} transform="translate(61, 2)">
+          <polygon points="4,0 5,2.27 7.46,2 6,4 7.46,6 5,5.73 4,8 3,5.73 0.54,6 2,4 0.54,2 3,2.27"
+            fill="rgba(255,255,255,0.5)"/>
         </g>
-        <g className="wb-twinkle" style={{ animationDelay: "1.3s" }}>
-          <rect x="118" y="14" width="4" height="4" fill="rgba(255,255,255,0.52)"/>
+        <g className="wb-twinkle" style={{ animationDelay: "1.3s" }} transform="translate(115, 11)">
+          <polygon points="4,0 5,2.27 7.46,2 6,4 7.46,6 5,5.73 4,8 3,5.73 0.54,6 2,4 0.54,2 3,2.27"
+            fill="rgba(255,255,255,0.54)"/>
         </g>
-        <g className="wb-twinkle" style={{ animationDelay: "0.4s" }}>
-          <rect x="138" y="6"  width="4" height="4" fill="rgba(255,255,255,0.38)"/>
+        <g className="wb-twinkle" style={{ animationDelay: "0.4s" }} transform="translate(134, 3)">
+          <polygon points="4,0 5,2.27 7.46,2 6,4 7.46,6 5,5.73 4,8 3,5.73 0.54,6 2,4 0.54,2 3,2.27"
+            fill="rgba(255,255,255,0.4)"/>
         </g>
       </svg>
     </div>
