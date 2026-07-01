@@ -1769,7 +1769,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
   // ── touch ─────────────────────────────────────────────────────────────────────
   const onTouchStart = (e: React.TouchEvent) => {
     e.preventDefault();
-    if (textInput !== null) { textRef.current?.blur(); return; }
+    if (textInput !== null) { commitText(); return; }
     if (e.touches.length === 2) {
       livePathRef.current = null;
       const r = containerRef.current!.getBoundingClientRect();
@@ -1802,7 +1802,22 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
       }
       return;
     }
-    if (tool === "text") { setTextInput({ wx: w.x, wy: w.y }); setTextValue(""); setTimeout(() => textRef.current?.focus(), 50); return; }
+    if (tool === "text") {
+      for (let i = itemsRef.current.length - 1; i >= 0; i--) {
+        const it = itemsRef.current[i];
+        if (it.type === "text" && hitTest(it, w.x, w.y)) {
+          const ti = it as TextItem;
+          editingIdRef.current = ti.id; setEditingId(ti.id);
+          setTextInput({ wx: ti.x, wy: ti.y }); setTextValue(ti.text);
+          setBold(ti.bold); setItalic(ti.italic); setAlign(ti.align); setFontSize(ti.fontSize);
+          const fi = FONTS.findIndex(f => f.family === ti.font); setFontIdx(fi >= 0 ? fi : 0);
+          render();
+          setTimeout(() => { const ta = textRef.current; if (!ta) return; ta.focus(); ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px"; }, 30);
+          return;
+        }
+      }
+      setTextInput({ wx: w.x, wy: w.y }); setTextValue(""); setTimeout(() => textRef.current?.focus(), 50); return;
+    }
     if (tool === "laser") return;
     if (tool === "eraser") { eraserActiveRef.current = true; eraserRadiusRef.current = size * 3; eraseAt(w.x, w.y); return; }
     const pathId = uid();
@@ -2910,36 +2925,6 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
                 ))}
               </div>
             )}
-            {/* f(x) button — вставить график */}
-            <div className="relative">
-              <button onClick={() => setShowFnPanel(p => !p)}
-                title="Вставить график функции (y = x², sin(x), 2x+1…)"
-                className="text-xs font-bold px-2 py-1 rounded-lg border-2 font-mono"
-                style={{ borderColor: showFnPanel?"var(--brown-dark)":"var(--brown-pale)", color:"var(--brown-dark)", background: showFnPanel?"var(--brown-pale)":"white" }}>
-                f(x)
-              </button>
-              {showFnPanel && (
-                <div className="absolute top-full mt-1 right-0 z-30 bg-white rounded-xl border shadow-lg p-2"
-                  style={{ borderColor:"var(--brown-pale)", minWidth:280 }}>
-                  <div className="text-xs mb-1.5" style={{ color:"var(--brown-mid)" }}>
-                    График вставляется как объект — можно двигать и масштабировать
-                  </div>
-                  <form className="flex items-center gap-1" onSubmit={e => { e.preventDefault(); addFunction(); setShowFnPanel(false); }}>
-                    <span className="text-sm font-mono shrink-0" style={{ color:"var(--brown-mid)" }}>y =</span>
-                    <input value={fnFormula} onChange={e => { setFnFormula(e.target.value); setFnError(false); }}
-                      placeholder="x², sin(x), 2x+1…" autoComplete="off" spellCheck={false} autoFocus
-                      className="text-sm font-mono px-2 py-1 rounded-lg border outline-none flex-1"
-                      style={{ borderColor: fnError ? "#e05050" : "var(--brown-pale)", background:"#fdf8f0", color:"var(--brown-dark)" }}/>
-                    <button type="submit" disabled={!fnFormula.trim()}
-                      className="text-sm px-3 py-1 rounded-lg font-medium shrink-0 disabled:opacity-40"
-                      style={{ background:"var(--gradient-primary)", color:"white" }}>
-                      Добавить
-                    </button>
-                  </form>
-                  {fnError && <div className="text-xs mt-1" style={{ color:"#e05050" }}>Неверная формула. Примеры: x^2, sin(x), 2*x+1</div>}
-                </div>
-              )}
-            </div>
             <Sep/>
             {pdfMaterials.length > 0 && role === "tutor" && (
               <div className="relative">
