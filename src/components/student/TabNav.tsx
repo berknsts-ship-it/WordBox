@@ -206,8 +206,11 @@ export default function TabNav({
               </div>
 
               <span
-                className="text-xs font-semibold text-center leading-tight whitespace-nowrap"
-                style={{ color: isActive ? "var(--theme-accent)" : "var(--theme-text-secondary)" }}
+                className="text-xs text-center leading-tight whitespace-nowrap"
+                style={{
+                  color: isActive ? "var(--theme-text)" : "var(--theme-text-secondary)",
+                  fontWeight: isActive ? 700 : 600,
+                }}
               >
                 {tab.label}
               </span>
