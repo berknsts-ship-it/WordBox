@@ -92,7 +92,12 @@ export default function BoardTab({
     new Date(iso).toLocaleDateString("ru", { day: "numeric", month: "long", year: "numeric" });
 
   return (
-    <div className="flex flex-col flex-1 min-h-0">
+    <div className="flex flex-col flex-1 min-h-0" style={{
+      "--brown-dark":  "#4A1414",
+      "--brown-mid":   "#9C7A45",
+      "--brown-light": "#7A6050",
+      "--brown-pale":  "rgba(156,122,69,0.22)",
+    } as React.CSSProperties}>
       {/* Toolbar */}
       {role === "tutor" && (
         <div className="flex items-center gap-2 px-3 py-2 border-b flex-wrap shrink-0"

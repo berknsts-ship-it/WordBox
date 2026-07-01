@@ -1793,6 +1793,14 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
         lastPanPt.current = { cx, cy, t: Date.now() };
         return;
       }
+      // hit exists — start touch drag
+      if (!hit.locked) {
+        setSelectedId(hit.id); setSelectedIds(new Set([hit.id]));
+        selDragRef.current = { mode:"move", id: hit.id, wx0: w.x, wy0: w.y, origItem: { ...hit } };
+      } else if (role === "tutor") {
+        setSelectedId(hit.id); setSelectedIds(new Set([hit.id]));
+      }
+      return;
     }
     if (tool === "text") { setTextInput({ wx: w.x, wy: w.y }); setTextValue(""); setTimeout(() => textRef.current?.focus(), 50); return; }
     if (tool === "laser") return;
@@ -1827,6 +1835,16 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
       lastPanPt.current = { cx, cy, t: Date.now() };
       return;
     }
+    if (selDragRef.current) {
+      const drag = selDragRef.current;
+      const ww = s2w(cx, cy);
+      const idx = itemsRef.current.findIndex(i => i.id === drag.id);
+      if (idx >= 0 && drag.mode === "move") {
+        itemsRef.current[idx] = shiftItem(drag.origItem, ww.x - drag.wx0, ww.y - drag.wy0);
+        setPanVer(v => v + 1); render();
+      }
+      return;
+    }
     const w = s2w(cx, cy);
     broadcastCursor(w.x, w.y);
     if (tool === "laser") { setOwnLaser(w); if (ownLaserTimer.current) clearTimeout(ownLaserTimer.current); ownLaserTimer.current = setTimeout(() => setOwnLaser(null), 2500); send({ type:"laser", x:w.x, y:w.y }); return; }
@@ -1852,6 +1870,18 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
         if (Math.abs(vx) > 0.5 || Math.abs(vy) > 0.5) startInertia(vx, vy);
       }
       lastPanPt.current = null;
+    }
+    if (selDragRef.current) {
+      const drag = selDragRef.current;
+      const idx = itemsRef.current.findIndex(i => i.id === drag.id);
+      if (idx >= 0) {
+        const next = itemsRef.current[idx];
+        if (JSON.stringify(drag.origItem) !== JSON.stringify(next)) {
+          pushHistory({ type:"update", idx, prev: drag.origItem, next: { ...next } });
+          send({ type:"update", item: next });
+        }
+      }
+      selDragRef.current = null;
     }
     if (e.touches.length === 0 && livePathRef.current) {
       const item = livePathRef.current; livePathRef.current = null;

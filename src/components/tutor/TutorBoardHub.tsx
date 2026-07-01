@@ -38,41 +38,85 @@ export default function TutorBoardHub({
   const student = students.find(s => s.id === selectedId) ?? null;
 
   return (
-    <div className="flex overflow-hidden rounded-3xl border" style={{ height: "calc(100dvh - 9.5rem)", borderColor: "var(--brown-pale)" }}>
+    <div className="flex flex-col overflow-hidden rounded-3xl border" style={{ height: "calc(100dvh - 9.5rem)", borderColor: "var(--brown-pale)" }}>
 
-      {/* Sidebar — список учеников */}
-      <div className="flex flex-col shrink-0 border-r overflow-hidden"
-        style={{ width: 192, borderColor: "var(--brown-pale)", background: "white" }}>
-        <div className="px-4 py-3 border-b shrink-0" style={{ borderColor: "var(--brown-pale)" }}>
-          <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--brown-light)" }}>Ученики</p>
+      {/* Mobile: горизонтальный скролл учеников */}
+      <div className="sm:hidden flex items-center gap-1.5 px-3 py-2 border-b overflow-x-auto shrink-0"
+        style={{ borderColor: "var(--brown-pale)", background: "white" }}>
+        {students.length === 0 && (
+          <span className="text-xs" style={{ color: "var(--brown-light)" }}>Нет учеников</span>
+        )}
+        {students.map(s => (
+          <button
+            key={s.id}
+            onClick={() => selectStudent(s.id)}
+            className="shrink-0 px-3 py-1 rounded-xl text-sm font-medium transition-all"
+            style={{
+              background: selectedId === s.id ? "linear-gradient(135deg, #5e1018, #74070E)" : "rgba(156,122,69,0.10)",
+              color: selectedId === s.id ? "#EDE0CC" : "var(--brown-dark)",
+              opacity: loading && selectedId === s.id ? 0.6 : 1,
+            }}
+          >
+            {s.name}
+          </button>
+        ))}
+      </div>
+
+      {/* Desktop: классический сайдбар */}
+      <div className="hidden sm:flex flex-1 overflow-hidden min-h-0">
+        <div className="flex flex-col shrink-0 border-r overflow-hidden"
+          style={{ width: 192, borderColor: "var(--brown-pale)", background: "white" }}>
+          <div className="px-4 py-3 border-b shrink-0" style={{ borderColor: "var(--brown-pale)" }}>
+            <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--brown-light)" }}>Ученики</p>
+          </div>
+          <div className="overflow-y-auto flex-1">
+            {students.length === 0 && (
+              <p className="text-xs px-4 py-3" style={{ color: "var(--brown-light)" }}>Нет учеников</p>
+            )}
+            {students.map(s => (
+              <button
+                key={s.id}
+                onClick={() => selectStudent(s.id)}
+                className="w-full text-left px-4 py-3 text-sm transition-all border-b last:border-0"
+                style={{
+                  borderColor: "var(--brown-pale)",
+                  background: selectedId === s.id ? "var(--brown-pale)" : "transparent",
+                  color: selectedId === s.id ? "var(--brown-dark)" : "var(--brown-light)",
+                  fontWeight: selectedId === s.id ? 600 : 400,
+                }}
+              >
+                <span className="block truncate">{s.name}</span>
+                {loading && selectedId === s.id && (
+                  <span className="text-xs" style={{ color: "var(--brown-light)" }}>загрузка...</span>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="overflow-y-auto flex-1">
-          {students.length === 0 && (
-            <p className="text-xs px-4 py-3" style={{ color: "var(--brown-light)" }}>Нет учеников</p>
+
+        {/* Доска (desktop) */}
+        <div className="flex-1 overflow-hidden flex flex-col min-w-0">
+          {selectedId ? (
+            <BoardTab
+              studentId={selectedId}
+              role="tutor"
+              boardUrl={student?.canvas_url ?? null}
+              snapshots={snapshots}
+            />
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-center p-8">
+              <div>
+                <p className="text-4xl mb-3">🖊</p>
+                <p className="font-semibold" style={{ color: "var(--brown-dark)" }}>Выбери ученика</p>
+                <p className="text-sm mt-1" style={{ color: "var(--brown-light)" }}>Кликни на имя в боковой панели</p>
+              </div>
+            </div>
           )}
-          {students.map(s => (
-            <button
-              key={s.id}
-              onClick={() => selectStudent(s.id)}
-              className="w-full text-left px-4 py-3 text-sm transition-all border-b last:border-0"
-              style={{
-                borderColor: "var(--brown-pale)",
-                background: selectedId === s.id ? "var(--brown-pale)" : "transparent",
-                color: selectedId === s.id ? "var(--brown-dark)" : "var(--brown-light)",
-                fontWeight: selectedId === s.id ? 600 : 400,
-              }}
-            >
-              <span className="block truncate">{s.name}</span>
-              {loading && selectedId === s.id && (
-                <span className="text-xs" style={{ color: "var(--brown-light)" }}>загрузка...</span>
-              )}
-            </button>
-          ))}
         </div>
       </div>
 
-      {/* Доска */}
-      <div className="flex-1 overflow-hidden flex flex-col min-w-0">
+      {/* Доска (mobile) */}
+      <div className="sm:hidden flex-1 overflow-hidden flex flex-col min-w-0 min-h-0">
         {selectedId ? (
           <BoardTab
             studentId={selectedId}
@@ -85,11 +129,11 @@ export default function TutorBoardHub({
             <div>
               <p className="text-4xl mb-3">🖊</p>
               <p className="font-semibold" style={{ color: "var(--brown-dark)" }}>Выбери ученика</p>
-              <p className="text-sm mt-1" style={{ color: "var(--brown-light)" }}>Кликни на имя в боковой панели</p>
             </div>
           </div>
         )}
       </div>
+
     </div>
   );
 }
