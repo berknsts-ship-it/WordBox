@@ -79,13 +79,13 @@ export default function LessonCard({ lesson, studentId }: { lesson: Lesson; stud
                 {editing ? "✕" : "✏ Изменить"}
               </button>
               <LessonStatusPicker lessonId={lesson.id} studentId={studentId} currentStatus={lesson.status} />
-              <form action={deleteLesson.bind(null, lesson.id, studentId)}>
+              <form action={async () => { await deleteLesson(lesson.id, studentId); }}>
                 <button type="submit" className="text-xs text-red-400 hover:text-red-600 px-2 py-1">✕</button>
               </form>
             </div>
 
             {!isCancelled && !editing && (
-              <form action={togglePaymentStatus.bind(null, lesson.id, payStatus)}>
+              <form action={async () => { await togglePaymentStatus(lesson.id, payStatus); }}>
                 <button
                   type="submit"
                   className="text-xs font-semibold px-3 py-1 rounded-xl transition-all"
