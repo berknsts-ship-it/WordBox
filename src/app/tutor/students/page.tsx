@@ -1,105 +1,146 @@
-import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
+import { UserPlus } from "lucide-react";
+import CopyStudentLink from "@/components/tutor/CopyStudentLink";
+import DeleteStudentButton from "@/components/tutor/DeleteStudentButton";
 
 export default async function StudentsPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/auth/login");
+  const tutorId = user!.id;
 
-  const [{ data: students }, { data: unpaidLessons }] = await Promise.all([
-    supabase
-      .from("students")
-      .select("id, name, email, access_code, created_at")
-      .eq("tutor_id", user!.id)
-      .order("created_at", { ascending: false }),
+  const [{ data: students }, { data: lessons }, { data: subscriptions }] = await Promise.all([
+    supabase.from("students").select("*").eq("tutor_id", tutorId).order("name"),
     supabase
       .from("lessons")
-      .select("student_id, price_rub")
-      .eq("tutor_id", user!.id)
-      .eq("payment_status", "unpaid")
+      .select("student_id, payment_status, price_rub, status, subscription_id")
+      .eq("tutor_id", tutorId)
       .neq("status", "cancelled"),
+    supabase.from("subscriptions").select("student_id, balance, total_amount, name, status").eq("tutor_id", tutorId),
   ]);
 
-  // Долг по каждому ученику
-  const debtMap = new Map<string, number>();
-  for (const l of unpaidLessons ?? []) {
-    if (l.price_rub) {
-      debtMap.set(l.student_id, (debtMap.get(l.student_id) ?? 0) + l.price_rub);
+  // Долг по поурочным урокам (без абонемента)
+  const debtMap: Record<string, number> = {};
+  for (const l of lessons ?? []) {
+    if (l.payment_status === "unpaid" && l.price_rub && !l.subscription_id) {
+      debtMap[l.student_id] = (debtMap[l.student_id] ?? 0) + l.price_rub;
     }
   }
 
+  // Активные абонементы
+  const subMap: Record<string, { balance: number; total: number; name: string }> = {};
+  for (const s of subscriptions ?? []) {
+    if (s.status === "active") {
+      subMap[s.student_id] = { balance: s.balance, total: s.total_amount, name: s.name };
+    }
+  }
+
+  const card = {
+    background: "white",
+    borderColor: "var(--brown-pale)",
+    boxShadow: "var(--shadow-card)",
+  };
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl">Ученики</h1>
-          <p className="text-sm mt-1" style={{ color: "var(--brown-light)" }}>
-            {students?.length ?? 0} учеников
-          </p>
-        </div>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">Ученики</h1>
         <Link
           href="/tutor/students/new"
-          className="flex items-center gap-2 px-5 py-2.5 rounded-2xl text-white font-semibold text-sm transition-opacity hover:opacity-80"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white"
           style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-button)" }}
         >
-          <span>+</span> Добавить ученика
+          <UserPlus size={16} />
+          Добавить
         </Link>
       </div>
 
       {!students || students.length === 0 ? (
-        <div className="text-center py-20">
-          <p className="text-5xl mb-4">👩‍🎓</p>
-          <p className="font-semibold text-lg" style={{ color: "var(--brown-dark)" }}>Пока нет учеников</p>
-          <p className="text-sm mt-1 mb-6" style={{ color: "var(--brown-light)" }}>
-            Добавь первого ученика — он получит код доступа
-          </p>
+        <div className="rounded-2xl border p-12 text-center" style={card}>
+          <p className="font-medium" style={{ color: "var(--brown-mid)" }}>Учеников пока нет</p>
           <Link
             href="/tutor/students/new"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl text-white font-semibold text-sm"
-            style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-button)" }}
+            className="inline-block mt-4 px-5 py-2 rounded-xl text-sm font-semibold text-white"
+            style={{ background: "var(--gradient-primary)" }}
           >
-            Добавить ученика
+            Добавить первого ученика
           </Link>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {students.map((student) => {
-            const debt = debtMap.get(student.id) ?? 0;
+        <div className="space-y-3">
+          {students.map(s => {
+            const debt = debtMap[s.id] ?? 0;
+            const sub  = subMap[s.id] ?? null;
             return (
-              <Link
-                key={student.id}
-                href={`/tutor/students/${student.id}`}
-                className="bg-white/80 rounded-2xl border p-5 hover:shadow-md transition-all group"
-                style={{ borderColor: "var(--brown-pale)" }}
-              >
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg font-bold"
-                    style={{ background: "var(--brown-pale)", color: "var(--brown-mid)" }}>
-                    {student.name[0].toUpperCase()}
+              <div key={s.id} className="rounded-xl border p-4" style={card}>
+                {/* Верхняя строка: аватар + имя + статус оплаты */}
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-lg shrink-0"
+                    style={{ background: "var(--gradient-primary)" }}>
+                    {s.name[0].toUpperCase()}
                   </div>
-                  <div className="flex items-center gap-2">
-                    {debt > 0 && (
-                      <span className="text-xs font-bold px-2 py-1 rounded-lg"
-                        style={{ background: "#fff7ed", color: "#9a3412" }}>
-                        Долг: {debt.toLocaleString("ru")} ₽
-                      </span>
+                  <div className="flex-1 min-w-0">
+                    <Link href={`/tutor/students/${s.id}`}
+                      className="font-semibold hover:underline block truncate"
+                      style={{ color: "var(--brown-dark)" }}>
+                      {s.name}
+                    </Link>
+                    {s.notes && (
+                      <span className="text-xs truncate block" style={{ color: "var(--brown-mid)" }}>{s.notes}</span>
                     )}
-                    <span className="text-xs font-bold tracking-widest px-2.5 py-1 rounded-lg"
-                      style={{ background: "var(--brown-pale)", color: "var(--brown-mid)" }}>
-                      {student.access_code}
-                    </span>
                   </div>
+                  {/* Статус: абонемент или долг */}
+                  {sub ? (
+                    <span className="text-xs px-2.5 py-1 rounded-lg font-medium shrink-0"
+                      style={{
+                        background: sub.balance < sub.total * 0.25 ? "#fff0f0" : "#f0fdf4",
+                        color:      sub.balance < sub.total * 0.25 ? "#c0392b" : "#1a7a3a",
+                        border:     `1px solid ${sub.balance < sub.total * 0.25 ? "#fecaca" : "#bbf7d0"}`,
+                      }}>
+                      {sub.balance.toLocaleString("ru")} ₽
+                    </span>
+                  ) : debt > 0 ? (
+                    <span className="text-xs px-2.5 py-1 rounded-lg font-medium shrink-0"
+                      style={{ background: "#fff3e0", color: "#c07800", border: "1px solid #f0d090" }}>
+                      Долг: {debt.toLocaleString("ru")} ₽
+                    </span>
+                  ) : null}
                 </div>
-                <p className="font-semibold" style={{ color: "var(--brown-dark)" }}>{student.name}</p>
-                {student.email && (
-                  <p className="text-sm mt-0.5" style={{ color: "var(--brown-light)" }}>{student.email}</p>
-                )}
-                <p className="text-xs mt-3 font-semibold group-hover:underline" style={{ color: "var(--brown-light)" }}>
-                  Открыть кабинет →
-                </p>
-              </Link>
+
+                {/* Нижняя строка: код + кнопки */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-mono px-2.5 py-1 rounded-lg"
+                    style={{ background: "var(--brown-pale)", color: "var(--brown-dark)" }}>
+                    {s.access_code}
+                  </span>
+                  <CopyStudentLink code={s.access_code} />
+                  <Link href={`/student/${s.access_code}`} target="_blank"
+                    className="text-sm px-3 py-1.5 rounded-lg font-medium hover:opacity-80 transition-all"
+                    style={{ background: "var(--gradient-primary)", color: "white" }}>
+                    Кабинет ↗
+                  </Link>
+                  <Link href={`/tutor/students/${s.id}`}
+                    className="text-sm px-3 py-1.5 rounded-lg font-medium hover:opacity-80 transition-all border"
+                    style={{ borderColor: "var(--brown-pale)", color: "var(--brown-dark)" }}>
+                    {sub ? "Абонемент" : "Детали"}
+                  </Link>
+                  <DeleteStudentButton studentId={s.id} studentName={s.name} />
+                </div>
+              </div>
             );
           })}
         </div>
+      )}
+
+      {students && students.length > 0 && (
+        <p className="mt-4 text-sm" style={{ color: "var(--brown-light)" }}>
+          Ученик входит по коду на странице{" "}
+          <span className="font-mono" style={{ color: "var(--brown-mid)" }}>
+            /student/КОД
+          </span>
+        </p>
       )}
     </div>
   );

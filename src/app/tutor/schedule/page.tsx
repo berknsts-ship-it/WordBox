@@ -1,283 +1,92 @@
 import { createClient } from "@/lib/supabase/server";
-import { addLesson, deleteLesson } from "@/app/actions/lessons";
-import LessonStatusPicker from "@/components/tutor/LessonStatusPicker";
+import { redirect } from "next/navigation";
+import Link from "next/link";
+import NewLessonForm from "./NewLessonForm";
+import LessonCard from "./LessonCard";
+import CalendarView from "./CalendarView";
 
-// Parse stored ISO as naive local time — prevents timezone shift on display.
-function parseNaive(iso: string): Date {
-  return new Date(
-    parseInt(iso.slice(0, 4),   10),
-    parseInt(iso.slice(5, 7),   10) - 1,
-    parseInt(iso.slice(8, 10),  10),
-    parseInt(iso.slice(11, 13), 10),
-    parseInt(iso.slice(14, 16), 10),
-  );
-}
+export default async function SchedulePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ view?: string }>;
+}) {
+  const { view } = await searchParams;
+  const isCalendar = view === "calendar";
 
-function groupByDate(lessons: Lesson[]): Record<string, Lesson[]> {
-  const groups: Record<string, Lesson[]> = {};
-  for (const lesson of lessons) {
-    const key = lesson.date.slice(0, 10); // "2026-06-30"
-    if (!groups[key]) groups[key] = [];
-    groups[key].push(lesson);
-  }
-  return groups;
-}
-
-function formatDateLabel(dateKey: string): string {
-  const date = new Date(
-    parseInt(dateKey.slice(0, 4),  10),
-    parseInt(dateKey.slice(5, 7),  10) - 1,
-    parseInt(dateKey.slice(8, 10), 10),
-  );
-  const now = new Date();
-  const today    = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
-
-  if (date.getTime() === today.getTime())    return "Сегодня";
-  if (date.getTime() === tomorrow.getTime()) return "Завтра";
-
-  return date.toLocaleDateString("ru", { weekday: "long", day: "numeric", month: "long" });
-}
-
-type Lesson = {
-  id: string;
-  date: string;
-  topic: string | null;
-  notes: string | null;
-  duration_minutes: number;
-  status: string;
-  student_id: string;
-  students: { name: string }[] | null;
-};
-
-export default async function SchedulePage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/auth/login");
+  const tutorId = user!.id;
 
-  const [{ data: upcoming }, { data: past }, { data: students }] = await Promise.all([
-    supabase
-      .from("lessons")
-      .select("id, date, topic, notes, duration_minutes, status, student_id, students(name)")
-      .eq("tutor_id", user!.id)
-      .eq("status", "scheduled")
-      .gte("date", new Date().toISOString())
-      .order("date", { ascending: true }),
-    supabase
-      .from("lessons")
-      .select("id, date, topic, notes, duration_minutes, status, student_id, students(name)")
-      .eq("tutor_id", user!.id)
-      .in("status", ["completed", "cancelled"])
-      .order("date", { ascending: false })
-      .limit(20),
-    supabase
-      .from("students")
-      .select("id, name")
-      .eq("tutor_id", user!.id)
-      .order("name"),
+  const [{ data: lessons }, { data: students }, { data: subscriptions }] = await Promise.all([
+    supabase.from("lessons").select("*, students(name)")
+      .eq("tutor_id", tutorId)
+      .order("scheduled_at"),
+    supabase.from("students").select("id, name, default_price_rub").eq("tutor_id", tutorId).order("name"),
+    supabase.from("subscriptions").select("id, student_id, balance, name").eq("tutor_id", tutorId).eq("status", "active"),
   ]);
 
-  const upcomingGroups = groupByDate((upcoming as Lesson[]) ?? []);
+  const all      = lessons ?? [];
+  const upcoming = all.filter(l => l.status === "scheduled");
+  const past     = all.filter(l => l.status !== "scheduled");
+  const card     = { background: "white", borderColor: "var(--brown-pale)", boxShadow: "var(--shadow-card)" };
+
+  const tabBase  = "px-4 py-2 rounded-xl text-sm font-medium transition-all";
+  const tabActive  = { background: "var(--gradient-primary)", color: "white" };
+  const tabInactive = { color: "var(--brown-mid)", border: "1px solid var(--brown-pale)", background: "white" };
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl">Расписание</h1>
-          <p className="text-sm mt-1" style={{ color: "var(--brown-light)" }}>
-            {upcoming?.length ?? 0} предстоящих уроков
-          </p>
+      <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
+        <h1 className="text-2xl font-bold">Расписание</h1>
+        <div className="flex gap-2">
+          <Link href="/tutor/schedule" className={tabBase}
+            style={!isCalendar ? tabActive : tabInactive}>
+            Список
+          </Link>
+          <Link href="/tutor/schedule?view=calendar" className={tabBase}
+            style={isCalendar ? tabActive : tabInactive}>
+            Календарь
+          </Link>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Левая колонка — форма */}
-        <div className="lg:col-span-1">
-          <div className="bg-white/80 rounded-3xl border p-6 sticky top-20"
-            style={{ borderColor: "var(--brown-pale)" }}>
-            <h2 className="font-semibold mb-4" style={{ color: "var(--brown-dark)" }}>
-              Добавить урок
-            </h2>
-            <form action={addLesson} className="space-y-4">
-              <input type="hidden" name="status" value="scheduled" />
-
-              <div>
-                <label className="block text-xs font-semibold mb-1" style={{ color: "var(--brown-mid)" }}>
-                  Ученик *
-                </label>
-                <select
-                  name="student_id"
-                  required
-                  className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
-                  style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
-                >
-                  <option value="">Выбери ученика</option>
-                  {students?.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold mb-1" style={{ color: "var(--brown-mid)" }}>
-                  Дата и время *
-                </label>
-                <input
-                  name="date"
-                  type="datetime-local"
-                  required
-                  className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
-                  style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold mb-1" style={{ color: "var(--brown-mid)" }}>
-                  Длительность (мин)
-                </label>
-                <input
-                  name="duration_minutes"
-                  type="number"
-                  defaultValue={60}
-                  min={15}
-                  max={180}
-                  className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
-                  style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold mb-1" style={{ color: "var(--brown-mid)" }}>
-                  Тема
-                </label>
-                <input
-                  name="topic"
-                  placeholder="Present Perfect, чтение..."
-                  className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
-                  style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold mb-1" style={{ color: "var(--brown-mid)" }}>
-                  Заметки
-                </label>
-                <textarea
-                  name="notes"
-                  rows={2}
-                  className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none resize-none"
-                  style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="w-full rounded-xl px-4 py-2.5 text-white text-sm font-semibold hover:opacity-80 transition-opacity"
-                style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-button)" }}
-              >
-                Добавить урок
-              </button>
-            </form>
+      {isCalendar ? (
+        /* ── Вид: Календарь ── */
+        <div className="rounded-2xl border p-4 sm:p-5" style={card}>
+          <CalendarView
+            lessons={all}
+            students={students ?? []}
+            subscriptions={subscriptions ?? []}
+          />
+        </div>
+      ) : (
+        /* ── Вид: Список ── */
+        <>
+          <div className="rounded-2xl border p-5 mb-6" style={card}>
+            <h2 className="font-semibold mb-4" style={{ color: "var(--brown-dark)" }}>Добавить занятие</h2>
+            <NewLessonForm students={students ?? []} subscriptions={subscriptions ?? []} />
           </div>
-        </div>
 
-        {/* Правая колонка — список */}
-        <div className="lg:col-span-2 space-y-6">
-
-          {/* Предстоящие */}
-          {Object.keys(upcomingGroups).length === 0 ? (
-            <div className="text-center py-16">
-              <p className="text-5xl mb-3">📅</p>
-              <p className="font-semibold" style={{ color: "var(--brown-dark)" }}>Предстоящих уроков нет</p>
-              <p className="text-sm mt-1" style={{ color: "var(--brown-light)" }}>
-                Добавь первый урок в форме слева
-              </p>
-            </div>
+          <h2 className="font-semibold mb-3" style={{ color: "var(--brown-dark)" }}>Предстоящие</h2>
+          {upcoming.length === 0 ? (
+            <p className="text-sm mb-6" style={{ color: "var(--brown-light)" }}>Нет запланированных занятий</p>
           ) : (
-            Object.entries(upcomingGroups).map(([dateStr, lessons]) => (
-              <div key={dateStr}>
-                <p className="text-sm font-bold mb-3 capitalize"
-                  style={{ color: "var(--brown-mid)" }}>
-                  {formatDateLabel(dateStr)}
-                </p>
-                <div className="space-y-2">
-                  {lessons.map((lesson) => (
-                    <LessonCard key={lesson.id} lesson={lesson} />
-                  ))}
-                </div>
-              </div>
-            ))
-          )}
-
-          {/* Прошедшие */}
-          {past && past.length > 0 && (
-            <div>
-              <p className="text-sm font-bold mb-3" style={{ color: "var(--brown-light)" }}>
-                Прошедшие уроки
-              </p>
-              <div className="space-y-2 opacity-70">
-                {(past as Lesson[]).map((lesson) => (
-                  <LessonCard key={lesson.id} lesson={lesson} />
-                ))}
-              </div>
+            <div className="space-y-2 mb-6">
+              {upcoming.map(l => <LessonCard key={l.id} lesson={l} />)}
             </div>
           )}
-        </div>
-      </div>
-    </div>
-  );
-}
 
-function LessonCard({ lesson }: { lesson: Lesson }) {
-  const date = parseNaive(lesson.date);
-  const s = lesson.students;
-  const studentName = (Array.isArray(s) ? (s as {name:string}[])[0]?.name : (s as {name:string}|null)?.name) ?? "Ученик";
-  const initials = studentName[0].toUpperCase();
-
-  return (
-    <div className="bg-white/80 rounded-2xl border px-4 py-3 flex items-center gap-4"
-      style={{ borderColor: "var(--brown-pale)" }}>
-
-      {/* Аватар */}
-      <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold shrink-0"
-        style={{ background: "var(--brown-pale)", color: "var(--brown-mid)" }}>
-        {initials}
-      </div>
-
-      {/* Время */}
-      <div className="shrink-0 text-center min-w-[44px]">
-        <p className="text-sm font-bold" style={{ color: "var(--brown-dark)" }}>
-          {date.toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" })}
-        </p>
-        <p className="text-xs" style={{ color: "var(--brown-light)" }}>
-          {lesson.duration_minutes} мин
-        </p>
-      </div>
-
-      {/* Инфо */}
-      <div className="flex-1 min-w-0">
-        <p className="font-semibold text-sm truncate" style={{ color: "var(--brown-dark)" }}>
-          {studentName}
-        </p>
-        {lesson.topic && (
-          <p className="text-xs truncate" style={{ color: "var(--brown-light)" }}>
-            {lesson.topic}
-          </p>
-        )}
-      </div>
-
-      {/* Статус и кнопки */}
-      <div className="flex items-center gap-2 shrink-0">
-        <LessonStatusPicker
-          lessonId={lesson.id}
-          studentId={lesson.student_id}
-          currentStatus={lesson.status}
-        />
-        <form action={deleteLesson.bind(null, lesson.id, lesson.student_id)}>
-          <button type="submit" className="text-xs text-red-400 hover:text-red-600 px-1.5 py-1">
-            ✕
-          </button>
-        </form>
-      </div>
+          {past.length > 0 && (
+            <>
+              <h2 className="font-semibold mb-3" style={{ color: "var(--brown-light)" }}>История</h2>
+              <div className="space-y-2">
+                {past.map(l => <LessonCard key={l.id} lesson={l} />)}
+              </div>
+            </>
+          )}
+        </>
+      )}
     </div>
   );
 }

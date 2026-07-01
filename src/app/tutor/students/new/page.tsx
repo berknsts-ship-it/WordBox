@@ -1,115 +1,87 @@
-import { addStudent } from "@/app/actions/students";
-import Link from "next/link";
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { createStudent } from "@/app/actions/students";
 
 export default function NewStudentPage() {
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const card = {
+    background: "white",
+    borderColor: "var(--brown-pale)",
+    boxShadow: "var(--shadow-card)",
+  };
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    const fd = new FormData(e.currentTarget);
+    const result = await createStudent(fd);
+    if (result?.error) {
+      setError(result.error);
+      setLoading(false);
+    }
+  }
+
   return (
-    <div className="max-w-lg">
-      <div className="flex items-center gap-3 mb-8">
-        <Link href="/tutor/students" className="text-sm hover:underline"
-          style={{ color: "var(--brown-light)" }}>
-          ← Ученики
-        </Link>
-      </div>
-
-      <h1 className="text-2xl mb-6">Новый ученик</h1>
-
-      <div className="bg-white/80 rounded-3xl border p-8"
-        style={{ borderColor: "var(--brown-pale)" }}>
-        <form action={addStudent} className="space-y-5">
+    <div className="max-w-lg mx-auto">
+      <h1 className="text-2xl font-bold mb-6">Добавить ученика</h1>
+      <div className="rounded-2xl border p-6" style={card}>
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-semibold mb-1.5"
-              style={{ color: "var(--brown-mid)" }}>
-              Имя *
+            <label className="block text-sm font-medium mb-1" style={{ color: "var(--brown-mid)" }}>
+              Имя ученика
             </label>
             <input
               name="name"
+              type="text"
               required
-              autoFocus
-              placeholder="Например: Маша"
-              className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
-              style={{
-                background: "var(--cream)",
-                border: "1.5px solid var(--brown-pale)",
-                color: "var(--brown-dark)",
-              }}
+              placeholder="Иван Петров"
+              className="w-full px-4 py-2 rounded-xl border outline-none"
+              style={{ borderColor: "var(--brown-pale)", background: "#fdf8f0", color: "var(--brown-dark)" }}
             />
           </div>
-
           <div>
-            <label className="block text-sm font-semibold mb-1.5"
-              style={{ color: "var(--brown-mid)" }}>
-              Email (необязательно)
-            </label>
-            <input
-              name="email"
-              type="email"
-              placeholder="masha@example.com"
-              className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
-              style={{
-                background: "var(--cream)",
-                border: "1.5px solid var(--brown-pale)",
-                color: "var(--brown-dark)",
-              }}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold mb-1.5"
-              style={{ color: "var(--brown-mid)" }}>
+            <label className="block text-sm font-medium mb-1" style={{ color: "var(--brown-mid)" }}>
               Заметки (необязательно)
             </label>
             <textarea
               name="notes"
               rows={3}
-              placeholder="Уровень, цели, особенности..."
-              className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none resize-none"
-              style={{
-                background: "var(--cream)",
-                border: "1.5px solid var(--brown-pale)",
-                color: "var(--brown-dark)",
-              }}
+              placeholder="Особенности, цели, уровень..."
+              className="w-full px-4 py-2 rounded-xl border outline-none resize-none"
+              style={{ borderColor: "var(--brown-pale)", background: "#fdf8f0", color: "var(--brown-dark)" }}
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-semibold mb-1.5"
-              style={{ color: "var(--brown-mid)" }}>
-              Учебник (необязательно)
-            </label>
-            <select
-              name="textbook"
-              className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
-              style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
-            >
-              <option value="">Не выбран</option>
-              <option value="english_file_elementary">English File Elementary</option>
-              <option value="solutions_elementary">Solutions 3rd Ed. Elementary</option>
-            </select>
-          </div>
+          {error && <p className="text-sm text-red-600">{error}</p>}
 
-          <div className="rounded-2xl p-4 text-sm"
-            style={{ background: "var(--brown-pale)", color: "var(--brown-mid)" }}>
-            🔑 Код доступа сгенерируется автоматически — ты сможешь поделиться им с учеником
-          </div>
-
-          <div className="flex gap-3 pt-2">
-            <Link
-              href="/tutor/students"
-              className="flex-1 text-center rounded-xl px-4 py-3 text-sm font-semibold border transition-colors hover:opacity-80"
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => history.back()}
+              className="flex-1 py-2 rounded-xl border font-medium"
               style={{ borderColor: "var(--brown-pale)", color: "var(--brown-mid)" }}
             >
               Отмена
-            </Link>
+            </button>
             <button
               type="submit"
-              className="flex-1 rounded-xl px-4 py-3 text-white text-sm font-semibold transition-opacity hover:opacity-80"
-              style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-button)" }}
+              disabled={loading}
+              className="flex-1 py-2 rounded-xl font-semibold text-white"
+              style={{ background: "var(--gradient-primary)", opacity: loading ? 0.7 : 1 }}
             >
-              Добавить ученика
+              {loading ? "Сохраняем..." : "Добавить"}
             </button>
           </div>
         </form>
       </div>
+      <p className="mt-4 text-sm" style={{ color: "var(--brown-light)" }}>
+        После добавления ученику автоматически будет выдан код входа — поделитесь им с учеником.
+      </p>
     </div>
   );
 }

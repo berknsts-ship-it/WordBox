@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { updateLessonStatus } from "@/app/actions/lessons";
+import { updateLessonStatusForm } from "@/app/actions/lessons";
 
 export const STATUS_CONFIG = {
   scheduled:   { label: "Запланирован",  color: "bg-[#f5ece3] text-[#74070E]",    dot: "bg-[#74070E]" },
@@ -26,7 +26,7 @@ export default function LessonStatusPicker({
   const config = STATUS_CONFIG[currentStatus as Status] ?? STATUS_CONFIG.scheduled;
 
   return (
-    <form ref={formRef} action={updateLessonStatus}>
+    <form ref={formRef} action={updateLessonStatusForm}>
       <input type="hidden" name="id" value={lessonId} />
       <input type="hidden" name="studentId" value={studentId} />
       <div className="relative">
