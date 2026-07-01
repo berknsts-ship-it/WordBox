@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateLesson, deleteLesson, togglePaymentStatus } from "@/app/actions/lessons";
+import { updateLessonForm, deleteLesson, togglePaymentStatus } from "@/app/actions/lessons";
 import LessonStatusPicker, { STATUS_CONFIG } from "@/components/tutor/LessonStatusPicker";
 
 type Lesson = {
@@ -106,7 +106,7 @@ export default function LessonCard({ lesson, studentId }: { lesson: Lesson; stud
         <form
           action={(fd) => {
             startTransition(async () => {
-              await updateLesson(fd);
+              await updateLessonForm(fd);
               setEditing(false);
             });
           }}
