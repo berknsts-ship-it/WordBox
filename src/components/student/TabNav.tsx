@@ -14,6 +14,16 @@ const TABS = [
   { id: "grammar",   label: "Грамматика", icon: BookText },
 ];
 
+// Icon foreground color on top of --theme-accent background
+// Light accents need a dark icon; dark accents get white
+const ICON_FG: Partial<Record<ThemeId, string>> = {
+  sun:      "#5A3800",   // yellow accent → dark brown
+  craft:    "#2A4010",   // cream accent  → dark green
+  kawaii:   "#8B2252",   // light pink    → deep pink
+  emerald:  "#0E2A22",   // gold accent   → deep green
+  graphite: "#1A1A1D",   // warm gold     → near-black
+};
+
 export default function TabNav({
   code,
   activeTab,
@@ -26,6 +36,7 @@ export default function TabNav({
   themeId?: string | null;
 }) {
   const themeIcons = themeId ? THEME_TAB_ICONS[themeId as ThemeId] : undefined;
+  const iconFg = ICON_FG[themeId as ThemeId] ?? "#ffffff";
 
   return (
     <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 pb-1 sm:pb-0">
@@ -40,30 +51,50 @@ export default function TabNav({
             <Link
               key={tab.id}
               href={`/student/${code}?tab=${tab.id}`}
-              className="relative flex flex-col items-center justify-center gap-1 py-2.5 px-3 sm:px-1 rounded-xl sm:rounded-2xl transition-all min-w-[64px] sm:min-w-0"
+              className="relative flex flex-col items-center justify-center gap-1.5 py-2.5 px-2 sm:px-1 rounded-xl sm:rounded-2xl transition-all min-w-[62px] sm:min-w-0"
               style={
                 isActive
                   ? {
-                      background: "var(--gradient-primary)",
-                      color: "#fff",
-                      boxShadow: "var(--shadow-button), 0 4px 14px rgba(0,0,0,0.14)",
+                      background: "color-mix(in srgb, var(--theme-accent) 12%, var(--theme-card-bg))",
+                      border: "2px solid var(--theme-accent)",
                       transform: "translateY(-1px)",
                     }
                   : {
                       background: "var(--theme-card-bg)",
-                      color: "var(--theme-text-secondary)",
                       border: "1.5px solid var(--theme-card-border)",
                       boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
                     }
               }
             >
-              {emojiIcon
-                ? <span className="text-2xl leading-none" aria-hidden="true">{emojiIcon}</span>
-                : <Icon size={20} />
-              }
-              <span className="text-xs font-semibold text-center leading-tight whitespace-nowrap">
+              {/* App-icon square */}
+              <div
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 12,
+                  background: isActive ? "var(--gradient-primary)" : "var(--theme-accent)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                  boxShadow: isActive
+                    ? "0 4px 14px rgba(0,0,0,0.22)"
+                    : "0 2px 8px rgba(0,0,0,0.14)",
+                }}
+              >
+                {emojiIcon
+                  ? <span style={{ fontSize: 20, lineHeight: 1 }} aria-hidden="true">{emojiIcon}</span>
+                  : <Icon size={20} color={isActive ? "#ffffff" : iconFg} />
+                }
+              </div>
+
+              <span
+                className="text-xs font-semibold text-center leading-tight whitespace-nowrap"
+                style={{ color: isActive ? "var(--theme-accent)" : "var(--theme-text-secondary)" }}
+              >
                 {tab.label}
               </span>
+
               {showBadge && (
                 <span
                   className="absolute -top-1.5 -right-1.5 flex items-center justify-center w-4 h-4 rounded-full text-white font-bold"
