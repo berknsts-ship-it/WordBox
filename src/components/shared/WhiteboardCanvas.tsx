@@ -3420,36 +3420,138 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
           const bgCss = textBgOpacity > 0
             ? textBgColor + Math.round(textBgOpacity * 2.55).toString(16).padStart(2,"0")
             : "transparent";
+          const containerW = containerRef.current?.clientWidth ?? 800;
+          const isMobile = containerW < 520;
+
+          // Helper: button that never steals focus from textarea
+          const TBtn = ({ children, active, onAct, style }: { children: React.ReactNode; active?: boolean; onAct: () => void; style?: React.CSSProperties }) => (
+            <button
+              onMouseDown={e => e.preventDefault()}
+              onClick={onAct}
+              onTouchStart={e => e.preventDefault()}
+              onTouchEnd={e => { e.stopPropagation(); onAct(); }}
+              style={{ display:"flex", alignItems:"center", justifyContent:"center", borderRadius:10,
+                border:`2px solid ${active ? "#4a80f0" : "transparent"}`,
+                background: active ? "#eef2ff" : "transparent",
+                color:"var(--brown-dark)", cursor:"pointer", ...style }}>
+              {children}
+            </button>
+          );
+
+          // ── Inline textarea (same for both mobile and desktop) ──
+          const handleStyle: React.CSSProperties = {
+            position:"absolute", width:10, height:10, borderRadius:"50%",
+            background:"white", border:"2px solid #4a80f0", pointerEvents:"none",
+          };
+          const textareaEl = (
+            <div className="absolute" style={{ left:textScr.x, top:textScr.y, zIndex:50 }}
+              onMouseDown={e => e.stopPropagation()}
+              onTouchStart={e => e.stopPropagation()}>
+              <textarea ref={textRef} value={textValue}
+                onChange={e => {
+                  const val = e.target.value;
+                  setTextValue(val);
+                  const el = e.target;
+                  const lines = val.split("\n");
+                  const span = document.createElement("span");
+                  span.style.cssText = `position:absolute;visibility:hidden;white-space:pre;font:${
+                    el.style.fontStyle} ${el.style.fontWeight} ${el.style.fontSize} ${el.style.fontFamily
+                  };padding:${el.style.padding}`;
+                  document.body.appendChild(span);
+                  const maxW = Math.max(...lines.map(l => { span.textContent = l||"M"; return span.getBoundingClientRect().width; }));
+                  document.body.removeChild(span);
+                  el.style.width = Math.max(maxW + 24, Math.round(60 * zoom)) + "px";
+                  el.style.height = "auto";
+                  el.style.height = el.scrollHeight + "px";
+                }}
+                onKeyDown={e => {
+                  if (e.key === "Escape") { e.preventDefault(); setTextInput(null); editingIdRef.current=null; setEditingId(null); render(); }
+                  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commitText(); }
+                }}
+                rows={1} placeholder="Текст..."
+                style={{ display:"block", fontSize:fontSize*zoom+"px", fontFamily:FONTS[fontIdx].family,
+                  fontWeight:bold?"bold":"normal", fontStyle:italic?"italic":"normal", textAlign:align,
+                  color, caretColor:color,
+                  backgroundColor: bgCss === "transparent" ? "transparent" : bgCss,
+                  border: "1.5px solid #4a80f0",
+                  borderRadius: 3, outline: "none",
+                  padding: `${3*zoom}px ${6*zoom}px`,
+                  minWidth: Math.max(40, 60*zoom)+"px",
+                  lineHeight: 1.5, resize: "none", overflow: "hidden",
+                  whiteSpace: "pre", WebkitAppearance: "none",
+                } as React.CSSProperties} />
+              <div style={{ ...handleStyle, top:-5, left:-5 }}/>
+              <div style={{ ...handleStyle, top:-5, right:-5 }}/>
+              <div style={{ ...handleStyle, bottom:-5, left:-5 }}/>
+              <div style={{ ...handleStyle, bottom:-5, right:-5 }}/>
+            </div>
+          );
+
+          if (isMobile) {
+            // ── Mobile: compact bottom strip with big touch targets ──
+            const B = 44; // button size px
+            return (
+              <>
+                {textareaEl}
+                <div className="absolute bottom-0 left-0 right-0 pointer-events-auto flex items-center gap-1 px-3 py-2 border-t"
+                  style={{ background:"white", borderColor:"var(--brown-pale)", zIndex:60 }}
+                  onTouchStart={e => e.stopPropagation()}>
+                  {/* A- */}
+                  <TBtn onAct={() => setFontSize(s => Math.max(8, s - 2))} style={{ width:B, height:B, fontSize:13, fontWeight:"bold" }}>A-</TBtn>
+                  {/* Size display */}
+                  <span style={{ minWidth:30, textAlign:"center", fontSize:13, color:"var(--brown-dark)", fontWeight:500 }}>{fontSize}</span>
+                  {/* A+ */}
+                  <TBtn onAct={() => setFontSize(s => Math.min(200, s + 4))} style={{ width:B, height:B, fontSize:13, fontWeight:"bold" }}>A+</TBtn>
+                  <div style={{ width:1, height:28, background:"var(--brown-pale)", margin:"0 2px" }}/>
+                  {/* Bold */}
+                  <TBtn active={bold} onAct={() => setBold(b=>!b)} style={{ width:B, height:B, fontSize:15, fontWeight:"bold" }}>B</TBtn>
+                  {/* Italic */}
+                  <TBtn active={italic} onAct={() => setItalic(i=>!i)} style={{ width:B, height:B, fontSize:15, fontStyle:"italic", fontFamily:"Georgia,serif" }}>I</TBtn>
+                  <div style={{ width:1, height:28, background:"var(--brown-pale)", margin:"0 2px" }}/>
+                  {/* Color swatch */}
+                  <label style={{ position:"relative", width:B, height:B, borderRadius:10, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer" }}
+                    onTouchStart={e => e.stopPropagation()}>
+                    <span style={{ fontSize:16, fontWeight:"bold", color, lineHeight:1 }}>A</span>
+                    <input type="color" value={color} onChange={e => setColor(e.target.value)}
+                      style={{ position:"absolute", opacity:0, inset:0, cursor:"pointer" }}/>
+                  </label>
+                  <div style={{ flex:1 }}/>
+                  {/* Done */}
+                  <TBtn onAct={commitText}
+                    style={{ height:B, paddingLeft:20, paddingRight:20, fontSize:14, fontWeight:600,
+                      background:"var(--gradient-primary)", color:"white", border:"none", borderRadius:12 }}>
+                    Готово
+                  </TBtn>
+                </div>
+              </>
+            );
+          }
+
+          // ── Desktop: floating toolbar above text ──
           const Sep2 = () => <div className="w-px h-5 mx-1 shrink-0" style={{ background:"#e0d8d0" }}/>;
           const TOOLBAR_H = 44;
           const TOOLBAR_W = 480;
           const containerH = containerRef.current?.clientHeight ?? 600;
-          const containerW = containerRef.current?.clientWidth ?? 800;
-          // Position toolbar just above the text, clamped inside canvas
           const toolbarTop = Math.max(4, Math.min(textScr.y - TOOLBAR_H - 8, containerH - TOOLBAR_H - 4));
           const toolbarLeft = Math.max(4, Math.min(textScr.x - TOOLBAR_W / 2, containerW - TOOLBAR_W - 4));
           return (
             <>
-              {/* ── Floating toolbar above text (Miro-style) ── */}
               <div className="absolute pointer-events-auto flex items-center gap-0.5 px-2 py-1 rounded-2xl shadow-2xl border"
-                style={{ top: toolbarTop, left: toolbarLeft, width: TOOLBAR_W,
+                style={{ top:toolbarTop, left:toolbarLeft, width:TOOLBAR_W,
                   background:"white", borderColor:"var(--brown-pale)", zIndex:60 }}
                 onMouseDown={e => e.preventDefault()}>
-                {/* Font */}
                 <select value={fontIdx} onChange={e=>setFontIdx(+e.target.value)} onMouseDown={e=>e.stopPropagation()}
                   className="border-0 rounded outline-none"
                   style={{ color:"var(--brown-dark)", height:28, maxWidth:76, fontSize:11 }}>
                   {FONTS.map((f,i)=><option key={i} value={i}>{f.label}</option>)}
                 </select>
                 <Sep2/>
-                {/* Size — editable input */}
                 <input type="number" value={fontSize} min={8} max={200}
                   onChange={e=>setFontSize(Math.max(8,Math.min(200,+e.target.value)))}
                   onMouseDown={e=>e.stopPropagation()}
                   className="border rounded text-center outline-none"
                   style={{ color:"var(--brown-dark)", width:40, height:28, fontSize:12, borderColor:"var(--brown-pale)" }}/>
                 <Sep2/>
-                {/* Bold / Italic / Underline-placeholder */}
                 <button onMouseDown={e=>e.preventDefault()} onClick={()=>setBold(b=>!b)}
                   className="w-8 h-8 rounded-lg text-sm font-bold border-2 flex items-center justify-center transition-all"
                   style={{ borderColor:bold?"#4a80f0":"transparent", color:"var(--brown-dark)", background:bold?"#eef2ff":"transparent" }}>B</button>
@@ -3457,7 +3559,6 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
                   className="w-8 h-8 rounded-lg text-sm italic border-2 flex items-center justify-center transition-all"
                   style={{ fontFamily:"Georgia,serif", borderColor:italic?"#4a80f0":"transparent", color:"var(--brown-dark)", background:italic?"#eef2ff":"transparent" }}>I</button>
                 <Sep2/>
-                {/* Alignment */}
                 {(["left","center","right"] as TextAlign[]).map(a=>(
                   <button key={a} onMouseDown={e=>e.preventDefault()} onClick={()=>setAlign(a)}
                     className="w-8 h-8 rounded-lg border-2 flex items-center justify-center transition-all"
@@ -3470,14 +3571,12 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
                   </button>
                 ))}
                 <Sep2/>
-                {/* Text color */}
                 <label className="relative flex flex-col items-center gap-0.5 cursor-pointer w-8 h-8 rounded-lg hover:bg-gray-50 justify-center" title="Цвет текста">
                   <span className="font-bold leading-none" style={{ color:"var(--brown-dark)", fontSize:14 }}>A</span>
                   <div className="w-5 h-1 rounded-full" style={{ background:color }}/>
                   <input type="color" value={color} onChange={e=>setColor(e.target.value)}
                     className="absolute opacity-0 inset-0 cursor-pointer" onMouseDown={e=>e.stopPropagation()}/>
                 </label>
-                {/* Bg color */}
                 <label className="relative flex flex-col items-center gap-0.5 cursor-pointer w-8 h-8 rounded-lg hover:bg-gray-50 justify-center" title="Фон">
                   <div className="w-5 h-5 rounded border-2" style={{ background:textBgOpacity>0?textBgColor:"transparent", borderColor:"var(--brown-pale)" }}/>
                   <input type="color" value={textBgColor}
@@ -3495,59 +3594,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
                   className="px-3 h-8 rounded-xl text-xs font-semibold text-white shrink-0"
                   style={{ background:"var(--gradient-primary)" }}>Готово</button>
               </div>
-              {/* ── Inline textarea — Miro-style: transparent, with corner handles ── */}
-              {(() => {
-                const handleStyle: React.CSSProperties = {
-                  position:"absolute", width:10, height:10, borderRadius:"50%",
-                  background:"white", border:"2px solid #4a80f0", pointerEvents:"none",
-                };
-                return (
-                  <div className="absolute" style={{ left:textScr.x, top:textScr.y, zIndex:50 }}
-                    onMouseDown={e => e.stopPropagation()}>
-                    <textarea ref={textRef} value={textValue}
-                      onChange={e => {
-                        const val = e.target.value;
-                        setTextValue(val);
-                        // measure width via hidden span for accuracy
-                        const el = e.target;
-                        const lines = val.split("\n");
-                        const span = document.createElement("span");
-                        span.style.cssText = `position:absolute;visibility:hidden;white-space:pre;font:${
-                          el.style.fontStyle} ${el.style.fontWeight} ${el.style.fontSize} ${el.style.fontFamily
-                        };padding:${el.style.padding}`;
-                        document.body.appendChild(span);
-                        const maxW = Math.max(...lines.map(l => { span.textContent = l||"M"; return span.getBoundingClientRect().width; }));
-                        document.body.removeChild(span);
-                        el.style.width = Math.max(maxW + 24, Math.round(60 * zoom)) + "px";
-                        el.style.height = "auto";
-                        el.style.height = el.scrollHeight + "px";
-                      }}
-                      onKeyDown={e => {
-                        if (e.key === "Escape") { e.preventDefault(); setTextInput(null); editingIdRef.current=null; setEditingId(null); render(); }
-                        if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commitText(); }
-                      }}
-                      rows={1} placeholder="Текст..."
-                      style={{ display:"block", fontSize:fontSize*zoom+"px", fontFamily:FONTS[fontIdx].family,
-                        fontWeight:bold?"bold":"normal", fontStyle:italic?"italic":"normal", textAlign:align,
-                        color, caretColor:color,
-                        backgroundColor: bgCss === "transparent" ? "transparent" : bgCss,
-                        border: "1.5px solid #4a80f0",
-                        borderRadius: 3,
-                        outline: "none",
-                        padding: `${3*zoom}px ${6*zoom}px`,
-                        minWidth: Math.max(40, 60*zoom)+"px",
-                        lineHeight: 1.5, resize: "none", overflow: "hidden",
-                        whiteSpace: "pre",
-                        WebkitAppearance: "none",
-                      } as React.CSSProperties} />
-                    {/* Corner handles — like Miro selection */}
-                    <div style={{ ...handleStyle, top:-5, left:-5 }}/>
-                    <div style={{ ...handleStyle, top:-5, right:-5 }}/>
-                    <div style={{ ...handleStyle, bottom:-5, left:-5 }}/>
-                    <div style={{ ...handleStyle, bottom:-5, right:-5 }}/>
-                  </div>
-                );
-              })()}
+              {textareaEl}
             </>
           );
         })()}
