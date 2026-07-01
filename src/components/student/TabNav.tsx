@@ -1,8 +1,30 @@
 "use client";
 
 import Link from "next/link";
-import { CalendarDays, ClipboardList, PenLine, NotebookText, Brain, BookText, FolderOpen } from "lucide-react";
-import { THEME_TAB_ICONS, type ThemeId } from "./themes";
+import type { LucideIcon } from "lucide-react";
+import {
+  // defaults
+  CalendarDays, ClipboardList, PenLine, NotebookText, Brain, BookText, FolderOpen,
+  // ocean
+  Anchor, Shell, Fish, Globe, Paintbrush,
+  // forest
+  Leaf, Squirrel, Scroll, Sprout,
+  // sun
+  Sun, Zap, Pencil, Cloud, BookMarked,
+  // neon
+  Target, Diamond, Database, Monitor, BarChart, Gamepad2, Cpu,
+  // craft
+  Pickaxe, Package, Palette, Sword, Wand2,
+  // kawaii
+  Ribbon, Star, Flower2, Cat, Heart, Cherry, Rainbow,
+  // scene
+  Mic2, Disc3, Guitar, Music, Headphones,
+  // sunset
+  Flower, Sparkles, Moon, Flame,
+  // luxury
+  Feather, Drama, BookOpen, LeafyGreen,
+} from "lucide-react";
+import type { ThemeId } from "./themes";
 
 const TABS = [
   { id: "schedule",  label: "Расписание", icon: CalendarDays },
@@ -12,16 +34,114 @@ const TABS = [
   { id: "journal",   label: "Журнал",     icon: NotebookText },
   { id: "trainer",   label: "Тренажёр",   icon: Brain },
   { id: "grammar",   label: "Грамматика", icon: BookText },
-];
+] as const;
 
-// Icon foreground color on top of --theme-accent background
-// Light accents need a dark icon; dark accents get white
+type TabId = (typeof TABS)[number]["id"];
+type TabIconSet = Partial<Record<TabId, LucideIcon>>;
+
+// Per-theme Lucide icon overrides — falls back to default if tab not listed
+const THEME_ICONS: Partial<Record<ThemeId, TabIconSet>> = {
+  ocean: {
+    schedule:  Anchor,
+    materials: Shell,
+    board:     Paintbrush,
+    journal:   BookOpen,
+    trainer:   Fish,
+    grammar:   Globe,
+  },
+  forest: {
+    schedule:  Leaf,
+    materials: Sprout,
+    board:     Paintbrush,
+    journal:   BookOpen,
+    trainer:   Squirrel,
+    grammar:   Scroll,
+  },
+  sun: {
+    schedule:  Sun,
+    homework:  Pencil,
+    materials: Cloud,
+    board:     Paintbrush,
+    journal:   BookOpen,
+    trainer:   Zap,
+    grammar:   BookMarked,
+  },
+  neon: {
+    schedule:  Target,
+    homework:  Diamond,
+    materials: Database,
+    board:     Monitor,
+    journal:   BarChart,
+    trainer:   Gamepad2,
+    grammar:   Cpu,
+  },
+  craft: {
+    schedule:  Pickaxe,
+    homework:  Scroll,
+    materials: Package,
+    board:     Palette,
+    journal:   BookOpen,
+    trainer:   Sword,
+    grammar:   Wand2,
+  },
+  kawaii: {
+    schedule:  Ribbon,
+    homework:  Star,
+    materials: Flower2,
+    board:     Cat,
+    journal:   Heart,
+    trainer:   Cherry,
+    grammar:   Rainbow,
+  },
+  scene: {
+    schedule:  Mic2,
+    homework:  PenLine,
+    materials: Disc3,
+    board:     Guitar,
+    journal:   NotebookText,
+    trainer:   Music,
+    grammar:   Headphones,
+  },
+  sunset: {
+    schedule:  Flower,
+    homework:  Sparkles,
+    materials: FolderOpen,
+    board:     PenLine,
+    journal:   Moon,
+    trainer:   Flame,
+    grammar:   BookMarked,
+  },
+  classic: {
+    homework:  Feather,
+    board:     PenLine,
+    journal:   BookOpen,
+    trainer:   Drama,
+    grammar:   BookMarked,
+  },
+  emerald: {
+    schedule:  Leaf,
+    homework:  Feather,
+    board:     PenLine,
+    journal:   BookOpen,
+    trainer:   LeafyGreen,
+    grammar:   BookMarked,
+  },
+  graphite: {
+    homework:  Feather,
+    board:     PenLine,
+    journal:   BookOpen,
+    trainer:   Target,
+    grammar:   BookMarked,
+  },
+};
+
+// Icon foreground on theme-accent background: dark for light accents, white elsewhere
 const ICON_FG: Partial<Record<ThemeId, string>> = {
-  sun:      "#5A3800",   // yellow accent → dark brown
-  craft:    "#2A4010",   // cream accent  → dark green
-  kawaii:   "#8B2252",   // light pink    → deep pink
-  emerald:  "#0E2A22",   // gold accent   → deep green
-  graphite: "#1A1A1D",   // warm gold     → near-black
+  sun:      "#5A3800",
+  craft:    "#2A4010",
+  kawaii:   "#8B2252",
+  emerald:  "#0E2A22",
+  graphite: "#1A1A1D",
 };
 
 export default function TabNav({
@@ -35,17 +155,17 @@ export default function TabNav({
   pendingHomework?: number;
   themeId?: string | null;
 }) {
-  const themeIcons = themeId ? THEME_TAB_ICONS[themeId as ThemeId] : undefined;
-  const iconFg = ICON_FG[themeId as ThemeId] ?? "#ffffff";
+  const tid = themeId as ThemeId | undefined;
+  const themeIconSet = tid ? THEME_ICONS[tid] : undefined;
+  const iconFg = tid ? (ICON_FG[tid] ?? "#ffffff") : "#ffffff";
 
   return (
     <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 pb-1 sm:pb-0">
       <div className="flex sm:grid sm:grid-cols-7 gap-1.5 sm:gap-2 w-max sm:w-full">
         {TABS.map((tab) => {
-          const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           const showBadge = tab.id === "homework" && pendingHomework > 0;
-          const emojiIcon = themeIcons?.[tab.id];
+          const Icon: LucideIcon = themeIconSet?.[tab.id] ?? tab.icon;
 
           return (
             <Link
@@ -82,10 +202,7 @@ export default function TabNav({
                     : "0 2px 8px rgba(0,0,0,0.14)",
                 }}
               >
-                {emojiIcon
-                  ? <span style={{ fontSize: 20, lineHeight: 1 }} aria-hidden="true">{emojiIcon}</span>
-                  : <Icon size={20} color={isActive ? "#ffffff" : iconFg} />
-                }
+                <Icon size={20} color={isActive ? "#ffffff" : iconFg} />
               </div>
 
               <span
