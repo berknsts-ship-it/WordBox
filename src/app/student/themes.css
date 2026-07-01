@@ -43,8 +43,11 @@ html[data-theme="ocean"] {
   --theme-font-weight:    600;
   --theme-is-dark:        0;
   --theme-diary-opacity:  0.35;
-  --theme-banner-bg:      linear-gradient(135deg, #2050C0 0%, #3A8EB8 100%);
-  --theme-banner-shadow:  0 4px 24px rgba(50,100,200,0.35);
+  --theme-banner-bg:      linear-gradient(145deg, #1D5880 0%, #2E7BB0 60%, #3A8EC0 100%);
+  --theme-banner-shadow:  0 4px 24px rgba(30,90,160,0.38);
+  --theme-banner-subtitle: rgba(255,255,255,0.7);
+  --theme-banner-name:    #FFFFFF;
+  --theme-banner-stat-bg: rgba(255,255,255,0.18);
 }
 
 html[data-theme="forest"] {
@@ -60,8 +63,11 @@ html[data-theme="forest"] {
   --theme-font-weight:    600;
   --theme-is-dark:        0;
   --theme-diary-opacity:  0.35;
-  --theme-banner-bg:      linear-gradient(135deg, #1A6030 0%, #3A8A50 100%);
-  --theme-banner-shadow:  0 4px 24px rgba(20,80,40,0.35);
+  --theme-banner-bg:      linear-gradient(145deg, #285E38 0%, #3E8A57 60%, #4A9E60 100%);
+  --theme-banner-shadow:  0 4px 24px rgba(25,80,42,0.38);
+  --theme-banner-subtitle: rgba(255,255,255,0.7);
+  --theme-banner-name:    #FFFFFF;
+  --theme-banner-stat-bg: rgba(255,255,255,0.18);
 }
 
 html[data-theme="sun"] {
@@ -77,11 +83,11 @@ html[data-theme="sun"] {
   --theme-font-weight:    400;
   --theme-is-dark:        0;
   --theme-diary-opacity:  0.3;
-  --theme-banner-bg:      linear-gradient(135deg, #D89000 0%, #F5C835 100%);
-  --theme-banner-shadow:  0 4px 24px rgba(200,150,0,0.3);
-  --theme-banner-subtitle: rgba(100,65,0,0.7);
-  --theme-banner-name:    #5A3500;
-  --theme-banner-stat-bg: rgba(255,255,255,0.4);
+  --theme-banner-bg:      linear-gradient(145deg, #C07E10 0%, #E8A63C 60%, #F0BC50 100%);
+  --theme-banner-shadow:  0 4px 24px rgba(190,130,10,0.35);
+  --theme-banner-subtitle: rgba(80,48,0,0.75);
+  --theme-banner-name:    #3A2000;
+  --theme-banner-stat-bg: rgba(255,255,255,0.38);
 }
 
 /* ── Игровые ────────────────────────────────────────────────────────────── */
@@ -99,8 +105,11 @@ html[data-theme="neon"] {
   --theme-font-weight:    600;
   --theme-is-dark:        1;
   --theme-diary-opacity:  0;
-  --theme-banner-bg:      linear-gradient(135deg, #2A2060 0%, #5A48D8 100%);
-  --theme-banner-shadow:  0 4px 24px rgba(100,90,220,0.5);
+  --theme-banner-bg:      linear-gradient(145deg, #160E38 0%, #241A45 60%, #2E2258 100%);
+  --theme-banner-shadow:  0 4px 24px rgba(80,60,200,0.55);
+  --theme-banner-subtitle: rgba(176,154,248,0.8);
+  --theme-banner-name:    #E8E4FF;
+  --theme-banner-stat-bg: rgba(255,255,255,0.1);
 }
 
 html[data-theme="craft"] {
@@ -116,9 +125,11 @@ html[data-theme="craft"] {
   --theme-font-weight:    400;
   --theme-is-dark:        0;
   --theme-diary-opacity:  0;
-  --theme-banner-bg:      linear-gradient(135deg, #3A2E10 0%, #2A4215 100%);
-  --theme-banner-shadow:  0 4px 24px rgba(20,40,10,0.5);
-  --theme-banner-name:    #D4C896;
+  --theme-banner-bg:      linear-gradient(145deg, #5A8A30 0%, #78B048 60%, #88C458 100%);
+  --theme-banner-shadow:  0 4px 24px rgba(40,80,10,0.45);
+  --theme-banner-subtitle: rgba(255,255,255,0.7);
+  --theme-banner-name:    #FDFAF0;
+  --theme-banner-stat-bg: rgba(255,255,255,0.22);
 }
 
 html[data-theme="kawaii"] {
@@ -134,8 +145,8 @@ html[data-theme="kawaii"] {
   --theme-font-weight:    700;
   --theme-is-dark:        0;
   --theme-diary-opacity:  0.25;
-  --theme-banner-bg:      linear-gradient(135deg, #F09ABE 0%, #F8C5DC 100%);
-  --theme-banner-shadow:  0 4px 24px rgba(200,80,130,0.25);
+  --theme-banner-bg:      linear-gradient(145deg, #F0A0C8 0%, #F6C8DE 60%, #FDE0EC 100%);
+  --theme-banner-shadow:  0 4px 24px rgba(200,80,130,0.28);
   --theme-banner-subtitle: rgba(138,58,94,0.7);
   --theme-banner-name:    #7A2050;
   --theme-banner-stat-bg: rgba(255,255,255,0.5);
@@ -154,8 +165,11 @@ html[data-theme="scene"] {
   --theme-font-weight:    400;
   --theme-is-dark:        1;
   --theme-diary-opacity:  0;
-  --theme-banner-bg:      linear-gradient(135deg, #FF3A82 0%, #6E5AFF 100%);
-  --theme-banner-shadow:  0 4px 24px rgba(255,60,130,0.45);
+  --theme-banner-bg:      linear-gradient(145deg, #1A0E3A 0%, #2E1F52 60%, #3A2868 100%);
+  --theme-banner-shadow:  0 4px 24px rgba(80,60,180,0.55);
+  --theme-banner-subtitle: rgba(192,176,224,0.8);
+  --theme-banner-name:    #FFFFFF;
+  --theme-banner-stat-bg: rgba(255,255,255,0.1);
 }
 
 /* ── Атмосферные ────────────────────────────────────────────────────────── */
@@ -173,8 +187,11 @@ html[data-theme="sunset"] {
   --theme-font-weight:    400;
   --theme-is-dark:        0;
   --theme-diary-opacity:  0;
-  --theme-banner-bg:      linear-gradient(160deg, #FF9B5C 0%, #E87AB3 55%, #8A6AE0 100%);
-  --theme-banner-shadow:  0 4px 24px rgba(200,100,150,0.35);
+  --theme-banner-bg:      linear-gradient(160deg, #CC5520 0%, #F0925E 35%, #E87AB3 65%, #8A6AE0 100%);
+  --theme-banner-shadow:  0 4px 24px rgba(180,80,40,0.4);
+  --theme-banner-subtitle: rgba(50,20,0,0.75);
+  --theme-banner-name:    #2E1640;
+  --theme-banner-stat-bg: rgba(255,255,255,0.22);
 }
 
 /* ── Взрослые / Люксовые ────────────────────────────────────────────────── */
@@ -471,4 +488,48 @@ html[data-theme="graphite"] .diary-bg-fixed {
       transparent 1px, transparent 9px
     );
   background-size: 100% 100%, 100% 100%, 9px 9px;
+}
+
+/* ─── Banner SVG animation keyframes ────────────────────────────────────────── */
+
+@keyframes wb-sway {
+  0%, 100% { transform: rotate(-2deg); }
+  50%       { transform: rotate(2deg); }
+}
+
+@keyframes wb-twinkle {
+  0%, 100% { opacity: 0.4; }
+  50%       { opacity: 1; }
+}
+
+@keyframes wb-pulse {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.12); }
+}
+
+.wb-twinkle {
+  animation: wb-twinkle 1.8s ease-in-out infinite;
+}
+
+.wb-sway-branch {
+  animation: wb-sway 3.5s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: bottom center;
+}
+
+.wb-pulse {
+  animation: wb-pulse 1.6s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.wb-pulse-glow {
+  animation: wb-pulse 1.6s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+  filter: drop-shadow(0 0 8px currentColor) drop-shadow(0 0 16px currentColor);
+}
+
+.stick-glow {
+  filter: drop-shadow(0 0 8px currentColor) drop-shadow(0 0 16px currentColor);
 }
