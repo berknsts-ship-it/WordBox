@@ -46,18 +46,20 @@ export default function TabNav({
                   ? {
                       background: "var(--gradient-primary)",
                       color: "#fff",
-                      boxShadow: "var(--shadow-button)",
+                      boxShadow: "var(--shadow-button), 0 4px 14px rgba(0,0,0,0.14)",
+                      transform: "translateY(-1px)",
                     }
                   : {
                       background: "var(--theme-card-bg)",
                       color: "var(--theme-text-secondary)",
                       border: "1.5px solid var(--theme-card-border)",
+                      boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
                     }
               }
             >
               {emojiIcon
-                ? <span className="text-xl leading-none" aria-hidden="true">{emojiIcon}</span>
-                : <Icon size={18} />
+                ? <span className="text-2xl leading-none" aria-hidden="true">{emojiIcon}</span>
+                : <Icon size={20} />
               }
               <span className="text-xs font-semibold text-center leading-tight whitespace-nowrap">
                 {tab.label}

@@ -574,3 +574,14 @@ html[data-theme="graphite"] .diary-bg-fixed {
 .stick-glow {
   filter: drop-shadow(0 0 8px currentColor) drop-shadow(0 0 16px currentColor);
 }
+
+@keyframes wb-petal-drift {
+  0%   { transform: translateY(0)    rotate(0deg); }
+  40%  { transform: translateY(-9px) rotate(14deg); }
+  70%  { transform: translateY(-4px) rotate(-7deg); }
+  100% { transform: translateY(0)    rotate(0deg); }
+}
+.wb-petal   { animation: wb-petal-drift 3.6s ease-in-out infinite;           transform-box: fill-box; transform-origin: center; }
+.wb-petal-2 { animation: wb-petal-drift 3.6s ease-in-out infinite -1.2s;     transform-box: fill-box; transform-origin: center; }
+.wb-petal-3 { animation: wb-petal-drift 4.4s ease-in-out infinite -2.5s;     transform-box: fill-box; transform-origin: center; }
+.wb-petal-4 { animation: wb-petal-drift 3.9s ease-in-out infinite -0.8s;     transform-box: fill-box; transform-origin: center; }

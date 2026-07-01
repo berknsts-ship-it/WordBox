@@ -225,68 +225,94 @@ function CraftDecor() {
 
 function KawaiiDecor() {
   return (
-    <div className="absolute right-0 top-0 bottom-0 pointer-events-none select-none flex items-center" style={{ width: 136 }}>
-      <svg viewBox="0 0 118 122" width="118" height="122" xmlns="http://www.w3.org/2000/svg" style={{ overflow: "visible" }}>
-        {/* Cat face — floats gently */}
+    <div className="absolute right-0 top-0 bottom-0 pointer-events-none select-none flex items-center" style={{ width: 148 }}>
+      <svg viewBox="0 0 132 132" width="132" height="132" xmlns="http://www.w3.org/2000/svg" style={{ overflow: "visible" }}>
+        {/* Whole cat floats gently */}
         <g className="wb-float">
-          <circle cx="58" cy="70" r="33" stroke="rgba(138,58,94,0.55)" strokeWidth="1.6" fill="rgba(255,200,220,0.1)"/>
-          {/* Ears */}
-          <polygon points="26,50 34,26 43,50" stroke="rgba(138,58,94,0.55)" strokeWidth="1.5" fill="none" strokeLinejoin="round"/>
-          <polygon points="73,50 82,26 90,50" stroke="rgba(138,58,94,0.55)" strokeWidth="1.5" fill="none" strokeLinejoin="round"/>
-          {/* Inner ears */}
-          <polygon points="30,49 35,30 41,49" fill="rgba(255,160,190,0.42)"/>
-          <polygon points="76,49 82,30 88,49" fill="rgba(255,160,190,0.42)"/>
-          {/* Eyes — shiny */}
-          <ellipse cx="45" cy="66" rx="7" ry="8" stroke="rgba(138,58,94,0.62)" strokeWidth="1.6" fill="rgba(255,200,220,0.1)"/>
-          <ellipse cx="71" cy="66" rx="7" ry="8" stroke="rgba(138,58,94,0.62)" strokeWidth="1.6" fill="rgba(255,200,220,0.1)"/>
-          <circle cx="47" cy="64" r="2"   fill="rgba(138,58,94,0.65)"/>
-          <circle cx="73" cy="64" r="2"   fill="rgba(138,58,94,0.65)"/>
-          <circle cx="50" cy="61" r="1.2" fill="rgba(255,255,255,0.8)"/>
-          <circle cx="76" cy="61" r="1.2" fill="rgba(255,255,255,0.8)"/>
+          {/* Ears — drawn first so face circle covers the bases */}
+          <polygon points="20,55 33,17 50,54" fill="rgba(255,218,230,0.95)"/>
+          <polygon points="82,54 99,17 112,55" fill="rgba(255,218,230,0.95)"/>
+          {/* Pink inner ears */}
+          <polygon points="26,53 34,25 46,52" fill="rgba(255,148,182,0.88)"/>
+          <polygon points="86,52 98,25 106,53" fill="rgba(255,148,182,0.88)"/>
+          {/* Face — solid white circle */}
+          <circle cx="66" cy="78" r="41" fill="rgba(255,248,252,0.97)"/>
+          {/* Happy closed eyes — arcs bowing upward (˘ shape = happy squint) */}
+          <path d="M35,75 Q50,65 65,75"
+            stroke="rgba(62,28,48,0.88)" strokeWidth="3.2" fill="none" strokeLinecap="round"/>
+          <path d="M67,75 Q82,65 97,75"
+            stroke="rgba(62,28,48,0.88)" strokeWidth="3.2" fill="none" strokeLinecap="round"/>
+          {/* Pink blush cheeks */}
+          <ellipse cx="41"  cy="86" rx="13" ry="8" fill="rgba(255,145,178,0.42)"/>
+          <ellipse cx="91"  cy="86" rx="13" ry="8" fill="rgba(255,145,178,0.42)"/>
           {/* Nose */}
-          <polygon points="58,76 55,81 61,81" fill="rgba(138,58,94,0.52)"/>
-          {/* Mouth */}
-          <path d="M52 83 Q58 90 64 83" stroke="rgba(138,58,94,0.46)" strokeWidth="1.6" fill="none" strokeLinecap="round"/>
-          {/* Whiskers */}
-          <line x1="18" y1="77" x2="50" y2="78" stroke="rgba(138,58,94,0.32)" strokeWidth="1"/>
-          <line x1="66" y1="78" x2="98" y2="77" stroke="rgba(138,58,94,0.32)" strokeWidth="1"/>
-          <line x1="20" y1="83" x2="50" y2="81" stroke="rgba(138,58,94,0.2)"  strokeWidth="1"/>
-          <line x1="66" y1="81" x2="96" y2="83" stroke="rgba(138,58,94,0.2)"  strokeWidth="1"/>
-          {/* Blush */}
-          <ellipse cx="38" cy="74" rx="7" ry="4" fill="rgba(255,130,160,0.22)"/>
-          <ellipse cx="78" cy="74" rx="7" ry="4" fill="rgba(255,130,160,0.22)"/>
+          <path d="M63,83 L66,88 L69,83"
+            stroke="rgba(195,95,135,0.78)" strokeWidth="1.8" fill="rgba(255,168,192,0.62)" strokeLinejoin="round"/>
+          {/* Mouth — cat double curve (ω) */}
+          <path d="M49,94 Q57,103 66,97 Q75,103 83,94"
+            stroke="rgba(195,95,135,0.72)" strokeWidth="2.2" fill="none" strokeLinecap="round"/>
+          {/* Whiskers left */}
+          <line x1="6"  y1="80" x2="46" y2="84" stroke="rgba(145,82,115,0.36)" strokeWidth="1.4" strokeLinecap="round"/>
+          <line x1="8"  y1="88" x2="46" y2="88" stroke="rgba(145,82,115,0.26)" strokeWidth="1.2" strokeLinecap="round"/>
+          <line x1="10" y1="95" x2="46" y2="92" stroke="rgba(145,82,115,0.20)" strokeWidth="1"   strokeLinecap="round"/>
+          {/* Whiskers right */}
+          <line x1="86" y1="84" x2="126" y2="80" stroke="rgba(145,82,115,0.36)" strokeWidth="1.4" strokeLinecap="round"/>
+          <line x1="86" y1="88" x2="124" y2="88" stroke="rgba(145,82,115,0.26)" strokeWidth="1.2" strokeLinecap="round"/>
+          <line x1="86" y1="92" x2="122" y2="95" stroke="rgba(145,82,115,0.20)" strokeWidth="1"   strokeLinecap="round"/>
         </g>
         {/* Floating hearts — twinkle independently */}
-        <text x="6"  y="30" fontSize="22" fill="rgba(232,128,159,0.78)" className="wb-twinkle">♡</text>
-        <text x="84" y="24" fontSize="15" fill="rgba(232,128,159,0.62)" className="wb-twinkle" style={{ animationDelay: "0.9s" }}>♡</text>
-        <text x="98" y="55" fontSize="18" fill="rgba(232,128,159,0.58)" className="wb-twinkle" style={{ animationDelay: "0.4s" }}>♡</text>
+        <text x="2"  y="28" fontSize="22" fill="rgba(232,118,159,0.80)" className="wb-twinkle">♡</text>
+        <text x="98" y="22" fontSize="15" fill="rgba(232,118,159,0.62)" className="wb-twinkle" style={{ animationDelay: "0.9s" }}>♡</text>
+        <text x="110" y="56" fontSize="17" fill="rgba(232,118,159,0.56)" className="wb-twinkle" style={{ animationDelay: "0.4s" }}>♡</text>
       </svg>
     </div>
   );
 }
 
-function SunsetDecor() {
+function SakuraDecor() {
   return (
-    <div className="absolute right-0 top-0 bottom-0 pointer-events-none select-none overflow-hidden" style={{ width: 158 }}>
-      <svg viewBox="0 0 158 102" width="158" height="100%" preserveAspectRatio="xMidYMid slice"
-        xmlns="http://www.w3.org/2000/svg">
-        {/* Mountains — layered for depth */}
-        <polygon points="0,102 48,34 96,102"  fill="rgba(80,38,118,0.52)"/>
-        <polygon points="30,102 82,22 134,102" fill="rgba(96,48,148,0.62)"/>
-        <polygon points="82,102 122,46 158,102" fill="rgba(68,32,98,0.46)"/>
-        {/* Sun — pulses */}
-        <circle cx="80" cy="30" r="24" fill="rgba(255,200,80,0.3)"  className="wb-pulse"/>
-        <circle cx="80" cy="30" r="24" stroke="rgba(255,224,100,0.72)" strokeWidth="2.2" fill="none" className="wb-pulse"/>
-        <circle cx="80" cy="30" r="15" stroke="rgba(255,224,100,0.22)" strokeWidth="1" fill="none" className="wb-pulse"/>
-        {/* Torii gate */}
-        <rect x="112" y="58" width="5"  height="44" fill="rgba(175,30,8,0.9)"/>
-        <rect x="131" y="58" width="5"  height="44" fill="rgba(175,30,8,0.9)"/>
-        {/* Top crossbar — curved up */}
-        <path d="M107 55 Q124 46 151 55" stroke="rgba(175,30,8,0.9)" strokeWidth="5" fill="none" strokeLinecap="round"/>
-        {/* Second crossbar */}
-        <rect x="109" y="62" width="30" height="4" rx="1" fill="rgba(175,30,8,0.9)"/>
-        {/* Short ornament between crossbars */}
-        <rect x="124" y="56" width="0" height="0"/>
+    <div className="absolute right-0 top-0 bottom-0 pointer-events-none select-none overflow-hidden" style={{ width: 166 }}>
+      <svg viewBox="0 0 166 106" width="166" height="100%"
+        preserveAspectRatio="xMidYMid slice"
+        xmlns="http://www.w3.org/2000/svg"
+        style={{ overflow: "visible" }}>
+        {/* Trunk */}
+        <path d="M138 107 C132 90 128 74 124 57 C120 44 122 28 127 13"
+          stroke="rgba(105,58,78,0.62)" strokeWidth="5" fill="none" strokeLinecap="round"/>
+        {/* Main left branch */}
+        <path d="M125 63 C112 55 98 51 84 55"
+          stroke="rgba(105,58,78,0.56)" strokeWidth="3" fill="none" strokeLinecap="round"/>
+        {/* Upper left branch */}
+        <path d="M124 47 C114 37 104 29 96 27"
+          stroke="rgba(105,58,78,0.52)" strokeWidth="2.5" fill="none" strokeLinecap="round"/>
+        {/* Upper right branch */}
+        <path d="M126 31 C136 21 147 13 155 8"
+          stroke="rgba(105,58,78,0.52)" strokeWidth="2.5" fill="none" strokeLinecap="round"/>
+        {/* Lower twig */}
+        <path d="M122 74 C110 69 100 67 90 70"
+          stroke="rgba(105,58,78,0.42)" strokeWidth="2" fill="none" strokeLinecap="round"/>
+        {/* Blossom clusters */}
+        <circle cx="82"  cy="53" r="12" fill="rgba(255,200,218,0.84)"/>
+        <circle cx="76"  cy="59" r="8"  fill="rgba(255,212,226,0.76)"/>
+        <circle cx="90"  cy="49" r="10" fill="rgba(255,216,230,0.80)"/>
+        <circle cx="79"  cy="62" r="6"  fill="rgba(255,200,218,0.68)"/>
+        <circle cx="94"  cy="25" r="11" fill="rgba(255,200,218,0.86)"/>
+        <circle cx="103" cy="21" r="8"  fill="rgba(255,212,226,0.76)"/>
+        <circle cx="88"  cy="29" r="7"  fill="rgba(255,216,230,0.72)"/>
+        <circle cx="155" cy="7"  r="9"  fill="rgba(255,200,218,0.82)"/>
+        <circle cx="149" cy="14" r="7"  fill="rgba(255,212,226,0.72)"/>
+        <circle cx="88"  cy="68" r="8"  fill="rgba(255,200,218,0.74)"/>
+        <circle cx="97"  cy="65" r="5"  fill="rgba(255,216,230,0.62)"/>
+        {/* Flying petals — staggered animations */}
+        <ellipse cx="22"  cy="34" rx="5.5" ry="3"   transform="rotate(-28 22 34)"  fill="rgba(255,200,218,0.80)" className="wb-petal"/>
+        <ellipse cx="46"  cy="16" rx="4.5" ry="2.5" transform="rotate(18 46 16)"   fill="rgba(255,212,226,0.72)" className="wb-petal-2"/>
+        <ellipse cx="60"  cy="52" rx="4"   ry="2.2" transform="rotate(-42 60 52)"  fill="rgba(255,200,218,0.74)" className="wb-petal-3"/>
+        <ellipse cx="32"  cy="74" rx="5"   ry="2.8" transform="rotate(22 32 74)"   fill="rgba(255,216,230,0.66)" className="wb-petal-4"/>
+        <ellipse cx="14"  cy="57" rx="3.5" ry="2"   transform="rotate(-16 14 57)"  fill="rgba(255,200,218,0.58)" className="wb-petal"/>
+        <ellipse cx="110" cy="84" rx="4.5" ry="2.5" transform="rotate(32 110 84)"  fill="rgba(255,205,220,0.62)" className="wb-petal-3"/>
+        <ellipse cx="68"  cy="90" rx="3.5" ry="2"   transform="rotate(-22 68 90)"  fill="rgba(255,212,226,0.52)" className="wb-petal-2"/>
+        <ellipse cx="40"  cy="45" rx="4"   ry="2.2" transform="rotate(10 40 45)"   fill="rgba(255,200,218,0.67)" className="wb-petal-4"/>
+        <ellipse cx="52"  cy="83" rx="3"   ry="1.8" transform="rotate(-35 52 83)"  fill="rgba(255,216,230,0.48)" className="wb-petal"/>
       </svg>
     </div>
   );
@@ -345,7 +371,7 @@ function ThemeDecor({ theme }: { theme: string }) {
     case "neon":   return <NeonDecor />;
     case "craft":  return <CraftDecor />;
     case "kawaii": return <KawaiiDecor />;
-    case "sunset": return <SunsetDecor />;
+    case "sunset": return <SakuraDecor />;
     case "scene":  return <SceneDecor />;
     default:       return null;
   }
