@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Upload, FileText, X, Link as LinkIcon } from "lucide-react";
-import { upload } from "@vercel/blob/client";
+import { uploadPresigned } from "@vercel/blob/client";
 
 export default function NewMaterialPage() {
   const router = useRouter();
@@ -34,7 +34,7 @@ export default function NewMaterialPage() {
 
     // Загрузка напрямую в Vercel Blob из браузера (без лимита serverless)
     try {
-      const blob = await upload(`materials/${Date.now()}-${f.name}`, f, {
+      const blob = await uploadPresigned(`materials/${Date.now()}-${f.name}`, f, {
         access: "public",
         handleUploadUrl: "/api/upload/blob",
         onUploadProgress: ({ percentage }) => {
@@ -123,7 +123,7 @@ export default function NewMaterialPage() {
           {/* Файл */}
           <div>
             <label className="block text-xs font-semibold mb-1" style={{ color: "var(--brown-mid)" }}>
-              Загрузить файл (PDF, картинка, документ — до 4 МБ)
+              Загрузить файл (PDF, картинка, документ — до 200 МБ)
             </label>
             {file ? (
               <div className="flex items-center gap-3 px-4 py-3 rounded-xl border"
