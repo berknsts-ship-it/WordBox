@@ -1,170 +1,102 @@
 import { createClient } from "@/lib/supabase/server";
-import { addMaterial, deleteMaterial } from "@/app/actions/materials";
-import { FileUploadField } from "@/components/tutor/FileUploadField";
-import MaterialAssignPanel from "@/components/tutor/MaterialAssignPanel";
+import Link from "next/link";
+import StudentLibraryPanel from "@/components/tutor/StudentLibraryPanel";
+import { Monitor, BookOpen, FileText, Link2, ExternalLink } from "lucide-react";
+
+type Material = {
+  id: string;
+  title: string;
+  url: string | null;
+  file_name: string | null;
+  is_iframe: boolean;
+  created_at: string;
+};
+
+function materialIcon(m: Material) {
+  if (m.is_iframe) return <Monitor size={14} />;
+  const isPdf = m.file_name?.toLowerCase().endsWith(".pdf") || (!m.file_name && m.url?.toLowerCase().includes(".pdf"));
+  if (isPdf) return <BookOpen size={14} />;
+  if (m.file_name) return <FileText size={14} />;
+  if (m.url) return <Link2 size={14} />;
+  return <FileText size={14} />;
+}
 
 export default async function TutorMaterialsTab({ studentId }: { studentId: string }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   const [
-    { data: materials },
-    { data: allStudents },
-    { data: assignmentRows },
+    { data: libraryMaterials },
+    { data: assignedRows },
   ] = await Promise.all([
     supabase.from("materials")
-      .select("id, title, content, url, file_name, is_iframe, created_at, student_id")
-      .eq("student_id", studentId)
-      .order("created_at", { ascending: false }),
-    supabase.from("students")
-      .select("id, name")
+      .select("id, title, url, file_name, is_iframe, created_at")
       .eq("tutor_id", user!.id)
-      .neq("id", studentId)
-      .order("name"),
+      .is("student_id", null)
+      .order("title"),
     supabase.from("material_assignments")
-      .select("material_id, student_id"),
+      .select("material_id")
+      .eq("student_id", studentId),
   ]);
 
-  // Build a map: material_id → assigned student_ids (via junction table, excluding current student)
-  const assignmentMap = new Map<string, string[]>();
-  for (const row of assignmentRows ?? []) {
-    if (row.student_id === studentId) continue;
-    if (!assignmentMap.has(row.material_id)) assignmentMap.set(row.material_id, []);
-    assignmentMap.get(row.material_id)!.push(row.student_id);
-  }
+  const assignedIds = new Set((assignedRows ?? []).map(r => r.material_id));
+  const assignedMaterials = (libraryMaterials ?? []).filter(m => assignedIds.has(m.id));
+  const assignedMaterialIdList = (assignedRows ?? []).map(r => r.material_id);
 
   return (
-    <div className="space-y-6">
-      {/* Форма */}
-      <div className="bg-white/80 rounded-3xl border p-6" style={{ borderColor: "var(--brown-pale)" }}>
-        <h2 className="text-base font-semibold mb-4" style={{ color: "var(--brown-dark)" }}>
-          Добавить материал
-        </h2>
-        <form action={addMaterial} className="space-y-4">
-          <input type="hidden" name="student_id" value={studentId} />
-
-          <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: "var(--brown-mid)" }}>
-              Название *
-            </label>
-            <input
-              name="title"
-              required
-              placeholder="Например: Видео — Present Perfect"
-              className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
-              style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: "var(--brown-mid)" }}>
-              Описание / текст
-            </label>
-            <textarea
-              name="content"
-              rows={2}
-              placeholder="Пояснение к материалу..."
-              className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none resize-none"
-              style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: "var(--brown-mid)" }}>
-              Ссылка
-            </label>
-            <input
-              name="url"
-              type="url"
-              placeholder="https://..."
-              className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
-              style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
-            />
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="flex-1 h-px" style={{ background: "var(--brown-pale)" }} />
-            <span className="text-xs" style={{ color: "var(--brown-light)" }}>или</span>
-            <div className="flex-1 h-px" style={{ background: "var(--brown-pale)" }} />
-          </div>
-
-          <FileUploadField
-            folder="materials"
-            urlFieldName="uploaded_url"
-            fileNameFieldName="uploaded_file_name"
-          />
-
-          {/* Чекбокс iframe */}
-          <label className="flex items-start gap-3 cursor-pointer p-3 rounded-xl hover:opacity-80 transition-opacity"
-            style={{ background: "var(--brown-pale)" }}>
-            <input
-              type="checkbox"
-              name="is_iframe"
-              className="mt-0.5 w-4 h-4 accent-amber-700 cursor-pointer"
-            />
-            <div>
-              <p className="text-sm font-semibold" style={{ color: "var(--brown-dark)" }}>
-                Встроить как фрейм
-              </p>
-              <p className="text-xs mt-0.5" style={{ color: "var(--brown-mid)" }}>
-                Видео или сайт откроется прямо на странице ученика.
-                Для YouTube используй ссылку вида{" "}
-                <span className="font-mono">youtube.com/embed/ID</span>
-              </p>
-            </div>
-          </label>
-
-          <button type="submit"
-            className="w-full rounded-xl px-4 py-2.5 text-white text-sm font-semibold hover:opacity-80 transition-opacity"
-            style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-button)" }}>
-            Добавить материал
-          </button>
-        </form>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-semibold" style={{ color: "var(--brown-mid)" }}>
+          Материалы из библиотеки
+        </p>
+        <StudentLibraryPanel
+          studentId={studentId}
+          allMaterials={libraryMaterials ?? []}
+          assignedMaterialIds={assignedMaterialIdList}
+        />
       </div>
 
-      {/* Список */}
-      {materials && materials.length > 0 && (
-        <div className="space-y-3">
-          {materials.map((m) => (
-            <div key={m.id} className="bg-white/80 rounded-2xl border p-4"
-              style={{ borderColor: "var(--brown-pale)" }}>
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex gap-3 items-start flex-1 min-w-0">
-                  <span className="text-lg mt-0.5 shrink-0">
-                    {m.is_iframe ? "🖥️" : m.file_name ? "📎" : m.url ? "🔗" : "📄"}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="font-semibold text-sm" style={{ color: "var(--brown-dark)" }}>{m.title}</p>
-                    {m.content && <p className="text-xs mt-0.5" style={{ color: "var(--brown-light)" }}>{m.content}</p>}
-                    {m.file_name && (
-                      <p className="text-xs mt-1 truncate" style={{ color: "var(--brown-light)" }}>
-                        Файл: {m.file_name}
-                      </p>
-                    )}
-                    {m.url && !m.file_name && (
-                      <p className="text-xs mt-1 truncate" style={{ color: "var(--brown-light)" }}>
-                        {m.is_iframe ? "Фрейм: " : ""}{m.url}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {allStudents && allStudents.length > 0 && (
-                    <MaterialAssignPanel
-                      materialId={m.id}
-                      allStudents={allStudents}
-                      assignedIds={assignmentMap.get(m.id) ?? []}
-                    />
-                  )}
-                  <form action={async () => { "use server"; await deleteMaterial(m.id, studentId); }}>
-                    <button type="submit" className="text-xs text-red-400 hover:text-red-600 px-2 py-1 shrink-0">✕</button>
-                  </form>
-                </div>
-              </div>
+      {assignedMaterials.length === 0 ? (
+        <div className="rounded-2xl border p-6 text-center"
+          style={{ borderColor: "var(--brown-pale)", background: "var(--cream)" }}>
+          <p className="text-sm" style={{ color: "var(--brown-light)" }}>Материалы не назначены</p>
+          <p className="text-xs mt-1" style={{ color: "var(--brown-light)" }}>
+            Нажми «Из библиотеки», чтобы выбрать
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {assignedMaterials.map(m => (
+            <div
+              key={m.id}
+              className="flex items-center gap-3 rounded-xl border p-3"
+              style={{ background: "white", borderColor: "var(--brown-pale)" }}
+            >
+              <span style={{ color: "var(--brown-mid)" }}>{materialIcon(m)}</span>
+              <span className="flex-1 text-sm font-medium truncate" style={{ color: "var(--brown-dark)" }}>
+                {m.title}
+              </span>
+              {m.url && (
+                <a href={m.url} target="_blank" rel="noopener noreferrer"
+                  className="shrink-0 p-1 rounded-lg hover:opacity-70"
+                  style={{ color: "var(--brown-light)" }}>
+                  <ExternalLink size={14} />
+                </a>
+              )}
             </div>
           ))}
         </div>
       )}
+
+      <div className="pt-2 border-t" style={{ borderColor: "var(--brown-pale)" }}>
+        <Link
+          href="/tutor/materials/new"
+          className="text-xs hover:opacity-70 transition-opacity"
+          style={{ color: "var(--brown-light)" }}
+        >
+          + Загрузить новый материал в библиотеку →
+        </Link>
+      </div>
     </div>
   );
 }
