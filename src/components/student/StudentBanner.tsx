@@ -227,43 +227,52 @@ function KawaiiDecor() {
   return (
     <div className="absolute right-0 top-0 bottom-0 pointer-events-none select-none flex items-center" style={{ width: 148 }}>
       <svg viewBox="0 0 132 132" width="132" height="132" xmlns="http://www.w3.org/2000/svg" style={{ overflow: "visible" }}>
-        {/* Whole cat floats gently */}
         <g className="wb-float">
-          {/* Ears — drawn first so face circle covers the bases */}
-          <polygon points="20,55 33,17 50,54" fill="rgba(255,218,230,0.95)"/>
-          <polygon points="82,54 99,17 112,55" fill="rgba(255,218,230,0.95)"/>
-          {/* Pink inner ears */}
-          <polygon points="26,53 34,25 46,52" fill="rgba(255,148,182,0.88)"/>
-          <polygon points="86,52 98,25 106,53" fill="rgba(255,148,182,0.88)"/>
-          {/* Face — solid white circle */}
-          <circle cx="66" cy="78" r="41" fill="rgba(255,248,252,0.97)"/>
-          {/* Happy closed eyes — arcs bowing upward (˘ shape = happy squint) */}
-          <path d="M35,75 Q50,65 65,75"
-            stroke="rgba(62,28,48,0.88)" strokeWidth="3.2" fill="none" strokeLinecap="round"/>
-          <path d="M67,75 Q82,65 97,75"
-            stroke="rgba(62,28,48,0.88)" strokeWidth="3.2" fill="none" strokeLinecap="round"/>
+          {/* Ears (behind face) */}
+          <polygon points="18,56 32,14 52,55" fill="rgba(255,188,100,0.92)"/>
+          <polygon points="80,55 100,14 114,56" fill="rgba(255,188,100,0.92)"/>
+          {/* Inner ears */}
+          <polygon points="25,53 33,22 48,52" fill="rgba(255,130,148,0.88)"/>
+          <polygon points="84,52 99,22 107,53" fill="rgba(255,130,148,0.88)"/>
+
+          {/* Face — warm cream like 🐱 */}
+          <circle cx="66" cy="78" r="41" fill="rgba(255,236,208,0.97)"/>
+
+          {/* Eyes — big open circles with anime sparkle */}
+          <circle cx="50" cy="72" r="10"  fill="rgba(38,18,28,0.92)"/>
+          <circle cx="82" cy="72" r="10"  fill="rgba(38,18,28,0.92)"/>
+          {/* Coloured iris ring */}
+          <circle cx="50" cy="72" r="6.5" fill="rgba(100,60,140,0.72)"/>
+          <circle cx="82" cy="72" r="6.5" fill="rgba(100,60,140,0.72)"/>
+          {/* Main sparkle */}
+          <circle cx="55" cy="67" r="4"   fill="white"/>
+          <circle cx="87" cy="67" r="4"   fill="white"/>
+          {/* Small secondary sparkle */}
+          <circle cx="47" cy="76" r="1.8" fill="rgba(255,255,255,0.7)"/>
+          <circle cx="79" cy="76" r="1.8" fill="rgba(255,255,255,0.7)"/>
+
           {/* Pink blush cheeks */}
-          <ellipse cx="41"  cy="86" rx="13" ry="8" fill="rgba(255,145,178,0.42)"/>
-          <ellipse cx="91"  cy="86" rx="13" ry="8" fill="rgba(255,145,178,0.42)"/>
-          {/* Nose */}
-          <path d="M63,83 L66,88 L69,83"
-            stroke="rgba(195,95,135,0.78)" strokeWidth="1.8" fill="rgba(255,168,192,0.62)" strokeLinejoin="round"/>
-          {/* Mouth — cat double curve (ω) */}
-          <path d="M49,94 Q57,103 66,97 Q75,103 83,94"
-            stroke="rgba(195,95,135,0.72)" strokeWidth="2.2" fill="none" strokeLinecap="round"/>
-          {/* Whiskers left */}
-          <line x1="6"  y1="80" x2="46" y2="84" stroke="rgba(145,82,115,0.36)" strokeWidth="1.4" strokeLinecap="round"/>
-          <line x1="8"  y1="88" x2="46" y2="88" stroke="rgba(145,82,115,0.26)" strokeWidth="1.2" strokeLinecap="round"/>
-          <line x1="10" y1="95" x2="46" y2="92" stroke="rgba(145,82,115,0.20)" strokeWidth="1"   strokeLinecap="round"/>
-          {/* Whiskers right */}
-          <line x1="86" y1="84" x2="126" y2="80" stroke="rgba(145,82,115,0.36)" strokeWidth="1.4" strokeLinecap="round"/>
-          <line x1="86" y1="88" x2="124" y2="88" stroke="rgba(145,82,115,0.26)" strokeWidth="1.2" strokeLinecap="round"/>
-          <line x1="86" y1="92" x2="122" y2="95" stroke="rgba(145,82,115,0.20)" strokeWidth="1"   strokeLinecap="round"/>
+          <ellipse cx="39" cy="87" rx="12" ry="7.5" fill="rgba(255,138,165,0.42)"/>
+          <ellipse cx="93" cy="87" rx="12" ry="7.5" fill="rgba(255,138,165,0.42)"/>
+
+          {/* Nose — small pink oval */}
+          <ellipse cx="66" cy="84" rx="4" ry="3" fill="rgba(225,100,130,0.80)"/>
+
+          {/* Mouth — simple happy arc */}
+          <path d="M52,92 Q66,105 80,92"
+            stroke="rgba(185,80,110,0.70)" strokeWidth="2.2" fill="none" strokeLinecap="round"/>
+
+          {/* Whiskers — just 2 per side, very light */}
+          <line x1="18" y1="83" x2="48" y2="85" stroke="rgba(120,80,100,0.25)" strokeWidth="1.3" strokeLinecap="round"/>
+          <line x1="20" y1="91" x2="48" y2="89" stroke="rgba(120,80,100,0.18)" strokeWidth="1.1" strokeLinecap="round"/>
+          <line x1="84" y1="85" x2="114" y2="83" stroke="rgba(120,80,100,0.25)" strokeWidth="1.3" strokeLinecap="round"/>
+          <line x1="84" y1="89" x2="112" y2="91" stroke="rgba(120,80,100,0.18)" strokeWidth="1.1" strokeLinecap="round"/>
         </g>
-        {/* Floating hearts — twinkle independently */}
-        <text x="2"  y="28" fontSize="22" fill="rgba(232,118,159,0.80)" className="wb-twinkle">♡</text>
-        <text x="98" y="22" fontSize="15" fill="rgba(232,118,159,0.62)" className="wb-twinkle" style={{ animationDelay: "0.9s" }}>♡</text>
-        <text x="110" y="56" fontSize="17" fill="rgba(232,118,159,0.56)" className="wb-twinkle" style={{ animationDelay: "0.4s" }}>♡</text>
+
+        {/* Floating hearts */}
+        <text x="2"   y="28" fontSize="22" fill="rgba(232,118,159,0.82)" className="wb-twinkle">♡</text>
+        <text x="100" y="22" fontSize="15" fill="rgba(232,118,159,0.62)" className="wb-twinkle" style={{ animationDelay: "0.9s" }}>♡</text>
+        <text x="112" y="57" fontSize="17" fill="rgba(232,118,159,0.56)" className="wb-twinkle" style={{ animationDelay: "0.4s" }}>♡</text>
       </svg>
     </div>
   );
