@@ -103,9 +103,13 @@ export default async function MaterialsPage() {
               >
                 <div className="flex items-start gap-3">
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm leading-snug" style={{ color: "var(--brown-dark)" }}>
+                    <Link
+                      href={`/tutor/materials/view?id=${m.id}`}
+                      className="font-semibold text-sm leading-snug hover:underline"
+                      style={{ color: "var(--brown-dark)" }}
+                    >
                       {m.title}
-                    </p>
+                    </Link>
                     {m.content && (
                       <p className="text-xs mt-0.5 line-clamp-1" style={{ color: "var(--brown-mid)" }}>
                         {m.content}
@@ -136,18 +140,6 @@ export default async function MaterialsPage() {
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    {m.url && (
-                      <a
-                        href={m.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-2 rounded-xl transition-colors hover:bg-amber-50 shrink-0"
-                        style={{ color: "var(--brown-light)" }}
-                        title="Открыть"
-                      >
-                        <Link2 size={16} />
-                      </a>
-                    )}
                     {students.length > 0 && (
                       <MaterialAssignPanel
                         materialId={m.id}
