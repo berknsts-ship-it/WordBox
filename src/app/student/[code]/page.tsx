@@ -12,7 +12,7 @@ import SplashScreen from "@/components/student/SplashScreen";
 import ThemeOnboardingGate from "@/components/student/ThemeOnboardingGate";
 import StudentBanner from "@/components/student/StudentBanner";
 import NotificationBanner from "@/components/student/NotificationBanner";
-import PushAutoSubscribe from "@/components/student/PushAutoSubscribe";
+import PushSubscribeButton from "@/components/student/PushSubscribeButton";
 
 type Tab = "schedule" | "homework" | "materials" | "board" | "journal" | "trainer" | "grammar";
 const VALID_TABS: Tab[] = ["schedule", "homework", "materials", "board", "journal", "trainer", "grammar"];
@@ -79,7 +79,7 @@ export default async function StudentCabinetPage({
     <SplashScreen code={code}>
       <div>
         <NotificationBanner studentId={student.id} notifications={unreadNotifications} />
-        <PushAutoSubscribe studentId={student.id} />
+        <PushSubscribeButton studentId={student.id} />
         {!isBoard && (
           <StudentBanner
             name={student.name}
