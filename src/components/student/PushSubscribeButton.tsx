@@ -24,6 +24,8 @@ export default function PushSubscribeButton({ studentId }: { studentId: string }
     try {
       const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
       if (!vapidKey) { console.error("[push] NEXT_PUBLIC_VAPID_PUBLIC_KEY not set"); setState("unsubscribed"); return; }
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") { setState("denied"); return; }
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
