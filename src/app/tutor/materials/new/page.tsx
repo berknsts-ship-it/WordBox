@@ -31,21 +31,31 @@ export default function NewMaterialPage() {
     setUploadError(null);
     setProgress(0);
 
-    const formData = new FormData();
-    formData.append("file", f);
-    formData.append("folder", "materials");
+    // 1. Получить signed URL от Supabase (не ограничен 4 МБ Vercel)
+    const signRes = await fetch("/api/upload/material-sign", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fileName: f.name, contentType: f.type }),
+    });
+    const signData = await signRes.json();
+    if (!signRes.ok || signData.error) {
+      setUploadError(signData.error ?? "Ошибка получения URL");
+      setProgress(null);
+      return;
+    }
 
+    // 2. PUT файл напрямую в Supabase Storage (минуя Vercel, без лимита)
     await new Promise<void>((resolve) => {
       const xhr = new XMLHttpRequest();
-      xhr.open("POST", "/api/upload");
+      xhr.open("PUT", signData.signedUrl);
+      xhr.setRequestHeader("Content-Type", f.type || "application/octet-stream");
       xhr.upload.onprogress = (ev) => {
-        if (ev.lengthComputable) setProgress(Math.round((ev.loaded / ev.total) * 90));
+        if (ev.lengthComputable) setProgress(Math.round((ev.loaded / ev.total) * 95));
       };
-      xhr.onload = async () => {
+      xhr.onload = () => {
         if (xhr.status < 300) {
-          const data = JSON.parse(xhr.responseText);
-          setUploadedUrl(data.url);
-          setUploadedName(data.name);
+          setUploadedUrl(signData.publicUrl);
+          setUploadedName(f.name);
           setProgress(100);
         } else {
           setUploadError("Ошибка загрузки файла. Попробуй снова.");
@@ -58,7 +68,7 @@ export default function NewMaterialPage() {
         setProgress(null);
         resolve();
       };
-      xhr.send(formData);
+      xhr.send(f);
     });
   }
 
