@@ -66,9 +66,14 @@ export default function PushSubscribeButton({ studentId }: { studentId: string }
   );
 
   if (state === "denied") return (
-    <div className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl"
-      style={{ background: "var(--theme-card-bg)", color: "var(--theme-text-muted)" }}>
-      <BellOff size={13}/> Уведомления заблокированы
+    <div className="flex flex-col gap-1.5 px-3 py-2 rounded-xl text-xs"
+      style={{ background: "var(--theme-card-bg)", color: "var(--theme-text)", maxWidth: 240 }}>
+      <div className="flex items-center gap-1.5 font-semibold">
+        <BellOff size={13}/> Уведомления заблокированы
+      </div>
+      <div style={{ color: "var(--theme-text-muted)", lineHeight: 1.5 }}>
+        Нажми 🔒 у адресной строки → Настройки сайта → Уведомления → Разрешить → обнови страницу
+      </div>
     </div>
   );
 
