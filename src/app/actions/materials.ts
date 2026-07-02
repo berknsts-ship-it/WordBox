@@ -3,30 +3,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-
-export async function addMaterial(formData: FormData) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
-
-  const uploadedUrl = (formData.get("uploaded_url") as string) || null;
-  const uploadedFileName = (formData.get("uploaded_file_name") as string) || null;
-  const textUrl = (formData.get("url") as string) || null;
-
-  await supabase.from("materials").insert({
-    student_id: null,
-    tutor_id: user.id,
-    title: formData.get("title") as string,
-    content: (formData.get("content") as string) || null,
-    url: uploadedUrl || textUrl,
-    file_name: uploadedFileName,
-    is_iframe: formData.get("is_iframe") === "on",
-  });
-
-  revalidatePath("/tutor/materials");
-  redirect("/tutor/materials");
-}
 
 export async function deleteMaterial(id: string) {
   const supabase = await createClient();
