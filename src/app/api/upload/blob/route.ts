@@ -1,4 +1,4 @@
-import { handleUpload, type HandleUploadBody } from "@vercel/blob/next";
+import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
@@ -15,7 +15,7 @@ export async function POST(request: Request): Promise<Response> {
         if (!user) throw new Error("Не авторизован");
 
         return {
-          maximumSizeInBytes: 200 * 1024 * 1024, // 200 МБ
+          maximumSizeInBytes: 200 * 1024 * 1024,
           allowedContentTypes: [
             "application/pdf",
             "image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp",
