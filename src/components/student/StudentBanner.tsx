@@ -271,7 +271,7 @@ function KawaiiDecor() {
 
 function SakuraDecor() {
   return (
-    <div className="absolute right-0 top-0 bottom-0 pointer-events-none select-none overflow-hidden" style={{ width: 166 }}>
+    <div className="absolute right-0 top-0 bottom-0 pointer-events-none select-none" style={{ width: 166 }}>
       <svg viewBox="0 0 166 106" width="166" height="100%"
         preserveAspectRatio="xMidYMid slice"
         xmlns="http://www.w3.org/2000/svg"
