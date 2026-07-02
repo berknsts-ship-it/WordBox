@@ -1,5 +1,6 @@
 "use client";
 
+import { Cat, Fish, Squirrel, Bird } from "lucide-react";
 import { useTheme } from "./ThemeProvider";
 
 const LUXURY = new Set(["classic", "emerald", "graphite"]);
@@ -34,30 +35,19 @@ function wordForm(n: number, forms: [string, string, string]): string {
 
 function OceanDecor() {
   return (
-    <div className="absolute right-0 top-0 bottom-0 pointer-events-none select-none flex items-center overflow-hidden" style={{ width: 180 }}>
-      <svg viewBox="0 0 180 90" width="180" height="90" xmlns="http://www.w3.org/2000/svg" style={{ overflow: "visible" }}>
-        {/* Fish + bubbles float gently */}
-        <g className="wb-float">
-          <ellipse cx="118" cy="28" rx="20" ry="10" stroke="rgba(255,255,255,0.68)" strokeWidth="1.5" fill="rgba(255,255,255,0.08)"/>
-          <path d="M138 28 L154 17 L154 39 Z" stroke="rgba(255,255,255,0.68)" strokeWidth="1.5" fill="rgba(255,255,255,0.08)" strokeLinejoin="round"/>
-          <circle cx="108" cy="25" r="3" fill="rgba(255,255,255,0.7)"/>
-          {/* Eye glint */}
-          <circle cx="107" cy="24" r="1" fill="rgba(255,255,255,0.95)"/>
-          {/* Bubbles */}
-          <circle cx="96" cy="13" r="2.2" stroke="rgba(255,255,255,0.42)" strokeWidth="1" fill="rgba(255,255,255,0.06)"/>
-          <circle cx="108" cy="6"  r="1.6" stroke="rgba(255,255,255,0.3)"  strokeWidth="1" fill="rgba(255,255,255,0.04)"/>
-          <circle cx="86" cy="10" r="1"   stroke="rgba(255,255,255,0.22)" strokeWidth="1" fill="none"/>
-        </g>
-        {/* Animated waves */}
+    <div className="absolute right-0 top-0 bottom-0 pointer-events-none select-none flex flex-col items-center justify-center" style={{ width: 172 }}>
+      {/* Fish */}
+      <div className="wb-float flex justify-center" style={{ color: "rgba(255,255,255,0.84)" }}>
+        <Fish size={80} strokeWidth={1.2}/>
+      </div>
+      {/* Waves */}
+      <svg viewBox="0 0 172 38" width="172" height="38" style={{ flexShrink: 0, marginTop: 6 }}>
         <path className="wb-wave"
-          d="M0 58 Q22 48 44 58 Q66 68 88 58 Q110 48 132 58 Q154 68 180 58"
+          d="M0 10 Q22 0 44 10 Q66 20 88 10 Q110 0 132 10 Q154 20 172 10"
           stroke="rgba(255,255,255,0.58)" strokeWidth="1.8" fill="none" strokeLinecap="round"/>
         <path className="wb-wave-2"
-          d="M0 71 Q22 62 44 71 Q66 80 88 71 Q110 62 132 71 Q154 80 180 71"
-          stroke="rgba(255,255,255,0.36)" strokeWidth="1.1" fill="none" strokeLinecap="round"/>
-        {/* Subtle shimmer line */}
-        <path d="M0 82 Q30 78 60 82 Q90 86 120 82 Q150 78 180 82"
-          stroke="rgba(255,255,255,0.18)" strokeWidth="0.8" fill="none" strokeLinecap="round"/>
+          d="M0 24 Q22 14 44 24 Q66 34 88 24 Q110 14 132 24 Q154 34 172 24"
+          stroke="rgba(255,255,255,0.34)" strokeWidth="1.1" fill="none" strokeLinecap="round"/>
       </svg>
     </div>
   );
@@ -65,60 +55,20 @@ function OceanDecor() {
 
 function ForestDecor() {
   return (
-    <div className="absolute right-3 top-0 bottom-0 pointer-events-none select-none flex items-end" style={{ width: 92 }}>
-      {/* overflow: visible so leaves don't clip during sway */}
-      <svg viewBox="0 0 80 116" width="80" height="116"
-        xmlns="http://www.w3.org/2000/svg"
-        className="wb-sway-branch"
-        style={{ overflow: "visible" }}>
-        {/* Main trunk */}
-        <path d="M40 116 C40 94 38 74 36 54 C34 38 42 22 48 7" stroke="rgba(255,255,255,0.72)" strokeWidth="2.8" fill="none" strokeLinecap="round"/>
-        {/* Left branch */}
-        <path d="M37 70 C26 59 16 56 6 60" stroke="rgba(255,255,255,0.58)" strokeWidth="1.6" fill="none" strokeLinecap="round"/>
-        {/* Right branches */}
-        <path d="M40 46 C53 34 63 24 69 12" stroke="rgba(255,255,255,0.58)" strokeWidth="1.6" fill="none" strokeLinecap="round"/>
-        <path d="M38 58 C49 51 57 48 62 52" stroke="rgba(255,255,255,0.46)" strokeWidth="1.2" fill="none" strokeLinecap="round"/>
-        {/* Tiny twig */}
-        <path d="M42 32 C50 26 56 22 60 24" stroke="rgba(255,255,255,0.36)" strokeWidth="1" fill="none" strokeLinecap="round"/>
-        {/* Leaves */}
-        <ellipse cx="4"  cy="57" rx="10" ry="6" transform="rotate(-25 4 57)"  fill="rgba(255,255,255,0.58)"/>
-        <ellipse cx="69" cy="10" rx="10" ry="6" transform="rotate(30 69 10)"  fill="rgba(255,255,255,0.58)"/>
-        <ellipse cx="50" cy="4"  rx="8"  ry="5" transform="rotate(-10 50 4)"  fill="rgba(255,255,255,0.48)"/>
-        <ellipse cx="63" cy="50" rx="8"  ry="4.5" transform="rotate(16 63 50)" fill="rgba(255,255,255,0.46)"/>
-        <ellipse cx="42" cy="16" rx="6"  ry="4" transform="rotate(-6 42 16)"  fill="rgba(255,255,255,0.42)"/>
-        {/* Small leaf on twig */}
-        <ellipse cx="60" cy="22" rx="5"  ry="3" transform="rotate(20 60 22)"  fill="rgba(255,255,255,0.34)"/>
-      </svg>
+    <div className="absolute right-2 top-0 bottom-0 pointer-events-none select-none flex items-center" style={{ width: 108 }}>
+      <div className="wb-float flex justify-center w-full" style={{ color: "rgba(255,255,255,0.82)" }}>
+        <Squirrel size={88} strokeWidth={1.2}/>
+      </div>
     </div>
   );
 }
 
 function SunDecor() {
   return (
-    <div className="absolute right-0 top-0 pointer-events-none select-none" style={{ width: 128, height: 130 }}>
-      <svg viewBox="0 0 128 130" width="128" height="130" xmlns="http://www.w3.org/2000/svg" style={{ overflow: "visible" }}>
-        {/* Ray lines */}
-        <line x1="82" y1="4"   x2="82" y2="15"  stroke="rgba(255,255,255,0.68)" strokeWidth="2.5" strokeLinecap="round"/>
-        <line x1="120" y1="44" x2="109" y2="44"  stroke="rgba(255,255,255,0.68)" strokeWidth="2.5" strokeLinecap="round"/>
-        <line x1="109" y1="16" x2="101" y2="24"  stroke="rgba(255,255,255,0.56)" strokeWidth="2"   strokeLinecap="round"/>
-        <line x1="55"  y1="16" x2="63"  y2="24"  stroke="rgba(255,255,255,0.56)" strokeWidth="2"   strokeLinecap="round"/>
-        <line x1="109" y1="72" x2="101" y2="64"  stroke="rgba(255,255,255,0.56)" strokeWidth="2"   strokeLinecap="round"/>
-        <line x1="55"  y1="72" x2="63"  y2="64"  stroke="rgba(255,255,255,0.56)" strokeWidth="2"   strokeLinecap="round"/>
-        {/* Sun core — pulses */}
-        <circle cx="82" cy="44" r="22" fill="rgba(255,255,255,0.22)" className="wb-pulse"/>
-        <circle cx="82" cy="44" r="22" stroke="rgba(255,255,255,0.7)" strokeWidth="1.8" fill="none" className="wb-pulse"/>
-        {/* Inner ring detail */}
-        <circle cx="82" cy="44" r="14" stroke="rgba(255,255,255,0.22)" strokeWidth="1" fill="none" className="wb-pulse"/>
-        {/* Clouds drift up/down */}
-        <g className="wb-float" style={{ animationDelay: "0.8s" }}>
-          <path d="M4 78 Q10 70 20 72 Q22 65 32 66 Q40 65 42 72 Q51 70 53 76 Q51 82 42 82 L12 82 Q4 82 4 78 Z"
-            stroke="rgba(255,255,255,0.5)" strokeWidth="1" fill="rgba(255,255,255,0.2)"/>
-        </g>
-        <g className="wb-float" style={{ animationDelay: "2s" }}>
-          <path d="M0 99 Q5 92 14 94 Q16 87 26 88 Q33 87 35 93 Q43 92 45 97 Q43 102 35 102 L5 102 Q0 102 0 99 Z"
-            stroke="rgba(255,255,255,0.36)" strokeWidth="1" fill="rgba(255,255,255,0.14)"/>
-        </g>
-      </svg>
+    <div className="absolute right-0 top-0 bottom-0 pointer-events-none select-none flex items-center" style={{ width: 136 }}>
+      <div className="wb-float flex justify-center w-full" style={{ color: "rgba(255,255,255,0.86)" }}>
+        <Bird size={84} strokeWidth={1.2}/>
+      </div>
     </div>
   );
 }
@@ -226,54 +176,16 @@ function CraftDecor() {
 function KawaiiDecor() {
   return (
     <div className="absolute right-0 top-0 bottom-0 pointer-events-none select-none flex items-center" style={{ width: 148 }}>
-      <svg viewBox="0 0 132 132" width="132" height="132" xmlns="http://www.w3.org/2000/svg" style={{ overflow: "visible" }}>
-        <g className="wb-float">
-          {/* Ears — short compact triangles, same tone as face */}
-          <polygon points="28,52 41,26 57,50" fill="rgba(255,214,178,0.96)"/>
-          <polygon points="75,50 91,26 104,52" fill="rgba(255,214,178,0.96)"/>
-          {/* Inner ears — pink */}
-          <polygon points="33,51 41,31 53,49" fill="rgba(255,138,158,0.84)"/>
-          <polygon points="79,49 91,31 99,51" fill="rgba(255,138,158,0.84)"/>
-
-          {/* Face — warm cream like 🐱, covers ear bases */}
-          <circle cx="66" cy="78" r="41" fill="rgba(255,236,208,0.97)"/>
-
-          {/* Eyes — big open circles with anime sparkle */}
-          <circle cx="50" cy="72" r="10"  fill="rgba(38,18,28,0.92)"/>
-          <circle cx="82" cy="72" r="10"  fill="rgba(38,18,28,0.92)"/>
-          {/* Coloured iris ring */}
-          <circle cx="50" cy="72" r="6.5" fill="rgba(100,60,140,0.72)"/>
-          <circle cx="82" cy="72" r="6.5" fill="rgba(100,60,140,0.72)"/>
-          {/* Main sparkle */}
-          <circle cx="55" cy="67" r="4"   fill="white"/>
-          <circle cx="87" cy="67" r="4"   fill="white"/>
-          {/* Small secondary sparkle */}
-          <circle cx="47" cy="76" r="1.8" fill="rgba(255,255,255,0.7)"/>
-          <circle cx="79" cy="76" r="1.8" fill="rgba(255,255,255,0.7)"/>
-
-          {/* Pink blush cheeks */}
-          <ellipse cx="39" cy="87" rx="12" ry="7.5" fill="rgba(255,138,165,0.42)"/>
-          <ellipse cx="93" cy="87" rx="12" ry="7.5" fill="rgba(255,138,165,0.42)"/>
-
-          {/* Nose — small pink oval */}
-          <ellipse cx="66" cy="84" rx="4" ry="3" fill="rgba(225,100,130,0.80)"/>
-
-          {/* Mouth — simple happy arc */}
-          <path d="M52,92 Q66,105 80,92"
-            stroke="rgba(185,80,110,0.70)" strokeWidth="2.2" fill="none" strokeLinecap="round"/>
-
-          {/* Whiskers — just 2 per side, very light */}
-          <line x1="18" y1="83" x2="48" y2="85" stroke="rgba(120,80,100,0.25)" strokeWidth="1.3" strokeLinecap="round"/>
-          <line x1="20" y1="91" x2="48" y2="89" stroke="rgba(120,80,100,0.18)" strokeWidth="1.1" strokeLinecap="round"/>
-          <line x1="84" y1="85" x2="114" y2="83" stroke="rgba(120,80,100,0.25)" strokeWidth="1.3" strokeLinecap="round"/>
-          <line x1="84" y1="89" x2="112" y2="91" stroke="rgba(120,80,100,0.18)" strokeWidth="1.1" strokeLinecap="round"/>
-        </g>
-
+      <div className="relative flex items-center justify-center w-full">
+        {/* Cat icon — the clean Lucide version */}
+        <div className="wb-float" style={{ color: "rgba(158,62,108,0.80)" }}>
+          <Cat size={92} strokeWidth={1.2}/>
+        </div>
         {/* Floating hearts */}
-        <text x="2"   y="28" fontSize="22" fill="rgba(232,118,159,0.82)" className="wb-twinkle">♡</text>
-        <text x="100" y="22" fontSize="15" fill="rgba(232,118,159,0.62)" className="wb-twinkle" style={{ animationDelay: "0.9s" }}>♡</text>
-        <text x="112" y="57" fontSize="17" fill="rgba(232,118,159,0.56)" className="wb-twinkle" style={{ animationDelay: "0.4s" }}>♡</text>
-      </svg>
+        <span className="wb-twinkle absolute" style={{ top: "10%", left: "6%",  fontSize: 22, color: "rgba(232,118,159,0.84)", lineHeight: 1 }}>♡</span>
+        <span className="wb-twinkle absolute" style={{ top: "8%",  right: "6%", fontSize: 15, color: "rgba(232,118,159,0.62)", lineHeight: 1, animationDelay: "0.9s" }}>♡</span>
+        <span className="wb-twinkle absolute" style={{ bottom: "12%", right: "4%", fontSize: 17, color: "rgba(232,118,159,0.56)", lineHeight: 1, animationDelay: "0.4s" }}>♡</span>
+      </div>
     </div>
   );
 }
