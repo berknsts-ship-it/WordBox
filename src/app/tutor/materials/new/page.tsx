@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Upload, FileText, X, Link as LinkIcon } from "lucide-react";
+import { upload } from "@vercel/blob/client";
 
 export default function NewMaterialPage() {
   const router = useRouter();
@@ -31,45 +32,22 @@ export default function NewMaterialPage() {
     setUploadError(null);
     setProgress(0);
 
-    // 1. Получить signed URL от Supabase (не ограничен 4 МБ Vercel)
-    const signRes = await fetch("/api/upload/material-sign", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fileName: f.name, contentType: f.type }),
-    });
-    const signData = await signRes.json();
-    if (!signRes.ok || signData.error) {
-      setUploadError(signData.error ?? "Ошибка получения URL");
+    // Загрузка напрямую в Vercel Blob из браузера (без лимита serverless)
+    try {
+      const blob = await upload(`materials/${Date.now()}-${f.name}`, f, {
+        access: "public",
+        handleUploadUrl: "/api/upload/blob",
+        onUploadProgress: ({ percentage }) => {
+          setProgress(Math.round(percentage * 0.95));
+        },
+      });
+      setUploadedUrl(blob.url);
+      setUploadedName(f.name);
+      setProgress(100);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Ошибка загрузки");
       setProgress(null);
-      return;
     }
-
-    // 2. PUT файл напрямую в Supabase Storage (минуя Vercel, без лимита)
-    await new Promise<void>((resolve) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open("PUT", signData.signedUrl);
-      xhr.setRequestHeader("Content-Type", f.type || "application/octet-stream");
-      xhr.upload.onprogress = (ev) => {
-        if (ev.lengthComputable) setProgress(Math.round((ev.loaded / ev.total) * 95));
-      };
-      xhr.onload = () => {
-        if (xhr.status < 300) {
-          setUploadedUrl(signData.publicUrl);
-          setUploadedName(f.name);
-          setProgress(100);
-        } else {
-          setUploadError("Ошибка загрузки файла. Попробуй снова.");
-          setProgress(null);
-        }
-        resolve();
-      };
-      xhr.onerror = () => {
-        setUploadError("Ошибка сети при загрузке.");
-        setProgress(null);
-        resolve();
-      };
-      xhr.send(f);
-    });
   }
 
   async function handleSubmit(e: React.FormEvent) {
