@@ -1,12 +1,6 @@
 import webpush from "web-push";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-webpush.setVapidDetails(
-  process.env.VAPID_MAILTO!,
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!,
-);
-
 export interface PushPayload {
   title: string;
   body:  string;
@@ -14,7 +8,19 @@ export interface PushPayload {
   tag?:  string;
 }
 
+let vapidReady = false;
+function ensureVapid() {
+  if (vapidReady) return;
+  webpush.setVapidDetails(
+    process.env.VAPID_MAILTO!,
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+    process.env.VAPID_PRIVATE_KEY!,
+  );
+  vapidReady = true;
+}
+
 export async function pushToStudent(studentId: string, payload: PushPayload) {
+  ensureVapid();
   const db = createAdminClient();
   const { data: subs } = await db
     .from("push_subscriptions")
