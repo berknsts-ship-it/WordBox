@@ -22,7 +22,22 @@ export function MaterialPdfViewer({ url, title }: { url: string; title: string }
     );
   }
 
-  return <MobilePdfReader url={url} title={title} />;
+  return (
+    <div className="mt-4">
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold"
+        style={{ background: "var(--gradient-primary)", color: "#fff" }}
+      >
+        📖 Открыть PDF в браузере ↗
+      </a>
+      <p className="text-xs mt-2 text-center" style={{ color: "var(--brown-light)" }}>
+        Файл откроется во встроенном просмотрщике
+      </p>
+    </div>
+  );
 }
 
 function MobilePdfReader({ url, title }: { url: string; title: string }) {

@@ -25,7 +25,22 @@ export function PdfReader({ url, title }: { url: string; title: string }) {
 
       {open && (
         isMobile
-          ? <MobilePdfReader url={url} title={title} />
+          ? (
+            <div className="mt-3">
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold"
+                style={{ background: "var(--theme-accent, var(--brown-mid))", color: "#fff" }}
+              >
+                📖 Открыть PDF в браузере ↗
+              </a>
+              <p className="text-xs mt-2 text-center" style={{ color: "var(--brown-light)" }}>
+                Файл откроется во встроенном просмотрщике
+              </p>
+            </div>
+          )
           : (
             <div className="mt-3 rounded-2xl overflow-hidden border" style={{ borderColor: "var(--theme-card-border, var(--brown-pale))" }}>
               <iframe
