@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { PdfReader } from "@/components/student/PdfReader";
-import { FileText, Link2, Monitor, BookOpen, FileQuestion } from "lucide-react";
+import { FileText, Link2, Monitor, BookOpen, FileQuestion, ImageIcon } from "lucide-react";
 
 type Material = {
   id: string;
@@ -13,28 +13,33 @@ type Material = {
 };
 
 function isPdf(fileName: string | null, url: string | null) {
-  return (
-    fileName?.toLowerCase().endsWith(".pdf") ||
-    (!fileName && !!url?.toLowerCase().includes(".pdf"))
-  );
+  const s = (fileName ?? url ?? "").toLowerCase();
+  return s.endsWith(".pdf") || s.includes(".pdf?");
 }
 
-type MaterialKind = "iframe" | "pdf" | "file" | "link" | "text";
+function isImage(fileName: string | null, url: string | null) {
+  const s = (fileName ?? url ?? "").toLowerCase();
+  return /\.(jpe?g|png|gif|webp|svg)(\?|$)/.test(s);
+}
+
+type MaterialKind = "iframe" | "pdf" | "image" | "file" | "link" | "text";
 
 function classify(m: Material): MaterialKind {
   if (m.is_iframe) return "iframe";
   if (isPdf(m.file_name, m.url)) return "pdf";
+  if (isImage(m.file_name, m.url)) return "image";
   if (m.file_name) return "file";
   if (m.url) return "link";
   return "text";
 }
 
 const KIND_META: Record<MaterialKind, { icon: React.ReactNode; label: string; color: string }> = {
-  iframe:  { icon: <Monitor  size={15}/>, label: "Видео / фрейм", color: "#6A48D0" },
-  pdf:     { icon: <BookOpen size={15}/>, label: "PDF",            color: "#C05010" },
-  file:    { icon: <FileText size={15}/>, label: "Файл",           color: "#307A50" },
-  link:    { icon: <Link2    size={15}/>, label: "Ссылка",         color: "#1864AB" },
-  text:    { icon: <FileQuestion size={15}/>, label: "Текст",     color: "#888" },
+  iframe: { icon: <Monitor   size={15} />, label: "Видео / фрейм", color: "#6A48D0" },
+  pdf:    { icon: <BookOpen  size={15} />, label: "PDF",            color: "#C05010" },
+  image:  { icon: <ImageIcon size={15} />, label: "Картинка",       color: "#307A50" },
+  file:   { icon: <FileText  size={15} />, label: "Файл",           color: "#307A50" },
+  link:   { icon: <Link2     size={15} />, label: "Ссылка",         color: "#1864AB" },
+  text:   { icon: <FileQuestion size={15} />, label: "Текст",       color: "#888"    },
 };
 
 function MaterialCard({ m }: { m: Material }) {
@@ -46,7 +51,7 @@ function MaterialCard({ m }: { m: Material }) {
       className="rounded-2xl border overflow-hidden"
       style={{ background: "var(--theme-card-bg)", borderColor: "var(--theme-card-border)" }}
     >
-      {/* Embedded iframe (video / external site) */}
+      {/* Embedded iframe */}
       {kind === "iframe" && m.url && (
         <div className="relative w-full" style={{ paddingTop: "56.25%" }}>
           <iframe
@@ -57,6 +62,17 @@ function MaterialCard({ m }: { m: Material }) {
             style={{ border: "none" }}
           />
         </div>
+      )}
+
+      {/* Inline image */}
+      {kind === "image" && m.url && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={m.url}
+          alt={m.title}
+          className="w-full"
+          style={{ display: "block", maxHeight: "70vh", objectFit: "contain", background: "#f5f5f5" }}
+        />
       )}
 
       <div className="p-4 sm:p-5">
@@ -77,8 +93,7 @@ function MaterialCard({ m }: { m: Material }) {
 
         {/* Description */}
         {m.content && (
-          <p className="text-sm leading-relaxed mt-1 mb-3"
-            style={{ color: "var(--brown-mid)" }}>
+          <p className="text-sm leading-relaxed mt-1 mb-3" style={{ color: "var(--brown-mid)" }}>
             {m.content}
           </p>
         )}
@@ -92,21 +107,47 @@ function MaterialCard({ m }: { m: Material }) {
           <PdfReader url={m.url} title={m.title} />
         )}
 
-        {/* Regular file / link */}
-        {(kind === "file" || kind === "link") && m.url && (
+        {/* Image: download link */}
+        {kind === "image" && m.url && (
           <a
             href={m.url}
             target="_blank"
             rel="noopener noreferrer"
-            download={kind === "file" ? (m.file_name ?? true) : undefined}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-80"
-            style={{ background: "var(--theme-accent)", color: "#fff" }}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all hover:opacity-80"
+            style={{ background: "var(--theme-card-border)", color: "var(--brown-mid)" }}
           >
-            {kind === "file" ? "Скачать ↓" : "Открыть →"}
+            Открыть во весь экран ↗
           </a>
         )}
 
-        {/* Text-only: nothing to open */}
+        {/* Regular file */}
+        {kind === "file" && m.url && (
+          <a
+            href={m.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            download={m.file_name ?? true}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-80"
+            style={{ background: "var(--theme-accent)", color: "#fff" }}
+          >
+            Скачать ↓
+          </a>
+        )}
+
+        {/* Link */}
+        {kind === "link" && m.url && (
+          <a
+            href={m.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-80"
+            style={{ background: "var(--theme-accent)", color: "#fff" }}
+          >
+            Открыть →
+          </a>
+        )}
+
+        {/* Text-only */}
         {kind === "text" && (
           <p className="text-xs italic" style={{ color: "var(--brown-light)" }}>
             Файл или ссылка не добавлены
@@ -149,7 +190,7 @@ export default async function MaterialsTab({ studentId }: { studentId: string })
   if (materials.length === 0) {
     return (
       <div className="text-center py-16">
-        <div className="text-5xl mb-3">📂</div>
+        <div className="text-5xl mb-3">📚</div>
         <p className="font-semibold text-base" style={{ color: "var(--brown-dark)" }}>
           Материалов пока нет
         </p>
