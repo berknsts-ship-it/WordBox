@@ -1,8 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { PdfReader } from "@/components/student/PdfReader";
 import { FileText, Link2, Monitor, BookOpen, ImageIcon, ArrowLeft } from "lucide-react";
+import { MaterialPdfViewer } from "@/components/tutor/MaterialPdfViewer";
 
 function isPdf(fileName: string | null, url: string | null) {
   const s = (fileName ?? url ?? "").toLowerCase();
@@ -116,9 +116,9 @@ export default async function MaterialViewPage({
             {new Date(m.created_at).toLocaleDateString("ru", { day: "numeric", month: "long", year: "numeric" })}
           </p>
 
-          {/* PDF reader */}
+          {/* PDF viewer: iframe on desktop, pdfjs on mobile */}
           {kind === "pdf" && m.url && (
-            <PdfReader url={m.url} title={m.title} />
+            <MaterialPdfViewer url={m.url} title={m.title} />
           )}
 
           {/* Download link for regular files */}
