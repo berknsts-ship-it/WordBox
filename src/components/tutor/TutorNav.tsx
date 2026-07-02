@@ -6,7 +6,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   LayoutDashboard, Users, CalendarDays, ClipboardList,
-  BookOpen, LogOut, X, Menu, PenLine,
+  BookOpen, LogOut, X, Menu, PenLine, Bell,
 } from "lucide-react";
 import WBLogo from "@/components/WBLogo";
 
@@ -16,7 +16,8 @@ const NAV = [
   { label: "Доска",            href: "/tutor/board",      icon: PenLine },
   { label: "Расписание",       href: "/tutor/schedule",   icon: CalendarDays },
   { label: "Домашние задания", href: "/tutor/homework",   icon: ClipboardList },
-  { label: "Словари",          href: "/tutor/vocabulary", icon: BookOpen },
+  { label: "Словари",          href: "/tutor/vocabulary",     icon: BookOpen },
+  { label: "Уведомления",     href: "/tutor/notifications",  icon: Bell },
 ];
 
 export default function TutorNav({ userEmail }: { userEmail: string }) {

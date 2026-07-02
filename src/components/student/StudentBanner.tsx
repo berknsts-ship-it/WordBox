@@ -228,14 +228,14 @@ function KawaiiDecor() {
     <div className="absolute right-0 top-0 bottom-0 pointer-events-none select-none flex items-center" style={{ width: 148 }}>
       <svg viewBox="0 0 132 132" width="132" height="132" xmlns="http://www.w3.org/2000/svg" style={{ overflow: "visible" }}>
         <g className="wb-float">
-          {/* Ears (behind face) */}
-          <polygon points="18,56 32,14 52,55" fill="rgba(255,188,100,0.92)"/>
-          <polygon points="80,55 100,14 114,56" fill="rgba(255,188,100,0.92)"/>
-          {/* Inner ears */}
-          <polygon points="25,53 33,22 48,52" fill="rgba(255,130,148,0.88)"/>
-          <polygon points="84,52 99,22 107,53" fill="rgba(255,130,148,0.88)"/>
+          {/* Ears — short compact triangles, same tone as face */}
+          <polygon points="28,52 41,26 57,50" fill="rgba(255,214,178,0.96)"/>
+          <polygon points="75,50 91,26 104,52" fill="rgba(255,214,178,0.96)"/>
+          {/* Inner ears — pink */}
+          <polygon points="33,51 41,31 53,49" fill="rgba(255,138,158,0.84)"/>
+          <polygon points="79,49 91,31 99,51" fill="rgba(255,138,158,0.84)"/>
 
-          {/* Face — warm cream like 🐱 */}
+          {/* Face — warm cream like 🐱, covers ear bases */}
           <circle cx="66" cy="78" r="41" fill="rgba(255,236,208,0.97)"/>
 
           {/* Eyes — big open circles with anime sparkle */}

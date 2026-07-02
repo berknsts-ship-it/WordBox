@@ -11,6 +11,8 @@ import MaterialsTab from "@/components/student/tabs/MaterialsTab";
 import SplashScreen from "@/components/student/SplashScreen";
 import ThemeOnboardingGate from "@/components/student/ThemeOnboardingGate";
 import StudentBanner from "@/components/student/StudentBanner";
+import NotificationBanner from "@/components/student/NotificationBanner";
+import PushSubscribeButton from "@/components/student/PushSubscribeButton";
 
 type Tab = "schedule" | "homework" | "materials" | "board" | "journal" | "trainer" | "grammar";
 const VALID_TABS: Tab[] = ["schedule", "homework", "materials", "board", "journal", "trainer", "grammar"];
@@ -29,22 +31,46 @@ export default async function StudentCabinetPage({
   const supabase = await createClient();
   const { data: student } = await supabase
     .from("students")
-    .select("id, name, canvas_url, textbook, theme")
+    .select("id, name, canvas_url, textbook, theme, tutor_id")
     .eq("access_code", code)
     .single();
 
   if (!student) notFound();
 
-  const [{ count: pendingCount }, { count: lessonsCount }, { count: checkedCount }] =
-    await Promise.all([
-      supabase.from("homework").select("id", { count: "exact", head: true })
-        .eq("student_id", student.id).eq("status", "pending"),
-      supabase.from("lessons").select("id", { count: "exact", head: true })
-        .eq("student_id", student.id).eq("status", "scheduled")
-        .gte("date", new Date().toISOString()),
-      supabase.from("homework").select("id", { count: "exact", head: true })
-        .eq("student_id", student.id).eq("status", "checked"),
-    ]);
+  const [
+    { count: pendingCount },
+    { count: lessonsCount },
+    { count: checkedCount },
+    { data: recipientRows },
+    { data: readRows },
+  ] = await Promise.all([
+    supabase.from("homework").select("id", { count: "exact", head: true })
+      .eq("student_id", student.id).eq("status", "pending"),
+    supabase.from("lessons").select("id", { count: "exact", head: true })
+      .eq("student_id", student.id).eq("status", "scheduled")
+      .gte("date", new Date().toISOString()),
+    supabase.from("homework").select("id", { count: "exact", head: true })
+      .eq("student_id", student.id).eq("status", "checked"),
+    supabase.from("notification_recipients").select("notification_id")
+      .eq("student_id", student.id),
+    supabase.from("notification_reads").select("notification_id")
+      .eq("student_id", student.id),
+  ]);
+
+  // Resolve unread notifications
+  const recipientIds = new Set((recipientRows ?? []).map(r => r.notification_id));
+  const readIds = new Set((readRows ?? []).map(r => r.notification_id));
+  const pendingIds = [...recipientIds].filter(id => !readIds.has(id));
+  let unreadNotifications: { id: string; title: string; body: string }[] = [];
+  if (pendingIds.length > 0 && student.tutor_id) {
+    const { data } = await supabase.from("notifications")
+      .select("id, title, body, sent_at")
+      .in("id", pendingIds)
+      .not("sent_at", "is", null)
+      .eq("tutor_id", student.tutor_id)
+      .order("sent_at", { ascending: false });
+    unreadNotifications = (data ?? []).map(n => ({ id: n.id, title: n.title, body: n.body }));
+  }
 
   const isBoard = activeTab === "board";
 
@@ -52,6 +78,7 @@ export default async function StudentCabinetPage({
     <ThemeOnboardingGate needsOnboarding={student.theme === null}>
     <SplashScreen code={code}>
       <div>
+        <NotificationBanner studentId={student.id} notifications={unreadNotifications} />
         {!isBoard && (
           <StudentBanner
             name={student.name}
