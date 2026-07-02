@@ -18,7 +18,13 @@ export async function POST(req: NextRequest) {
     .from("materials")
     .createSignedUploadUrl(storagePath);
 
-  if (error || !data) return NextResponse.json({ error: error?.message ?? "Ошибка" }, { status: 500 });
+  if (error || !data) {
+    const msg = error?.message ?? "Ошибка";
+    const hint = msg.toLowerCase().includes("tenant") || msg.toLowerCase().includes("not found")
+      ? `${msg}. Создай bucket "materials" (Public) в Supabase → Storage`
+      : msg;
+    return NextResponse.json({ error: hint }, { status: 500 });
+  }
 
   const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/materials/${storagePath}`;
 
