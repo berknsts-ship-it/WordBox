@@ -585,3 +585,21 @@ html[data-theme="graphite"] .diary-bg-fixed {
 .wb-petal-2 { animation: wb-petal-drift 3.6s ease-in-out infinite -1.2s;     transform-box: fill-box; transform-origin: center; }
 .wb-petal-3 { animation: wb-petal-drift 4.4s ease-in-out infinite -2.5s;     transform-box: fill-box; transform-origin: center; }
 .wb-petal-4 { animation: wb-petal-drift 3.9s ease-in-out infinite -0.8s;     transform-box: fill-box; transform-origin: center; }
+
+@keyframes wb-leaf-sway {
+  0%, 100% { transform: rotate(0deg); }
+  40%      { transform: rotate(5deg); }
+  70%      { transform: rotate(-4deg); }
+}
+.wb-leaf   { animation: wb-leaf-sway 3.4s ease-in-out infinite;         transform-box: fill-box; transform-origin: bottom center; }
+.wb-leaf-2 { animation: wb-leaf-sway 4.0s ease-in-out infinite -1.3s;   transform-box: fill-box; transform-origin: bottom center; }
+.wb-leaf-3 { animation: wb-leaf-sway 3.7s ease-in-out infinite -2.1s;   transform-box: fill-box; transform-origin: bottom center; }
+
+@keyframes wb-ray-shimmer {
+  0%, 100% { opacity: 0.5; }
+  50%       { opacity: 1;   }
+}
+.wb-ray   { animation: wb-ray-shimmer 2.8s ease-in-out infinite; }
+.wb-ray-2 { animation: wb-ray-shimmer 2.8s ease-in-out infinite -0.7s; }
+.wb-ray-3 { animation: wb-ray-shimmer 2.8s ease-in-out infinite -1.4s; }
+.wb-ray-4 { animation: wb-ray-shimmer 2.8s ease-in-out infinite -2.1s; }

@@ -55,9 +55,48 @@ function OceanDecor() {
 
 function ForestDecor() {
   return (
-    <div className="absolute right-2 top-0 bottom-0 pointer-events-none select-none flex items-center" style={{ width: 108 }}>
-      <div className="wb-float flex justify-center w-full" style={{ color: "rgba(255,255,255,0.82)" }}>
-        <Squirrel size={88} strokeWidth={1.2}/>
+    <div className="absolute right-0 top-0 bottom-0 pointer-events-none select-none" style={{ width: 168 }}>
+      {/* Leaf shapes — each <g> SVG-positions the leaf, inner <path> has CSS sway class */}
+      <svg viewBox="0 0 168 108" width="168" height="100%"
+           preserveAspectRatio="xMidYMid meet"
+           xmlns="http://www.w3.org/2000/svg"
+           style={{ position: "absolute", inset: 0 }}>
+        {/* Large leaf, upper-left */}
+        <g transform="translate(16,30) rotate(-30)">
+          <path d="M0,0 C-11,-5 -13,-17 0,-25 C13,-17 11,-5 0,0Z"
+                fill="rgba(255,255,255,0.60)" className="wb-leaf"/>
+        </g>
+        {/* Medium leaf, left-center */}
+        <g transform="translate(8,68) rotate(22)">
+          <path d="M0,0 C-8,-4 -10,-14 0,-21 C10,-14 8,-4 0,0Z"
+                fill="rgba(255,255,255,0.44)" className="wb-leaf-2"/>
+        </g>
+        {/* Small leaf, upper-center */}
+        <g transform="translate(64,10) rotate(-52)">
+          <path d="M0,0 C-6,-3 -7,-10 0,-16 C7,-10 6,-3 0,0Z"
+                fill="rgba(255,255,255,0.36)" className="wb-leaf-3"/>
+        </g>
+        {/* Leaf, lower-right */}
+        <g transform="translate(136,86) rotate(42)">
+          <path d="M0,0 C-7,-3 -9,-13 0,-19 C9,-13 7,-3 0,0Z"
+                fill="rgba(255,255,255,0.30)" className="wb-leaf"/>
+        </g>
+        {/* Tiny leaf, top-right edge */}
+        <g transform="translate(150,20) rotate(-16)">
+          <path d="M0,0 C-5,-2 -6,-9 0,-14 C6,-9 5,-2 0,0Z"
+                fill="rgba(255,255,255,0.22)"/>
+        </g>
+        {/* Small leaf, lower-left */}
+        <g transform="translate(38,84) rotate(58)">
+          <path d="M0,0 C-5,-2 -6,-9 0,-14 C6,-9 5,-2 0,0Z"
+                fill="rgba(255,255,255,0.26)" className="wb-leaf-2"/>
+        </g>
+      </svg>
+      {/* Squirrel on top */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="wb-float" style={{ color: "rgba(255,255,255,0.82)" }}>
+          <Squirrel size={88} strokeWidth={1.2}/>
+        </div>
       </div>
     </div>
   );
@@ -65,9 +104,25 @@ function ForestDecor() {
 
 function SunDecor() {
   return (
-    <div className="absolute right-0 top-0 bottom-0 pointer-events-none select-none flex items-center" style={{ width: 136 }}>
-      <div className="wb-float flex justify-center w-full" style={{ color: "rgba(255,255,255,0.86)" }}>
-        <Bird size={84} strokeWidth={1.2}/>
+    <div className="absolute right-0 top-0 bottom-0 pointer-events-none select-none" style={{ width: 148 }}>
+      {/* 8 radiating sun rays from center (60,60), r=52 */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <svg viewBox="0 0 120 120" width="120" height="120" xmlns="http://www.w3.org/2000/svg">
+          <line x1="60" y1="60" x2="112" y2="60"  stroke="rgba(255,255,255,0.44)" strokeWidth="2.6" strokeLinecap="round" className="wb-ray"/>
+          <line x1="60" y1="60" x2="97"  y2="23"  stroke="rgba(255,255,255,0.30)" strokeWidth="1.8" strokeLinecap="round" className="wb-ray-2"/>
+          <line x1="60" y1="60" x2="60"  y2="8"   stroke="rgba(255,255,255,0.40)" strokeWidth="2.2" strokeLinecap="round" className="wb-ray-3"/>
+          <line x1="60" y1="60" x2="23"  y2="23"  stroke="rgba(255,255,255,0.26)" strokeWidth="1.6" strokeLinecap="round" className="wb-ray-4"/>
+          <line x1="60" y1="60" x2="8"   y2="60"  stroke="rgba(255,255,255,0.36)" strokeWidth="2.0" strokeLinecap="round" className="wb-ray"/>
+          <line x1="60" y1="60" x2="23"  y2="97"  stroke="rgba(255,255,255,0.22)" strokeWidth="1.4" strokeLinecap="round" className="wb-ray-2"/>
+          <line x1="60" y1="60" x2="60"  y2="112" stroke="rgba(255,255,255,0.34)" strokeWidth="2.0" strokeLinecap="round" className="wb-ray-3"/>
+          <line x1="60" y1="60" x2="97"  y2="97"  stroke="rgba(255,255,255,0.20)" strokeWidth="1.2" strokeLinecap="round" className="wb-ray-4"/>
+        </svg>
+      </div>
+      {/* Bird on top */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="wb-float" style={{ color: "rgba(255,255,255,0.86)" }}>
+          <Bird size={84} strokeWidth={1.2}/>
+        </div>
       </div>
     </div>
   );
