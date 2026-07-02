@@ -136,6 +136,18 @@ export default async function MaterialsPage() {
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
+                    {m.url && (
+                      <a
+                        href={m.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-2 rounded-xl transition-colors hover:bg-amber-50 shrink-0"
+                        style={{ color: "var(--brown-light)" }}
+                        title="Открыть"
+                      >
+                        <Link2 size={16} />
+                      </a>
+                    )}
                     {students.length > 0 && (
                       <MaterialAssignPanel
                         materialId={m.id}
