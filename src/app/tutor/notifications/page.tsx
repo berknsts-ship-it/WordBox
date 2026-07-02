@@ -96,15 +96,13 @@ export default async function NotificationsPage() {
                         : `${names.slice(0,2).join(", ")} + ещё ${names.length-2}`}</span>
                     </div>
                   </div>
-                  {(!isSent || isRecurring) && (
-                    <form action={async () => { "use server"; await deleteNotification(n.id); }}>
-                      <button type="submit"
-                        className="shrink-0 p-2 rounded-lg border transition-all hover:opacity-70"
-                        style={{ borderColor: "var(--brown-pale)", color: "var(--brown-light)" }}>
-                        <Trash2 size={15} />
-                      </button>
-                    </form>
-                  )}
+                  <form action={async () => { "use server"; await deleteNotification(n.id); }}>
+                    <button type="submit"
+                      className="shrink-0 p-2 rounded-lg border transition-all hover:opacity-70"
+                      style={{ borderColor: "var(--brown-pale)", color: "var(--brown-light)" }}>
+                      <Trash2 size={15} />
+                    </button>
+                  </form>
                 </div>
               </div>
             );
