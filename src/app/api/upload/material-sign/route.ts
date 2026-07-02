@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -13,25 +12,36 @@ export async function POST(req: NextRequest) {
   const ext = fileName.split(".").pop();
   const storagePath = `${user.id}/${Date.now()}.${ext}`;
 
-  const admin = createAdminClient();
-  const { data, error } = await admin.storage
-    .from("materials")
-    .createSignedUploadUrl(storagePath);
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-  if (error || !data) {
-    const msg = error?.message ?? "Ошибка";
-    const hint = msg.toLowerCase().includes("tenant") || msg.toLowerCase().includes("not found")
-      ? `${msg}. Создай bucket "materials" (Public) в Supabase → Storage`
-      : msg;
-    return NextResponse.json({ error: hint }, { status: 500 });
+  // Прямой REST вызов к Supabase Storage API
+  const res = await fetch(
+    `${supabaseUrl}/storage/v1/object/upload/sign/materials/${storagePath}`,
+    {
+      method: "POST",
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  const result = await res.json();
+  if (!res.ok) {
+    return NextResponse.json(
+      { error: result.error ?? result.message ?? `Storage error ${res.status}` },
+      { status: 500 }
+    );
   }
 
-  const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/materials/${storagePath}`;
+  // Supabase возвращает path (/storage/v1/object/upload/sign/...)
+  const signedUrl = result.url.startsWith("http")
+    ? result.url
+    : `${supabaseUrl}${result.url}`;
 
-  return NextResponse.json({
-    signedUrl: data.signedUrl,
-    path: storagePath,
-    publicUrl,
-    token: data.token,
-  });
+  const publicUrl = `${supabaseUrl}/storage/v1/object/public/materials/${storagePath}`;
+
+  return NextResponse.json({ signedUrl, publicUrl, path: storagePath });
 }
