@@ -5,6 +5,12 @@ import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import SubscriptionCard from "@/components/tutor/SubscriptionCard";
 import CreateSubscriptionForm from "@/components/tutor/CreateSubscriptionForm";
+import { updateTextbook } from "@/app/actions/students";
+
+const TEXTBOOKS = [
+  { value: "english_file_elementary", label: "English File Elementary" },
+  { value: "solutions_elementary",    label: "Solutions 3rd Ed. Elementary" },
+];
 
 export default async function StudentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -64,6 +70,33 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
       ) : (
         <CreateSubscriptionForm studentId={id} studentName={student.name} />
       )}
+
+      {/* Учебник */}
+      <div className="mt-6 rounded-2xl border p-4"
+        style={{ background: "white", borderColor: "var(--brown-pale)" }}>
+        <p className="text-xs font-semibold uppercase tracking-wider mb-3"
+          style={{ color: "var(--brown-light)" }}>Учебник</p>
+        <form action={updateTextbook.bind(null, id)} className="flex items-center gap-3">
+          <select
+            name="textbook"
+            defaultValue={student.textbook ?? ""}
+            className="flex-1 rounded-xl px-3 py-2 text-sm focus:outline-none"
+            style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
+          >
+            <option value="">— не выбран —</option>
+            {TEXTBOOKS.map(t => (
+              <option key={t.value} value={t.value}>{t.label}</option>
+            ))}
+          </select>
+          <button
+            type="submit"
+            className="px-4 py-2 rounded-xl text-sm font-semibold text-white shrink-0 hover:opacity-90 transition-opacity"
+            style={{ background: "var(--gradient-primary)" }}
+          >
+            Сохранить
+          </button>
+        </form>
+      </div>
 
       {/* Архив отменённых абонементов */}
       {subscriptions && subscriptions.filter(s => s.status === "cancelled").length > 0 && (
