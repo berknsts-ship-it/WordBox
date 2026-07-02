@@ -30,7 +30,8 @@ export async function addMaterial(formData: FormData) {
 export async function deleteMaterial(id: string, studentId: string) {
   const supabase = await createClient();
   await supabase.from("materials").delete().eq("id", id);
-  revalidatePath(`/tutor/students/${studentId}`);
+  if (studentId) revalidatePath(`/tutor/students/${studentId}`);
+  revalidatePath("/tutor/materials");
 }
 
 export async function setMaterialAssignments(materialId: string, studentIds: string[]) {
