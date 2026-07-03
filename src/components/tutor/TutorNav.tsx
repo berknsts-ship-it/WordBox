@@ -114,7 +114,7 @@ export default function TutorNav({ userEmail }: { userEmail: string }) {
       {/* Мобильное меню */}
       {open && (
         <div
-          className="lg:hidden fixed inset-0 z-10 flex flex-col"
+          className="lg:hidden fixed inset-0 z-40 flex flex-col"
           style={{ background: "#fdf8f2", top: 56 }}
         >
           {/* Luxury divider at top */}
