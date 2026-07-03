@@ -603,3 +603,15 @@ html[data-theme="graphite"] .diary-bg-fixed {
 .wb-ray-2 { animation: wb-ray-shimmer 2.8s ease-in-out infinite -0.7s; }
 .wb-ray-3 { animation: wb-ray-shimmer 2.8s ease-in-out infinite -1.4s; }
 .wb-ray-4 { animation: wb-ray-shimmer 2.8s ease-in-out infinite -2.1s; }
+
+@keyframes wb-confetti-fall {
+  0%   { transform: translateY(0) rotate(0deg) scale(1); opacity: 1; }
+  80%  { opacity: 1; }
+  100% { transform: translateY(110vh) rotate(600deg) scale(0.7); opacity: 0; }
+}
+.wb-confetti-piece {
+  position: fixed;
+  pointer-events: none;
+  border-radius: 2px;
+  animation: wb-confetti-fall linear forwards;
+}

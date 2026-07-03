@@ -28,12 +28,19 @@ export async function addWord(formData: FormData) {
   const supabase = await createClient();
   const set_id = formData.get("set_id") as string;
   const student_id = formData.get("student_id") as string;
+  const variantsRaw = (formData.get("answer_variants") as string) || "";
+  const answer_variants = variantsRaw
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
 
   await supabase.from("vocabulary_words").insert({
     set_id,
     english: formData.get("english") as string,
     russian: formData.get("russian") as string,
     example: (formData.get("example") as string) || null,
+    example_sentence: (formData.get("example_sentence") as string) || null,
+    answer_variants: answer_variants.length ? answer_variants : [],
   });
 
   revalidatePath(`/tutor/students/${student_id}`);

@@ -22,7 +22,7 @@ export default async function TutorVocabularyTab({
     const activeSet = sets?.find((s) => s.id === activeSetId);
     const { data: words } = await supabase
       .from("vocabulary_words")
-      .select("id, english, russian, example")
+      .select("id, english, russian, example, example_sentence")
       .eq("set_id", activeSetId)
       .order("created_at", { ascending: true });
 
@@ -50,11 +50,11 @@ export default async function TutorVocabularyTab({
           <h2 className="text-base font-semibold mb-4" style={{ color: "var(--brown-dark)" }}>
             Добавить слово
           </h2>
-          <form action={addWord} className="space-y-4">
+          <form action={addWord} className="space-y-3">
             <input type="hidden" name="set_id" value={activeSetId} />
             <input type="hidden" name="student_id" value={studentId} />
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold mb-1" style={{ color: "var(--brown-mid)" }}>
                   Английский *
@@ -84,11 +84,44 @@ export default async function TutorVocabularyTab({
 
             <div>
               <label className="block text-xs font-semibold mb-1" style={{ color: "var(--brown-mid)" }}>
-                Пример использования (необязательно)
+                Пример (для показа перевода)
               </label>
               <input
                 name="example"
                 placeholder="I eat an apple every day."
+                className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+                style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold mb-1" style={{ color: "var(--brown-mid)" }}>
+                Предложение с пробелом{" "}
+                <span className="font-normal" style={{ color: "var(--brown-light)" }}>
+                  (для режима «заполни пробел»)
+                </span>
+              </label>
+              <input
+                name="example_sentence"
+                placeholder="I eat an ___ every day."
+                className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+                style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
+              />
+              <p className="text-xs mt-1" style={{ color: "var(--brown-light)" }}>
+                Используй ___ (три подчёркивания) для пропуска
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold mb-1" style={{ color: "var(--brown-mid)" }}>
+                Допустимые варианты ответа{" "}
+                <span className="font-normal" style={{ color: "var(--brown-light)" }}>
+                  (через запятую, если несколько форм)
+                </span>
+              </label>
+              <input
+                name="answer_variants"
+                placeholder="cancelled, canceled"
                 className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
                 style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
               />
@@ -121,11 +154,16 @@ export default async function TutorVocabularyTab({
                     {word.russian}
                   </p>
                 </div>
-                {word.example && (
-                  <p className="text-xs italic flex-1 hidden sm:block" style={{ color: "var(--brown-light)" }}>
-                    {word.example}
-                  </p>
-                )}
+                <div className="flex-1 hidden sm:block">
+                  {word.example && (
+                    <p className="text-xs italic" style={{ color: "var(--brown-light)" }}>{word.example}</p>
+                  )}
+                  {(word as { example_sentence?: string | null }).example_sentence && (
+                    <p className="text-xs mt-0.5" style={{ color: "var(--brown-mid)" }}>
+                      📝 {(word as { example_sentence?: string | null }).example_sentence}
+                    </p>
+                  )}
+                </div>
                 <form action={deleteWord.bind(null, word.id, studentId)}>
                   <button type="submit" className="text-xs text-red-400 hover:text-red-600 px-2 py-1">
                     ✕
