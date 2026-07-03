@@ -417,7 +417,7 @@ export default function WhiteboardCanvas({ studentId = "default" }: { studentId?
       {/* Canvas */}
       <div className="flex-1 relative">
         <canvas ref={canvasRef} className="absolute inset-0 w-full h-full"
-          style={{ cursor: tool === "select" ? "default" : tool === "pen" ? "crosshair" : "cell", touchAction: "none" }} />
+          style={{ cursor: tool === "select" ? "default" : tool === "pen" ? "crosshair" : "cell", touchAction: "none", outline: "none" }} />
         {showFx && <div className="absolute inset-0" style={{ zIndex: 10 }} onClick={() => setShowFx(false)} />}
       </div>
     </div>

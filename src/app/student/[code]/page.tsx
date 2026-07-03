@@ -77,25 +77,27 @@ export default async function StudentCabinetPage({
   return (
     <ThemeOnboardingGate needsOnboarding={student.theme === null}>
     <SplashScreen code={code}>
-      <div>
-        <NotificationBanner studentId={student.id} notifications={unreadNotifications} />
-        <PushSubscribeButton studentId={student.id} />
-        {!isBoard && (
+      {isBoard ? (
+        /* Board tab: fixed overlay from below header — same pattern as tutor board */
+        <div className="fixed inset-x-0 bottom-0 z-10 flex flex-col" style={{ top: "56px" }}>
+          <div className="shrink-0 max-w-6xl w-full mx-auto px-4 sm:px-8 pt-4 sm:pt-5 pb-2">
+            <TabNav code={code} activeTab={activeTab} pendingHomework={pendingCount ?? 0} themeId={student.theme} />
+          </div>
+          <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+            <BoardTab studentId={student.id} role="student" />
+          </div>
+        </div>
+      ) : (
+        <div>
+          <NotificationBanner studentId={student.id} notifications={unreadNotifications} />
+          <PushSubscribeButton studentId={student.id} />
           <StudentBanner
             name={student.name}
             pendingCount={pendingCount ?? 0}
             lessonsCount={lessonsCount ?? 0}
             checkedCount={checkedCount ?? 0}
           />
-        )}
-
-        <TabNav code={code} activeTab={activeTab} pendingHomework={pendingCount ?? 0} themeId={student.theme} />
-
-        {activeTab === "board" ? (
-          <div className="-mx-4 sm:mx-0 flex flex-col" style={{ height: "calc(100dvh - 140px)", minHeight: 320, marginBottom: "-1.25rem" }}>
-            <BoardTab studentId={student.id} role="student" />
-          </div>
-        ) : (
+          <TabNav code={code} activeTab={activeTab} pendingHomework={pendingCount ?? 0} themeId={student.theme} />
           <div className="mt-5">
             {activeTab === "schedule"  && <ScheduleTab  studentId={student.id} />}
             {activeTab === "homework"  && <HomeworkTab  studentId={student.id} />}
@@ -106,10 +108,9 @@ export default async function StudentCabinetPage({
             )}
             {activeTab === "grammar"   && <GrammarTab textbook={student.textbook ?? null} />}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </SplashScreen>
     </ThemeOnboardingGate>
   );
 }
-
