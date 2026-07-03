@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { addVocabularySet, deleteVocabularySet } from "@/app/actions/vocabulary";
-import { SubmitButton } from "@/components/ui/SubmitButton";
+import { Plus } from "lucide-react";
+import { deleteVocabularySet } from "@/app/actions/vocabulary";
 import SetAssignPanel from "@/components/tutor/SetAssignPanel";
 
 export default async function VocabularyPage() {
@@ -24,7 +24,7 @@ export default async function VocabularyPage() {
 
   // Word counts per set
   const setIds = (sets ?? []).map((s) => s.id);
-  let wordCountBySet: Record<string, number> = {};
+  const wordCountBySet: Record<string, number> = {};
   if (setIds.length > 0) {
     const { data: words } = await supabase
       .from("vocabulary_words")
@@ -55,66 +55,28 @@ export default async function VocabularyPage() {
             {sets?.length ?? 0} наборов · {totalWords} слов
           </p>
         </div>
-      </div>
-
-      {/* Форма создания набора */}
-      <div
-        className="rounded-2xl border p-5 mb-6"
-        style={{ background: "white", borderColor: "var(--brown-pale)" }}
-      >
-        <p className="text-sm font-semibold mb-3" style={{ color: "var(--brown-dark)" }}>
-          Создать набор
-        </p>
-        <form action={addVocabularySet} className="flex flex-col sm:flex-row gap-2">
-          <input
-            name="name"
-            required
-            placeholder="Название набора"
-            className="flex-1 rounded-xl px-3 py-2.5 text-sm focus:outline-none"
-            style={{
-              background: "var(--cream)",
-              border: "1.5px solid var(--brown-pale)",
-              color: "var(--brown-dark)",
-            }}
-          />
-          {allStudents.length > 0 && (
-            <select
-              name="student_id"
-              className="rounded-xl px-3 py-2.5 text-sm focus:outline-none"
-              style={{
-                background: "var(--cream)",
-                border: "1.5px solid var(--brown-pale)",
-                color: "var(--brown-dark)",
-              }}
-            >
-              <option value="">Без назначения</option>
-              {allStudents.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-          )}
-          <SubmitButton
-            label="Создать"
-            pendingLabel="..."
-            style={{
-              background: "var(--gradient-primary)",
-              color: "white",
-              padding: "0.625rem 1.25rem",
-              borderRadius: "0.75rem",
-              fontSize: "0.875rem",
-              fontWeight: 600,
-              whiteSpace: "nowrap",
-            }}
-          />
-        </form>
+        <Link
+          href="/tutor/vocabulary/new"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white hover:opacity-80 transition-all"
+          style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-button)" }}
+        >
+          <Plus size={16} /> Новая тема
+        </Link>
       </div>
 
       {!sets || sets.length === 0 ? (
         <div className="text-center py-16">
           <p className="text-5xl mb-3">📚</p>
-          <p className="font-semibold" style={{ color: "var(--brown-dark)" }}>
-            Создай первый набор слов
+          <p className="font-semibold mb-2" style={{ color: "var(--brown-dark)" }}>
+            Пока нет ни одного набора
           </p>
+          <Link
+            href="/tutor/vocabulary/new"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white hover:opacity-80 transition-all"
+            style={{ background: "var(--gradient-primary)" }}
+          >
+            <Plus size={14} /> Создать первый набор
+          </Link>
         </div>
       ) : (
         <div className="space-y-2">
