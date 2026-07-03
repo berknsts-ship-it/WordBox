@@ -59,7 +59,7 @@ export default function TutorNav({ userEmail }: { userEmail: string }) {
             </Link>
 
             {/* Десктоп навигация */}
-            <nav className="hidden sm:flex items-center gap-0.5">
+            <nav className="hidden lg:flex items-center gap-0.5">
               {NAV.map((item) => {
                 const Icon = item.icon;
                 const active = pathname.startsWith(item.href);
@@ -87,12 +87,12 @@ export default function TutorNav({ userEmail }: { userEmail: string }) {
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="hidden sm:block text-xs" style={{ color: "var(--brown-light)" }}>
+            <span className="hidden lg:block text-xs" style={{ color: "var(--brown-light)" }}>
               {userEmail}
             </span>
             <button
               onClick={handleLogout}
-              className="hidden sm:flex items-center gap-1.5 text-sm font-semibold transition-colors hover:text-red-500"
+              className="hidden lg:flex items-center gap-1.5 text-sm font-semibold transition-colors hover:text-red-500"
               style={{ color: "var(--brown-light)" }}
             >
               <LogOut size={15} />
@@ -101,7 +101,7 @@ export default function TutorNav({ userEmail }: { userEmail: string }) {
 
             <button
               onClick={() => setOpen(!open)}
-              className="sm:hidden p-2 rounded-xl transition-colors"
+              className="lg:hidden p-2 rounded-xl transition-colors"
               style={{ color: "var(--brown-mid)" }}
               aria-label="Меню"
             >
@@ -114,7 +114,7 @@ export default function TutorNav({ userEmail }: { userEmail: string }) {
       {/* Мобильное меню */}
       {open && (
         <div
-          className="sm:hidden fixed inset-0 z-10 flex flex-col"
+          className="lg:hidden fixed inset-0 z-10 flex flex-col"
           style={{ background: "#fdf8f2", top: 56 }}
         >
           {/* Luxury divider at top */}
