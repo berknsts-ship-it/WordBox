@@ -2773,7 +2773,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
         {/* Spacer — collapses when screen is short */}
         <div style={{ flex: 1, minHeight: 8 }}/>
         {/* "+" pinned to visible bottom via sticky */}
-        <div className="flex flex-col items-center pb-2" style={{ position:"sticky", bottom:0, background:"white" }}>
+        <div className="flex flex-col items-center pb-2" style={{ position:"sticky", bottom:0, background:"white", zIndex: 1 }}>
           <div className="w-8 h-px mx-auto mb-1" style={{ background:"var(--brown-pale)" }}/>
           <div className="relative" ref={moreToolsAnchorRef}>
             <SideBtn active={showMoreTools} onClick={()=>{
