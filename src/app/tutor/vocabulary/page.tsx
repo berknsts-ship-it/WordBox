@@ -1,16 +1,17 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { addVocabularySet } from "@/app/actions/vocabulary";
+import { addVocabularySet, deleteVocabularySet } from "@/app/actions/vocabulary";
 import { SubmitButton } from "@/components/ui/SubmitButton";
+import SetAssignPanel from "@/components/tutor/SetAssignPanel";
 
 export default async function VocabularyPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const [{ data: sets }, { data: students }] = await Promise.all([
+  const [{ data: sets }, { data: students }, { data: allAssignments }] = await Promise.all([
     supabase
       .from("vocabulary_sets")
-      .select("id, name, student_id, students(name)")
+      .select("id, name")
       .eq("tutor_id", user!.id)
       .order("created_at", { ascending: false }),
     supabase
@@ -18,9 +19,10 @@ export default async function VocabularyPage() {
       .select("id, name")
       .eq("tutor_id", user!.id)
       .order("name"),
+    supabase.from("set_assignments").select("set_id, student_id"),
   ]);
 
-  // Count words per set via sets (not by tutor_id on words)
+  // Word counts per set
   const setIds = (sets ?? []).map((s) => s.id);
   let wordCountBySet: Record<string, number> = {};
   if (setIds.length > 0) {
@@ -33,6 +35,15 @@ export default async function VocabularyPage() {
     }
   }
 
+  // Assignment map: setId → assigned studentIds
+  const assignmentMap = new Map<string, string[]>();
+  for (const a of allAssignments ?? []) {
+    if (!assignmentMap.has(a.set_id)) assignmentMap.set(a.set_id, []);
+    assignmentMap.get(a.set_id)!.push(a.student_id);
+  }
+
+  const allStudents = students ?? [];
+  const studentNameMap = new Map(allStudents.map((s) => [s.id, s.name]));
   const totalWords = Object.values(wordCountBySet).reduce((a, b) => a + b, 0);
 
   return (
@@ -47,18 +58,28 @@ export default async function VocabularyPage() {
       </div>
 
       {/* Форма создания набора */}
-      {students && students.length > 0 && (
-        <div
-          className="rounded-2xl border p-5 mb-6"
-          style={{ background: "white", borderColor: "var(--brown-pale)" }}
-        >
-          <p className="text-sm font-semibold mb-3" style={{ color: "var(--brown-dark)" }}>
-            Создать набор слов
-          </p>
-          <form action={addVocabularySet} className="flex flex-col sm:flex-row gap-2">
+      <div
+        className="rounded-2xl border p-5 mb-6"
+        style={{ background: "white", borderColor: "var(--brown-pale)" }}
+      >
+        <p className="text-sm font-semibold mb-3" style={{ color: "var(--brown-dark)" }}>
+          Создать набор
+        </p>
+        <form action={addVocabularySet} className="flex flex-col sm:flex-row gap-2">
+          <input
+            name="name"
+            required
+            placeholder="Название набора"
+            className="flex-1 rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+            style={{
+              background: "var(--cream)",
+              border: "1.5px solid var(--brown-pale)",
+              color: "var(--brown-dark)",
+            }}
+          />
+          {allStudents.length > 0 && (
             <select
               name="student_id"
-              required
               className="rounded-xl px-3 py-2.5 text-sm focus:outline-none"
               style={{
                 background: "var(--cream)",
@@ -66,77 +87,89 @@ export default async function VocabularyPage() {
                 color: "var(--brown-dark)",
               }}
             >
-              <option value="">Выбери ученика...</option>
-              {students.map((s) => (
+              <option value="">Без назначения</option>
+              {allStudents.map((s) => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </select>
-            <input
-              name="name"
-              required
-              placeholder="Название набора"
-              className="flex-1 rounded-xl px-3 py-2.5 text-sm focus:outline-none"
-              style={{
-                background: "var(--cream)",
-                border: "1.5px solid var(--brown-pale)",
-                color: "var(--brown-dark)",
-              }}
-            />
-            <SubmitButton
-              label="Создать"
-              pendingLabel="Создаём..."
-              style={{
-                background: "var(--gradient-primary)",
-                color: "white",
-                padding: "0.625rem 1.25rem",
-                borderRadius: "0.75rem",
-                fontSize: "0.875rem",
-                fontWeight: 600,
-                whiteSpace: "nowrap",
-              }}
-            />
-          </form>
-        </div>
-      )}
+          )}
+          <SubmitButton
+            label="Создать"
+            pendingLabel="..."
+            style={{
+              background: "var(--gradient-primary)",
+              color: "white",
+              padding: "0.625rem 1.25rem",
+              borderRadius: "0.75rem",
+              fontSize: "0.875rem",
+              fontWeight: 600,
+              whiteSpace: "nowrap",
+            }}
+          />
+        </form>
+      </div>
 
       {!sets || sets.length === 0 ? (
         <div className="text-center py-16">
           <p className="text-5xl mb-3">📚</p>
           <p className="font-semibold" style={{ color: "var(--brown-dark)" }}>
-            {students?.length ? "Создай первый набор выше" : "Нет учеников"}
+            Создай первый набор слов
           </p>
-          {!students?.length && (
-            <Link
-              href="/tutor/students/new"
-              className="inline-block mt-4 px-5 py-2.5 rounded-2xl text-sm font-semibold text-white hover:opacity-80"
-              style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-button)" }}
-            >
-              Добавить ученика
-            </Link>
-          )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="space-y-2">
           {sets.map((set) => {
-            const studentName =
-              (Array.isArray(set.students)
-                ? (set.students as { name: string }[])[0]?.name
-                : (set.students as { name: string } | null)?.name) ?? "Ученик";
             const count = wordCountBySet[set.id] ?? 0;
+            const assigned = assignmentMap.get(set.id) ?? [];
 
             return (
-              <Link
+              <div
                 key={set.id}
-                href={`/tutor/students/${set.student_id}?tab=vocabulary&set=${set.id}`}
-                className="rounded-2xl border px-5 py-4 hover:shadow-md transition-shadow block"
+                className="rounded-2xl border p-4 flex items-center gap-3"
                 style={{ background: "white", borderColor: "var(--brown-pale)" }}
               >
-                <p className="font-semibold" style={{ color: "var(--brown-dark)" }}>{set.name}</p>
-                <p className="text-xs mt-1" style={{ color: "var(--brown-light)" }}>
-                  {studentName} · {count}{" "}
-                  {count === 1 ? "слово" : count < 5 ? "слова" : "слов"}
-                </p>
-              </Link>
+                <div className="flex-1 min-w-0">
+                  <Link
+                    href={`/tutor/vocabulary/${set.id}`}
+                    className="font-semibold text-sm hover:underline"
+                    style={{ color: "var(--brown-dark)" }}
+                  >
+                    {set.name}
+                  </Link>
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    <span className="text-xs" style={{ color: "var(--brown-light)" }}>
+                      {count} {count === 1 ? "слово" : count < 5 ? "слова" : "слов"}
+                    </span>
+                    {assigned.length > 0 && (
+                      <span className="text-xs" style={{ color: "var(--brown-mid)" }}>
+                        ·{" "}
+                        {assigned
+                          .map((sid) => studentNameMap.get(sid))
+                          .filter(Boolean)
+                          .join(", ")}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <SetAssignPanel
+                    setId={set.id}
+                    allStudents={allStudents}
+                    assignedIds={assigned}
+                  />
+                  <form action={deleteVocabularySet.bind(null, set.id)}>
+                    <button
+                      type="submit"
+                      className="p-2 rounded-xl hover:bg-red-50 transition-colors"
+                      style={{ color: "var(--brown-light)" }}
+                      title="Удалить набор"
+                    >
+                      ✕
+                    </button>
+                  </form>
+                </div>
+              </div>
             );
           })}
         </div>

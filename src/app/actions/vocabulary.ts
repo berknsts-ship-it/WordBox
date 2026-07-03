@@ -8,27 +8,46 @@ export async function addVocabularySet(formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
 
-  const student_id = formData.get("student_id") as string;
-  await supabase.from("vocabulary_sets").insert({
-    student_id,
-    tutor_id: user.id,
-    name: formData.get("name") as string,
-  });
+  const name = formData.get("name") as string;
+  const student_id = (formData.get("student_id") as string) || null;
 
-  revalidatePath(`/tutor/students/${student_id}`);
+  const { data: newSet } = await supabase
+    .from("vocabulary_sets")
+    .insert({ tutor_id: user.id, name, student_id })
+    .select("id")
+    .single();
+
+  // If a student was selected, immediately assign the set
+  if (newSet && student_id) {
+    await supabase
+      .from("set_assignments")
+      .upsert({ set_id: newSet.id, student_id }, { onConflict: "set_id,student_id" });
+  }
+
   revalidatePath("/tutor/vocabulary");
 }
 
-export async function deleteVocabularySet(id: string, studentId: string) {
+export async function deleteVocabularySet(id: string) {
   const supabase = await createClient();
   await supabase.from("vocabulary_sets").delete().eq("id", id);
-  revalidatePath(`/tutor/students/${studentId}`);
+  revalidatePath("/tutor/vocabulary");
+}
+
+export async function setVocabularyAssignments(setId: string, studentIds: string[]) {
+  const supabase = await createClient();
+  // Replace all assignments for this set
+  await supabase.from("set_assignments").delete().eq("set_id", setId);
+  if (studentIds.length > 0) {
+    await supabase
+      .from("set_assignments")
+      .insert(studentIds.map((sid) => ({ set_id: setId, student_id: sid })));
+  }
+  revalidatePath("/tutor/vocabulary");
 }
 
 export async function addWord(formData: FormData) {
   const supabase = await createClient();
   const set_id = formData.get("set_id") as string;
-  const student_id = formData.get("student_id") as string;
   const variantsRaw = (formData.get("answer_variants") as string) || "";
   const answer_variants = variantsRaw
     .split(",")
@@ -44,11 +63,11 @@ export async function addWord(formData: FormData) {
     answer_variants: answer_variants.length ? answer_variants : [],
   });
 
-  revalidatePath(`/tutor/students/${student_id}`);
+  revalidatePath(`/tutor/vocabulary/${set_id}`);
 }
 
-export async function deleteWord(id: string, studentId: string) {
+export async function deleteWord(id: string, setId: string) {
   const supabase = await createClient();
   await supabase.from("vocabulary_words").delete().eq("id", id);
-  revalidatePath(`/tutor/students/${studentId}`);
+  revalidatePath(`/tutor/vocabulary/${setId}`);
 }

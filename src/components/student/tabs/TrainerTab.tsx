@@ -63,15 +63,24 @@ export default async function TrainerTab({
     );
   }
 
-  // ── Set list ──
-  const { data: sets } = await supabase
-    .from("vocabulary_sets")
-    .select("id, name")
-    .eq("student_id", studentId)
-    .order("sort_order", { ascending: true })
-    .order("created_at", { ascending: true });
+  // ── Set list — load via junction table ──
+  const { data: assignments } = await supabase
+    .from("set_assignments")
+    .select("vocabulary_sets(id, name)")
+    .eq("student_id", studentId);
 
-  if (!sets || sets.length === 0) {
+  // Flatten the join result
+  type SetRow = { id: string; name: string };
+  const sets: SetRow[] = (assignments ?? [])
+    .map((a) => {
+      const vs = a.vocabulary_sets;
+      if (!vs || Array.isArray(vs)) return null;
+      const s = vs as { id: string; name: string };
+      return { id: s.id, name: s.name };
+    })
+    .filter((s): s is SetRow => s !== null);
+
+  if (sets.length === 0) {
     return (
       <div className="text-center py-16">
         <p className="text-5xl mb-3">📚</p>
