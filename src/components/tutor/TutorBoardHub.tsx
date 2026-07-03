@@ -38,7 +38,7 @@ export default function TutorBoardHub({
   const student = students.find(s => s.id === selectedId) ?? null;
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-3xl border" style={{ height: "calc(100dvh - 9.5rem)", borderColor: "var(--brown-pale)" }}>
+    <div className="flex flex-col overflow-hidden flex-1" style={{ borderColor: "var(--brown-pale)" }}>
 
       {/* Mobile: горизонтальный скролл учеников */}
       <div className="sm:hidden flex items-center gap-1.5 px-3 py-2 border-b overflow-x-auto shrink-0"

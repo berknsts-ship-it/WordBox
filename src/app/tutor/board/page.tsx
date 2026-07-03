@@ -25,14 +25,7 @@ export default async function TutorBoardPage({
   const initialSnapshots = initialId ? await getSnapshots(initialId) : [];
 
   return (
-    <div>
-      <div className="mb-4">
-        <h1 className="text-xl font-bold" style={{ color: "var(--brown-dark)" }}>Доска</h1>
-        <p className="text-sm mt-0.5" style={{ color: "var(--brown-light)" }}>
-          Выбери ученика — доска откроется синхронно в его кабинете
-        </p>
-      </div>
-
+    <div className="-mx-4 -mt-5 sm:-mt-8 -mb-5 sm:-mb-8 flex flex-col" style={{ height: "calc(100dvh - 56px)" }}>
       <TutorBoardHub
         students={list}
         initialId={initialId}
