@@ -37,7 +37,7 @@ export async function rescheduleLesson(id: string, rescheduledTo: string) {
 }
 
 export async function updateLesson(id: string, fields: {
-  scheduled_at?: string;
+  date?: string;
   duration_min?: number;
   price_rub?: number | null;
   notes?: string | null;
@@ -70,7 +70,7 @@ export async function addLesson(formData: FormData) {
   await supabase.from("lessons").insert({
     student_id,
     tutor_id:     user.id,
-    scheduled_at: formData.get("date") as string,
+    date: formData.get("date") as string,
     notes:        (formData.get("notes") as string) || null,
     status:       (formData.get("status") as string) || "scheduled",
     price_rub:    priceRaw ? Number(priceRaw) : null,
@@ -95,7 +95,7 @@ export async function updateLessonForm(formData: FormData) {
   const studentId = formData.get("student_id") as string;
   const priceRaw  = formData.get("price_rub");
   await supabase.from("lessons").update({
-    scheduled_at:   formData.get("date") as string,
+    date:   formData.get("date") as string,
     notes:          (formData.get("notes") as string) || null,
     price_rub:      priceRaw ? Number(priceRaw) : null,
     payment_status: formData.get("payment_status") as string,

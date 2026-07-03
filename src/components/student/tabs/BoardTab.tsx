@@ -18,7 +18,7 @@ type Snapshot = {
   title: string;
   created_at: string;
   lesson_id: string | null;
-  lessons?: { scheduled_at: string } | null;
+  lessons?: { date: string } | null;
 };
 
 export default function BoardTab({
@@ -219,8 +219,8 @@ export default function BoardTab({
                           </div>
                         )}
                         <div className="text-xs mt-0.5" style={{ color: "var(--brown-light)" }}>
-                          {snap.lessons?.scheduled_at
-                            ? `Урок ${fmtDate(snap.lessons.scheduled_at)}`
+                          {snap.lessons?.date
+                            ? `Урок ${fmtDate(snap.lessons.date)}`
                             : fmtDate(snap.created_at)}
                         </div>
                       </div>

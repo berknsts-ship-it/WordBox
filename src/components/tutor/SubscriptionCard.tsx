@@ -5,7 +5,7 @@ import { renewSubscription, cancelSubscription } from "@/app/actions/subscriptio
 
 interface Lesson {
   id: string;
-  scheduled_at: string;
+  date: string;
   duration_min?: number | null;
   price_rub?: number | null;
   status: string;
@@ -107,7 +107,7 @@ export default function SubscriptionCard({
       {ls.length > 0 && (
         <div className="divide-y" style={{ borderColor: "var(--brown-pale)" }}>
           {ls.map(l => {
-            const dt = new Date(l.scheduled_at);
+            const dt = new Date(l.date);
             const dateStr = dt.toLocaleDateString("ru", { day: "numeric", month: "long" });
             const isScheduled = l.status === "scheduled";
             const isMissed    = l.status === "missed";

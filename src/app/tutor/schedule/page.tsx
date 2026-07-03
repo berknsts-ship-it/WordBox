@@ -21,7 +21,7 @@ export default async function SchedulePage({
   const [{ data: lessons }, { data: students }, { data: subscriptions }] = await Promise.all([
     supabase.from("lessons").select("*, students(name)")
       .eq("tutor_id", tutorId)
-      .order("scheduled_at"),
+      .order("date"),
     supabase.from("students").select("id, name, default_price_rub").eq("tutor_id", tutorId).order("name"),
     supabase.from("subscriptions").select("id, student_id, balance, name").eq("tutor_id", tutorId).eq("status", "active"),
   ]);

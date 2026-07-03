@@ -28,9 +28,9 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
   let subLessons: Record<string, unknown>[] = [];
   if (activeSub) {
     const { data } = await db.from("lessons")
-      .select("id, scheduled_at, duration_min, price_rub, status, deducted_amount, notes")
+      .select("id, date, price_rub, status, deducted_amount, notes")
       .eq("subscription_id", activeSub.id)
-      .order("scheduled_at");
+      .order("date");
     subLessons = (data as Record<string, unknown>[]) ?? [];
   }
 

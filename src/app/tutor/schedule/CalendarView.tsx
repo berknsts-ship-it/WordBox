@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 
 type Lesson = {
   id: string;
-  scheduled_at: string;
+  date: string;
   status: string;
   duration_min?: number | null;
   price_rub?: number | null;
@@ -98,7 +98,7 @@ export default function CalendarView({
   const lessonsByDate = useMemo(() => {
     const map: Record<string, Lesson[]> = {};
     for (const l of lessons) {
-      const key = toDateKey(l.scheduled_at);
+      const key = toDateKey(l.date);
       const d = new Date(key);
       if (d.getFullYear() === year && d.getMonth() === month) {
         (map[key] ??= []).push(l);
@@ -135,7 +135,7 @@ export default function CalendarView({
       return {
         tutor_id:        user.id,
         student_id:      studentId,
-        scheduled_at:    d.toISOString(),
+        date:    d.toISOString(),
         price_rub:       price ? parseInt(price) : null,
         subscription_id: activeSub?.id ?? null,
       };
@@ -210,7 +210,7 @@ export default function CalendarView({
                     style={{ background: STATUS_BG[l.status] ?? "#f1f5f9", color: STATUS_TEXT[l.status] ?? "#64748b" }}>
                     {l.students ? initials(l.students.name) : "?"}
                     <span className="hidden sm:inline ml-0.5">
-                      {new Date(l.scheduled_at).toLocaleTimeString("ru",{hour:"2-digit",minute:"2-digit"})}
+                      {new Date(l.date).toLocaleTimeString("ru",{hour:"2-digit",minute:"2-digit"})}
                     </span>
                   </div>
                 ))}

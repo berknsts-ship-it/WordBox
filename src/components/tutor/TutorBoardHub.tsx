@@ -10,7 +10,7 @@ const BoardTab = dynamic(
 );
 
 type Student = { id: string; name: string; canvas_url: string | null };
-type Snapshot = { id: string; title: string; created_at: string; lesson_id: string | null; lessons?: { scheduled_at: string } | null };
+type Snapshot = { id: string; title: string; created_at: string; lesson_id: string | null; lessons?: { date: string } | null };
 
 export default function TutorBoardHub({
   students,

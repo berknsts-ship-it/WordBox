@@ -27,7 +27,7 @@ const ACTIONS: { status: Status; label: string }[] = [
 interface Lesson {
   id: string;
   status: Status;
-  scheduled_at: string;
+  date: string;
   rescheduled_to?: string | null;
   duration_min?: number;
   notes?: string | null;
@@ -51,7 +51,7 @@ export default function LessonCard({ lesson }: { lesson: Lesson }) {
   const [rescheduledTo, setRescheduledTo] = useState(lesson.rescheduled_to ?? null);
 
   // edit form state — initialised from current lesson values
-  const initDt = new Date(lesson.scheduled_at);
+  const initDt = new Date(lesson.date);
   const pad = (n: number) => String(n).padStart(2, "0");
   const initDate = `${initDt.getFullYear()}-${pad(initDt.getMonth()+1)}-${pad(initDt.getDate())}`;
   const initTime = `${pad(initDt.getHours())}:${pad(initDt.getMinutes())}`;
@@ -64,7 +64,7 @@ export default function LessonCard({ lesson }: { lesson: Lesson }) {
   const [editLoading,  setEditLoading]  = useState(false);
 
   const cfg  = STATUS_CONFIG[status] ?? STATUS_CONFIG.scheduled;
-  const dt   = new Date(lesson.scheduled_at);
+  const dt   = new Date(lesson.date);
   const isCancelled = status === "cancelled";
   const DESTRUCTIVE: Status[] = ["cancelled", "missed"];
 
@@ -115,7 +115,7 @@ export default function LessonCard({ lesson }: { lesson: Lesson }) {
     if (!editDate || !editTime) return;
     setEditLoading(true);
     await updateLesson(lesson.id, {
-      scheduled_at: new Date(`${editDate}T${editTime}:00`).toISOString(),
+      date: new Date(`${editDate}T${editTime}:00`).toISOString(),
       price_rub:    editPrice ? parseInt(editPrice) : null,
       notes:        editNotes.trim() || null,
     });
