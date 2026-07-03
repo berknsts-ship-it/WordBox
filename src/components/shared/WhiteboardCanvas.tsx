@@ -2702,7 +2702,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
 
       {/* Vertical sidebar */}
       <aside className="hidden sm:flex flex-col items-center gap-1 py-2 border-r shrink-0 relative transition-all duration-200"
-        style={{ width: sidebarCollapsed ? 0 : 52, overflowX: "visible", overflowY: sidebarCollapsed ? "hidden" : "auto", borderColor:"var(--brown-pale)", background:"white" }}>
+        style={{ width: sidebarCollapsed ? 0 : 52, overflowX: "hidden", overflowY: sidebarCollapsed ? "hidden" : "auto", borderColor:"var(--brown-pale)", background:"white" }}>
         <SideBtn active={tool==="select"} onClick={()=>pickTool("select")} title="Выбор [V]"><Pointer size={16}/></SideBtn>
         <SideBtn active={tool==="hand"} onClick={()=>pickTool("hand")} title="Рука [H]"><Hand size={16}/></SideBtn>
         <div className="w-8 h-px mx-auto my-1" style={{ background:"var(--brown-pale)" }}/>
@@ -2767,73 +2767,69 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
           )}
         </div>
         <SideBtn active={tool==="image"} onClick={()=>{pickTool("image");setImgDialog(true);}} title="Картинка"><ImagePlus size={16}/></SideBtn>
-        {/* Emoji picker button */}
         <SideBtn active={showEmojiPicker} onClick={()=>{setShowShapeMenu(false);setShowFrameMenu(false);setShowEmojiPicker(v=>!v);}} title="Эмодзи">
           <span className="text-base leading-none">😊</span>
         </SideBtn>
-        <div className="flex-1"/>
-        {/* More tools at bottom */}
-        <div className="w-8 h-px mx-auto mb-1" style={{ background:"var(--brown-pale)" }}/>
-        <div className="relative" ref={moreToolsAnchorRef}>
-          <SideBtn active={showMoreTools} onClick={()=>{
-            const r = moreToolsAnchorRef.current?.getBoundingClientRect();
-            if (r) setMoreToolsPos({ top: r.top, left: r.right + 8 });
-            setShowMoreTools(v=>!v);
-          }} title="Ещё инструменты">
-            <span className="text-lg font-bold leading-none">+</span>
-          </SideBtn>
-          {showMoreTools && moreToolsPos && (
-            <div className="fixed z-50 rounded-2xl border shadow-xl overflow-hidden"
-              style={{ background:"white", borderColor:"var(--brown-pale)", width:260, top: moreToolsPos.top, left: moreToolsPos.left }}>
-              <div className="px-3 py-2 text-xs font-medium border-b" style={{ color:"var(--brown-mid)", borderColor:"var(--brown-pale)" }}>Ещё инструменты</div>
-              <div className="p-2 grid grid-cols-3 gap-1.5">
-                {/* Symbols */}
-                <button onClick={()=>{setShowSymbols(v=>!v);setShowMoreTools(false);}}
-                  className="flex flex-col items-center gap-1 p-2 rounded-xl border hover:opacity-70"
-                  style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
-                  <span className="text-xl">∑</span><span className="text-xs">Символы</span>
-                </button>
-                {/* Dice */}
-                <button onClick={()=>{setShowDice(v=>!v);setShowMoreTools(false);}}
-                  className="flex flex-col items-center gap-1 p-2 rounded-xl border hover:opacity-70"
-                  style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
-                  <span className="text-xl">🎲</span><span className="text-xs">Кубик</span>
-                </button>
-                {/* Wheel */}
-                <button onClick={()=>{setShowWheel(v=>!v);setShowMoreTools(false);}}
-                  className="flex flex-col items-center gap-1 p-2 rounded-xl border hover:opacity-70"
-                  style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
-                  <span className="text-xl">🎡</span><span className="text-xs">Колесо</span>
-                </button>
-                {/* Table */}
-                {role==="tutor" && (
-                  <button onClick={()=>{setShowTablePicker(v=>!v);setShowMoreTools(false);}}
+        {/* Spacer — collapses when screen is short */}
+        <div style={{ flex: 1, minHeight: 8 }}/>
+        {/* "+" pinned to visible bottom via sticky */}
+        <div className="flex flex-col items-center pb-2" style={{ position:"sticky", bottom:0, background:"white" }}>
+          <div className="w-8 h-px mx-auto mb-1" style={{ background:"var(--brown-pale)" }}/>
+          <div className="relative" ref={moreToolsAnchorRef}>
+            <SideBtn active={showMoreTools} onClick={()=>{
+              const r = moreToolsAnchorRef.current?.getBoundingClientRect();
+              if (r) setMoreToolsPos({ top: r.top, left: r.right + 8 });
+              setShowMoreTools(v=>!v);
+            }} title="Ещё инструменты">
+              <span className="text-lg font-bold leading-none">+</span>
+            </SideBtn>
+            {showMoreTools && moreToolsPos && (
+              <div className="fixed z-50 rounded-2xl border shadow-xl overflow-hidden"
+                style={{ background:"white", borderColor:"var(--brown-pale)", width:260, top: moreToolsPos.top, left: moreToolsPos.left }}>
+                <div className="px-3 py-2 text-xs font-medium border-b" style={{ color:"var(--brown-mid)", borderColor:"var(--brown-pale)" }}>Ещё инструменты</div>
+                <div className="p-2 grid grid-cols-3 gap-1.5">
+                  <button onClick={()=>{setShowSymbols(v=>!v);setShowMoreTools(false);}}
                     className="flex flex-col items-center gap-1 p-2 rounded-xl border hover:opacity-70"
                     style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
-                    <span className="text-xl">⊞</span><span className="text-xs">Таблица</span>
+                    <span className="text-xl">∑</span><span className="text-xs">Символы</span>
                   </button>
-                )}
-                {/* PDF on board */}
-                {role==="tutor" && (
-                  <label className="flex flex-col items-center gap-1 p-2 rounded-xl border hover:opacity-70 cursor-pointer"
+                  <button onClick={()=>{setShowDice(v=>!v);setShowMoreTools(false);}}
+                    className="flex flex-col items-center gap-1 p-2 rounded-xl border hover:opacity-70"
                     style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
-                    <FileText size={20}/><span className="text-xs">PDF</span>
-                    <input type="file" accept=".pdf,application/pdf" className="hidden"
-                      onChange={e=>{const f=e.target.files?.[0];if(!f)return;e.target.value="";setShowMoreTools(false);openPdfPicker(URL.createObjectURL(f));}}/>
-                  </label>
-                )}
-                {/* Video on board */}
-                {role==="tutor" && (
-                  <label className="flex flex-col items-center gap-1 p-2 rounded-xl border hover:opacity-70 cursor-pointer"
+                    <span className="text-xl">🎲</span><span className="text-xs">Кубик</span>
+                  </button>
+                  <button onClick={()=>{setShowWheel(v=>!v);setShowMoreTools(false);}}
+                    className="flex flex-col items-center gap-1 p-2 rounded-xl border hover:opacity-70"
                     style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
-                    <span className="text-xl">🎬</span><span className="text-xs">Видео</span>
-                    <input type="file" accept="video/*" className="hidden"
-                      onChange={e=>{const f=e.target.files?.[0];if(!f)return;e.target.value="";setShowMoreTools(false);addVideoToBoard(URL.createObjectURL(f));}}/>
-                  </label>
-                )}
+                    <span className="text-xl">🎡</span><span className="text-xs">Колесо</span>
+                  </button>
+                  {role==="tutor" && (
+                    <button onClick={()=>{setShowTablePicker(v=>!v);setShowMoreTools(false);}}
+                      className="flex flex-col items-center gap-1 p-2 rounded-xl border hover:opacity-70"
+                      style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
+                      <span className="text-xl">⊞</span><span className="text-xs">Таблица</span>
+                    </button>
+                  )}
+                  {role==="tutor" && (
+                    <label className="flex flex-col items-center gap-1 p-2 rounded-xl border hover:opacity-70 cursor-pointer"
+                      style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
+                      <FileText size={20}/><span className="text-xs">PDF</span>
+                      <input type="file" accept=".pdf,application/pdf" className="hidden"
+                        onChange={e=>{const f=e.target.files?.[0];if(!f)return;e.target.value="";setShowMoreTools(false);openPdfPicker(URL.createObjectURL(f));}}/>
+                    </label>
+                  )}
+                  {role==="tutor" && (
+                    <label className="flex flex-col items-center gap-1 p-2 rounded-xl border hover:opacity-70 cursor-pointer"
+                      style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
+                      <span className="text-xl">🎬</span><span className="text-xs">Видео</span>
+                      <input type="file" accept="video/*" className="hidden"
+                        onChange={e=>{const f=e.target.files?.[0];if(!f)return;e.target.value="";setShowMoreTools(false);addVideoToBoard(URL.createObjectURL(f));}}/>
+                    </label>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </aside>
 
