@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { deleteVocabularySet } from "@/app/actions/vocabulary";
@@ -6,6 +7,7 @@ import SetAssignPanel from "@/components/tutor/SetAssignPanel";
 
 export default async function VocabularyPage() {
   const supabase = await createClient();
+  const admin = createAdminClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   const [{ data: sets }, { data: students }, { data: allAssignments }] = await Promise.all([
@@ -19,7 +21,7 @@ export default async function VocabularyPage() {
       .select("id, name")
       .eq("tutor_id", user!.id)
       .order("name"),
-    supabase.from("set_assignments").select("set_id, student_id"),
+    admin.from("set_assignments").select("set_id, student_id"),
   ]);
 
   // Word counts per set

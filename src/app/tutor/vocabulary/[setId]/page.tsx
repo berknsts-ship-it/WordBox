@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
@@ -11,6 +12,7 @@ export default async function SetDetailPage({
 }) {
   const { setId } = await params;
   const supabase = await createClient();
+  const admin = createAdminClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
@@ -31,7 +33,7 @@ export default async function SetDetailPage({
       .select("id, name")
       .eq("tutor_id", user.id)
       .order("name"),
-    supabase
+    admin
       .from("set_assignments")
       .select("student_id")
       .eq("set_id", setId),
