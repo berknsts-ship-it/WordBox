@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -24,7 +25,8 @@ export async function createTopic(formData: FormData) {
   if (error || !newSet) return { error: error?.message ?? "Ошибка создания" };
 
   if (student_id) {
-    await supabase
+    const admin = createAdminClient();
+    await admin
       .from("set_assignments")
       .upsert({ set_id: newSet.id, student_id }, { onConflict: "set_id,student_id" });
   }
@@ -72,10 +74,10 @@ export async function deleteVocabularySet(id: string) {
 }
 
 export async function setVocabularyAssignments(setId: string, studentIds: string[]) {
-  const supabase = await createClient();
-  await supabase.from("set_assignments").delete().eq("set_id", setId);
+  const db = createAdminClient();
+  await db.from("set_assignments").delete().eq("set_id", setId);
   if (studentIds.length > 0) {
-    await supabase
+    await db
       .from("set_assignments")
       .insert(studentIds.map((sid) => ({ set_id: setId, student_id: sid })));
   }
