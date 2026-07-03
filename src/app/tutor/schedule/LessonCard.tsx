@@ -116,7 +116,6 @@ export default function LessonCard({ lesson }: { lesson: Lesson }) {
     setEditLoading(true);
     await updateLesson(lesson.id, {
       scheduled_at: new Date(`${editDate}T${editTime}:00`).toISOString(),
-      duration_min: parseInt(editDuration) || 60,
       price_rub:    editPrice ? parseInt(editPrice) : null,
       notes:        editNotes.trim() || null,
     });

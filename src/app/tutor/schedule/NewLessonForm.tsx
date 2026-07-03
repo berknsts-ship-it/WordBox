@@ -40,7 +40,6 @@ export default function NewLessonForm({ students, subscriptions = [] }: { studen
       tutor_id:        user.id,
       student_id:      studentId,
       scheduled_at:    new Date(`${date}T${time}:00`).toISOString(),
-      duration_min:    parseInt(duration) || 60,
       price_rub:       price ? parseInt(price) : null,
       notes:           notes || null,
       subscription_id: activeSub?.id ?? null,
