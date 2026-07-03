@@ -75,14 +75,17 @@ export async function deleteVocabularySet(id: string) {
 
 export async function setVocabularyAssignments(setId: string, studentIds: string[]) {
   const db = createAdminClient();
-  await db.from("set_assignments").delete().eq("set_id", setId);
+  const { error: delError } = await db.from("set_assignments").delete().eq("set_id", setId);
+  if (delError) return { error: delError.message };
   if (studentIds.length > 0) {
-    await db
+    const { error: insError } = await db
       .from("set_assignments")
       .insert(studentIds.map((sid) => ({ set_id: setId, student_id: sid })));
+    if (insError) return { error: insError.message };
   }
   revalidatePath("/tutor/vocabulary");
   revalidatePath(`/tutor/vocabulary/${setId}`);
+  return { error: null };
 }
 
 // ── Words ─────────────────────────────────────────────────────────────────────

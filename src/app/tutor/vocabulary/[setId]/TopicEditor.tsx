@@ -46,6 +46,7 @@ export default function TopicEditor({ setId, initialName, initialWords, allStude
   const [nameSaved, setNameSaved] = useState(false);
   const [assignPending, startAssign] = useTransition();
   const [assignSaved, setAssignSaved] = useState(false);
+  const [assignError, setAssignError] = useState<string | null>(null);
   const [addPending, startAdd] = useTransition();
   const [editPending, startEdit] = useTransition();
   const [delPending, startDel] = useTransition();
@@ -74,10 +75,15 @@ export default function TopicEditor({ setId, initialName, initialWords, allStude
   }
 
   function saveAssignments() {
+    setAssignError(null);
     startAssign(async () => {
-      await setVocabularyAssignments(setId, [...selectedStudents]);
-      setAssignSaved(true);
-      setTimeout(() => setAssignSaved(false), 2000);
+      const res = await setVocabularyAssignments(setId, [...selectedStudents]);
+      if (res?.error) {
+        setAssignError(res.error);
+      } else {
+        setAssignSaved(true);
+        setTimeout(() => setAssignSaved(false), 2000);
+      }
     });
   }
 
@@ -216,6 +222,9 @@ export default function TopicEditor({ setId, initialName, initialWords, allStude
           >
             {assignSaved ? <><Check size={13} /> Сохранено</> : assignPending ? "…" : "Сохранить назначение"}
           </button>
+          {assignError && (
+            <p className="text-xs mt-2 px-3 py-2 rounded-lg bg-red-50 text-red-600">{assignError}</p>
+          )}
         </div>
       )}
 
