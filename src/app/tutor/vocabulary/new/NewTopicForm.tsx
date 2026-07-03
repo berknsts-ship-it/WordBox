@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Sparkles, X, Volume2, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, X, Volume2 } from "lucide-react";
 import { createTopic } from "@/app/actions/vocabulary";
-import { generateVocabularySet, generateWordExample, generateFillBlank } from "@/app/actions/ai";
 
 interface Student { id: string; name: string; }
 
@@ -25,22 +24,9 @@ function speak(text: string) {
 
 const EMPTY_ROW: WordRow = { english: "", russian: "", example: "", sentence: "" };
 
-const AI_PROMPTS = [
-  "Неправильные глаголы — топ 10",
-  "Части тела на английском, 10 слов",
-  "Еда и напитки, 8 слов",
-  "Прилагательные для описания характера",
-  "Фразовые глаголы с get, 8 штук",
-];
-
 export default function NewTopicForm({ students }: { students: Student[] }) {
   const [rows, setRows] = useState<WordRow[]>([{ ...EMPTY_ROW }, { ...EMPTY_ROW }, { ...EMPTY_ROW }]);
-  const [aiPrompt, setAiPrompt] = useState("");
-  const [showAi, setShowAi] = useState(false);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [rowAiLoading, setRowAiLoading] = useState<Record<number, "example" | "sentence" | null>>({});
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
 
   const input = {
     background: "var(--cream)",
@@ -60,47 +46,9 @@ export default function NewTopicForm({ students }: { students: Student[] }) {
     setRows((r) => r.filter((_, idx) => idx !== i));
   }
 
-  async function generateBulk() {
-    if (!aiPrompt.trim()) return;
-    setAiLoading(true);
-    setError("");
-    const res = await generateVocabularySet(aiPrompt.trim());
-    setAiLoading(false);
-    if (res.error) { setError(res.error); return; }
-    if (res.words) {
-      setRows(res.words.map((w) => ({
-        english: w.english,
-        russian: w.russian,
-        example: w.example,
-        sentence: "",
-      })));
-      setShowAi(false);
-      setAiPrompt("");
-    }
-  }
-
-  async function getExample(i: number) {
-    const { english, russian } = rows[i];
-    if (!english) return;
-    setRowAiLoading((r) => ({ ...r, [i]: "example" }));
-    const res = await generateWordExample(english, russian);
-    setRowAiLoading((r) => ({ ...r, [i]: null }));
-    if (res.example) updateRow(i, "example", res.example);
-  }
-
-  async function getSentence(i: number) {
-    const { english, russian } = rows[i];
-    if (!english) return;
-    setRowAiLoading((r) => ({ ...r, [i]: "sentence" }));
-    const res = await generateFillBlank(english, russian);
-    setRowAiLoading((r) => ({ ...r, [i]: null }));
-    if (res.sentence) updateRow(i, "sentence", res.sentence);
-  }
-
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSubmitting(true);
-    setError("");
     const fd = new FormData(e.currentTarget);
     rows.forEach((row, i) => {
       fd.set(`english_${i}`, row.english);
@@ -109,7 +57,6 @@ export default function NewTopicForm({ students }: { students: Student[] }) {
       fd.set(`sentence_${i}`, row.sentence);
     });
     await createTopic(fd);
-    // redirect happens inside createTopic
   }
 
   return (
@@ -149,66 +96,6 @@ export default function NewTopicForm({ students }: { students: Student[] }) {
         </div>
       </div>
 
-      {/* ИИ-генерация всего набора */}
-      <div className="rounded-2xl border overflow-hidden" style={{ background: "white", borderColor: "var(--brown-pale)" }}>
-        <button
-          type="button"
-          onClick={() => setShowAi((v) => !v)}
-          className="w-full flex items-center justify-between px-5 py-3.5 text-left hover:opacity-80 transition-all"
-        >
-          <div className="flex items-center gap-2">
-            <Sparkles size={15} style={{ color: "var(--brown-mid)" }} />
-            <span className="text-sm font-semibold" style={{ color: "var(--brown-dark)" }}>
-              Сгенерировать слова с ИИ
-            </span>
-          </div>
-          {showAi ? <ChevronUp size={15} style={{ color: "var(--brown-light)" }} /> : <ChevronDown size={15} style={{ color: "var(--brown-light)" }} />}
-        </button>
-
-        {showAi && (
-          <div className="px-5 pb-5 border-t space-y-3" style={{ borderColor: "var(--brown-pale)" }}>
-            <p className="text-xs pt-3" style={{ color: "var(--brown-light)" }}>
-              Опиши тему — ИИ создаст карточки и заполнит таблицу ниже
-            </p>
-            <textarea
-              value={aiPrompt}
-              onChange={(e) => setAiPrompt(e.target.value)}
-              rows={2}
-              placeholder="Например: «Неправильные глаголы, 10 штук» или «Профессии на английском для начинающих»"
-              className="w-full px-3 py-2.5 rounded-xl border outline-none resize-none text-sm"
-              style={input}
-            />
-            <div className="flex flex-wrap gap-1.5">
-              {AI_PROMPTS.map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setAiPrompt(p)}
-                  className="text-xs px-2.5 py-1 rounded-full border hover:opacity-80 transition-all"
-                  style={{ borderColor: "var(--brown-pale)", color: "var(--brown-mid)", background: "white" }}
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={generateBulk}
-              disabled={aiLoading || !aiPrompt.trim()}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white hover:opacity-80 disabled:opacity-50 transition-all"
-              style={{ background: "var(--gradient-primary)" }}
-            >
-              <Sparkles size={14} />
-              {aiLoading ? "Генерирую…" : "Создать карточки"}
-            </button>
-          </div>
-        )}
-      </div>
-
-      {error && (
-        <p className="text-sm px-4 py-2 rounded-xl bg-red-50 text-red-600">{error}</p>
-      )}
-
       {/* Строки со словами */}
       <div className="space-y-3">
         {rows.map((row, i) => (
@@ -217,7 +104,7 @@ export default function NewTopicForm({ students }: { students: Student[] }) {
             className="rounded-2xl border p-4 space-y-2.5"
             style={{ background: "white", borderColor: "var(--brown-pale)" }}
           >
-            {/* Строка 1: слово + перевод */}
+            {/* Слово + перевод */}
             <div className="grid grid-cols-2 gap-2">
               <div className="flex gap-1.5">
                 <input
@@ -247,51 +134,24 @@ export default function NewTopicForm({ students }: { students: Student[] }) {
               />
             </div>
 
-            {/* Строка 2: пример + кнопка ИИ */}
-            <div className="flex gap-2">
-              <input
-                value={row.example}
-                onChange={(e) => updateRow(i, "example", e.target.value)}
-                placeholder="Пример предложения (необязательно)"
-                className="flex-1 px-3 py-2 rounded-xl border outline-none text-sm"
-                style={input}
-              />
-              <button
-                type="button"
-                onClick={() => getExample(i)}
-                disabled={rowAiLoading[i] === "example" || !row.english}
-                className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-semibold text-white shrink-0 hover:opacity-80 disabled:opacity-40 transition-all"
-                style={{ background: "var(--gradient-primary)" }}
-                title="Сгенерировать пример"
-              >
-                <Sparkles size={12} />
-                {rowAiLoading[i] === "example" ? "…" : "Пример"}
-              </button>
-            </div>
+            {/* Пример */}
+            <input
+              value={row.example}
+              onChange={(e) => updateRow(i, "example", e.target.value)}
+              placeholder="Пример предложения (необязательно)"
+              className="w-full px-3 py-2 rounded-xl border outline-none text-sm"
+              style={input}
+            />
 
-            {/* Строка 3: предложение с ___ + кнопка ИИ */}
-            <div className="flex gap-2">
-              <input
-                value={row.sentence}
-                onChange={(e) => updateRow(i, "sentence", e.target.value)}
-                placeholder="Предложение с ___ (для задания «вставь слово»)"
-                className="flex-1 px-3 py-2 rounded-xl border outline-none text-sm"
-                style={input}
-              />
-              <button
-                type="button"
-                onClick={() => getSentence(i)}
-                disabled={rowAiLoading[i] === "sentence" || !row.english}
-                className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-semibold shrink-0 hover:opacity-80 disabled:opacity-40 transition-all border"
-                style={{ borderColor: "var(--brown-pale)", color: "var(--brown-mid)" }}
-                title="Сгенерировать задание"
-              >
-                <Sparkles size={12} />
-                {rowAiLoading[i] === "sentence" ? "…" : "Задание"}
-              </button>
-            </div>
+            {/* Предложение с ___ */}
+            <input
+              value={row.sentence}
+              onChange={(e) => updateRow(i, "sentence", e.target.value)}
+              placeholder="Предложение с ___ (для задания «вставь слово»)"
+              className="w-full px-3 py-2 rounded-xl border outline-none text-sm"
+              style={input}
+            />
 
-            {/* Удалить строку */}
             {rows.length > 1 && (
               <div className="flex justify-end">
                 <button
@@ -317,7 +177,6 @@ export default function NewTopicForm({ students }: { students: Student[] }) {
         <Plus size={16} /> Добавить карточку
       </button>
 
-      {/* Кнопки */}
       <div className="flex gap-3 pt-2">
         <a
           href="/tutor/vocabulary"

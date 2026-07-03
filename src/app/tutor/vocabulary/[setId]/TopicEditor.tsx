@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Plus, Sparkles, Trash2, Volume2, Check, X, Pencil } from "lucide-react";
+import { Plus, Trash2, Volume2, Check, X, Pencil } from "lucide-react";
 import { addWord, updateWord, deleteWord, updateTopicName, setVocabularyAssignments } from "@/app/actions/vocabulary";
-import { generateWordExample, generateFillBlank } from "@/app/actions/ai";
 
 interface Word {
   id: string;
@@ -37,11 +36,8 @@ export default function TopicEditor({ setId, initialName, initialWords, allStude
   const [topicName, setTopicName] = useState(initialName);
   const [selectedStudents, setSelectedStudents] = useState(() => new Set(assignedIds));
 
-  // Inline edit state
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editFields, setEditFields] = useState({ english: "", russian: "", example: "", sentence: "" });
-
-  // Add word form state
   const [newFields, setNewFields] = useState({ english: "", russian: "", example: "", sentence: "" });
 
   const [namePending, startName] = useTransition();
@@ -51,15 +47,14 @@ export default function TopicEditor({ setId, initialName, initialWords, allStude
   const [addPending, startAdd] = useTransition();
   const [editPending, startEdit] = useTransition();
   const [delPending, startDel] = useTransition();
-  const [aiLoading, setAiLoading] = useState<string | null>(null); // "new-example" | "new-sentence" | `${id}-example` | `${id}-sentence`
 
   const input = {
     background: "var(--cream)",
     border: "1.5px solid var(--brown-pale)",
     color: "var(--brown-dark)",
   };
+  const card = { background: "white", borderColor: "var(--brown-pale)" };
 
-  // ── Name save ──
   function saveName() {
     startName(async () => {
       await updateTopicName(setId, topicName);
@@ -68,7 +63,6 @@ export default function TopicEditor({ setId, initialName, initialWords, allStude
     });
   }
 
-  // ── Assignments ──
   function toggleStudent(id: string) {
     setSelectedStudents((prev) => {
       const next = new Set(prev);
@@ -85,7 +79,6 @@ export default function TopicEditor({ setId, initialName, initialWords, allStude
     });
   }
 
-  // ── Add word ──
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     if (!newFields.english.trim() || !newFields.russian.trim()) return;
@@ -105,7 +98,6 @@ export default function TopicEditor({ setId, initialName, initialWords, allStude
     });
   }
 
-  // ── Inline edit ──
   function startEditing(w: Word) {
     setEditingId(w.id);
     setEditFields({
@@ -152,32 +144,9 @@ export default function TopicEditor({ setId, initialName, initialWords, allStude
     });
   }
 
-  // ── AI helpers ──
-  async function aiExample(english: string, russian: string, target: "new" | string) {
-    const key = target === "new" ? "new-example" : `${target}-example`;
-    setAiLoading(key);
-    const res = await generateWordExample(english, russian);
-    setAiLoading(null);
-    if (!res.example) return;
-    if (target === "new") setNewFields((f) => ({ ...f, example: res.example! }));
-    else setEditFields((f) => ({ ...f, example: res.example! }));
-  }
-
-  async function aiSentence(english: string, russian: string, target: "new" | string) {
-    const key = target === "new" ? "new-sentence" : `${target}-sentence`;
-    setAiLoading(key);
-    const res = await generateFillBlank(english, russian);
-    setAiLoading(null);
-    if (!res.sentence) return;
-    if (target === "new") setNewFields((f) => ({ ...f, sentence: res.sentence! }));
-    else setEditFields((f) => ({ ...f, sentence: res.sentence! }));
-  }
-
-  const card = { background: "white", borderColor: "var(--brown-pale)" };
-
   return (
     <div className="space-y-6">
-      {/* ── Название ── */}
+      {/* Название */}
       <div className="rounded-2xl border p-5" style={card}>
         <label className="block text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: "var(--brown-mid)" }}>
           Название темы
@@ -201,7 +170,7 @@ export default function TopicEditor({ setId, initialName, initialWords, allStude
         </div>
       </div>
 
-      {/* ── Назначить ученикам ── */}
+      {/* Назначить ученикам */}
       {allStudents.length > 0 && (
         <div className="rounded-2xl border p-5" style={card}>
           <p className="text-xs font-semibold mb-3 uppercase tracking-wider" style={{ color: "var(--brown-mid)" }}>
@@ -240,7 +209,7 @@ export default function TopicEditor({ setId, initialName, initialWords, allStude
         </div>
       )}
 
-      {/* ── Список слов ── */}
+      {/* Список слов */}
       <div>
         <p className="text-sm font-semibold mb-3" style={{ color: "var(--brown-dark)" }}>
           Слова <span style={{ color: "var(--brown-light)", fontWeight: 400 }}>({words.length})</span>
@@ -250,7 +219,6 @@ export default function TopicEditor({ setId, initialName, initialWords, allStude
           {words.map((w) => (
             <div key={w.id} className="rounded-xl border p-3.5" style={card}>
               {editingId === w.id ? (
-                /* ── Режим редактирования ── */
                 <div className="space-y-2">
                   <div className="grid grid-cols-2 gap-2">
                     <div className="flex gap-1.5">
@@ -279,42 +247,20 @@ export default function TopicEditor({ setId, initialName, initialWords, allStude
                       placeholder="Перевод"
                     />
                   </div>
-                  <div className="flex gap-2">
-                    <input
-                      value={editFields.example}
-                      onChange={(e) => setEditFields((f) => ({ ...f, example: e.target.value }))}
-                      placeholder="Пример"
-                      className="flex-1 px-3 py-1.5 rounded-lg border outline-none text-sm"
-                      style={input}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => aiExample(editFields.english, editFields.russian, w.id)}
-                      disabled={aiLoading === `${w.id}-example` || !editFields.english}
-                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-white shrink-0 hover:opacity-80 disabled:opacity-40"
-                      style={{ background: "var(--gradient-primary)" }}
-                    >
-                      <Sparkles size={11} /> {aiLoading === `${w.id}-example` ? "…" : "ИИ"}
-                    </button>
-                  </div>
-                  <div className="flex gap-2">
-                    <input
-                      value={editFields.sentence}
-                      onChange={(e) => setEditFields((f) => ({ ...f, sentence: e.target.value }))}
-                      placeholder="Предложение с ___ (вставь слово)"
-                      className="flex-1 px-3 py-1.5 rounded-lg border outline-none text-sm"
-                      style={input}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => aiSentence(editFields.english, editFields.russian, w.id)}
-                      disabled={aiLoading === `${w.id}-sentence` || !editFields.english}
-                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs border shrink-0 hover:opacity-80 disabled:opacity-40"
-                      style={{ borderColor: "var(--brown-pale)", color: "var(--brown-mid)" }}
-                    >
-                      <Sparkles size={11} /> {aiLoading === `${w.id}-sentence` ? "…" : "ИИ"}
-                    </button>
-                  </div>
+                  <input
+                    value={editFields.example}
+                    onChange={(e) => setEditFields((f) => ({ ...f, example: e.target.value }))}
+                    placeholder="Пример"
+                    className="w-full px-3 py-1.5 rounded-lg border outline-none text-sm"
+                    style={input}
+                  />
+                  <input
+                    value={editFields.sentence}
+                    onChange={(e) => setEditFields((f) => ({ ...f, sentence: e.target.value }))}
+                    placeholder="Предложение с ___ (вставь слово)"
+                    className="w-full px-3 py-1.5 rounded-lg border outline-none text-sm"
+                    style={input}
+                  />
                   <div className="flex gap-2 pt-1">
                     <button
                       type="button"
@@ -336,7 +282,6 @@ export default function TopicEditor({ setId, initialName, initialWords, allStude
                   </div>
                 </div>
               ) : (
-                /* ── Режим просмотра ── */
                 <div className="flex items-start gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -368,7 +313,6 @@ export default function TopicEditor({ setId, initialName, initialWords, allStude
                       onClick={() => startEditing(w)}
                       className="p-1.5 rounded-lg hover:opacity-70 transition-all"
                       style={{ color: "var(--brown-mid)" }}
-                      title="Редактировать"
                     >
                       <Pencil size={14} />
                     </button>
@@ -378,7 +322,6 @@ export default function TopicEditor({ setId, initialName, initialWords, allStude
                       disabled={delPending}
                       className="p-1.5 rounded-lg hover:opacity-70 transition-all"
                       style={{ color: "#c06040" }}
-                      title="Удалить"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -389,7 +332,7 @@ export default function TopicEditor({ setId, initialName, initialWords, allStude
           ))}
         </div>
 
-        {/* ── Добавить слово ── */}
+        {/* Добавить слово */}
         <form
           onSubmit={handleAdd}
           className="rounded-xl border-2 border-dashed p-4 space-y-2.5"
@@ -427,42 +370,20 @@ export default function TopicEditor({ setId, initialName, initialWords, allStude
               style={input}
             />
           </div>
-          <div className="flex gap-2">
-            <input
-              value={newFields.example}
-              onChange={(e) => setNewFields((f) => ({ ...f, example: e.target.value }))}
-              placeholder="Пример предложения"
-              className="flex-1 px-3 py-2 rounded-xl border outline-none text-sm"
-              style={input}
-            />
-            <button
-              type="button"
-              onClick={() => aiExample(newFields.english, newFields.russian, "new")}
-              disabled={aiLoading === "new-example" || !newFields.english}
-              className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-semibold text-white shrink-0 hover:opacity-80 disabled:opacity-40"
-              style={{ background: "var(--gradient-primary)" }}
-            >
-              <Sparkles size={12} /> {aiLoading === "new-example" ? "…" : "ИИ"}
-            </button>
-          </div>
-          <div className="flex gap-2">
-            <input
-              value={newFields.sentence}
-              onChange={(e) => setNewFields((f) => ({ ...f, sentence: e.target.value }))}
-              placeholder="Предложение с ___ (вставь слово)"
-              className="flex-1 px-3 py-2 rounded-xl border outline-none text-sm"
-              style={input}
-            />
-            <button
-              type="button"
-              onClick={() => aiSentence(newFields.english, newFields.russian, "new")}
-              disabled={aiLoading === "new-sentence" || !newFields.english}
-              className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs border shrink-0 hover:opacity-80 disabled:opacity-40"
-              style={{ borderColor: "var(--brown-pale)", color: "var(--brown-mid)" }}
-            >
-              <Sparkles size={12} /> {aiLoading === "new-sentence" ? "…" : "ИИ"}
-            </button>
-          </div>
+          <input
+            value={newFields.example}
+            onChange={(e) => setNewFields((f) => ({ ...f, example: e.target.value }))}
+            placeholder="Пример предложения"
+            className="w-full px-3 py-2 rounded-xl border outline-none text-sm"
+            style={input}
+          />
+          <input
+            value={newFields.sentence}
+            onChange={(e) => setNewFields((f) => ({ ...f, sentence: e.target.value }))}
+            placeholder="Предложение с ___ (вставь слово)"
+            className="w-full px-3 py-2 rounded-xl border outline-none text-sm"
+            style={input}
+          />
           <button
             type="submit"
             disabled={addPending || !newFields.english.trim() || !newFields.russian.trim()}
