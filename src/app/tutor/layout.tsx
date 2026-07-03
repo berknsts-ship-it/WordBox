@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import TutorNav from "@/components/tutor/TutorNav";
+import { Toaster } from "@/components/ui/toaster";
 
 export default async function TutorLayout({
   children,
@@ -22,6 +23,7 @@ export default async function TutorLayout({
       <main className="flex-1 px-4 py-5 sm:py-8 max-w-6xl mx-auto w-full">
         {children}
       </main>
+      <Toaster />
     </div>
   );
 }
