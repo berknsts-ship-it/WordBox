@@ -16,6 +16,7 @@ export async function addVocabularySet(formData: FormData) {
   });
 
   revalidatePath(`/tutor/students/${student_id}`);
+  revalidatePath("/tutor/vocabulary");
 }
 
 export async function deleteVocabularySet(id: string, studentId: string) {
