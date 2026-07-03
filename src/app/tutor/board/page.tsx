@@ -25,7 +25,7 @@ export default async function TutorBoardPage({
   const initialSnapshots = initialId ? await getSnapshots(initialId) : [];
 
   return (
-    <div className="-mx-4 -mt-5 sm:-mt-8 -mb-5 sm:-mb-8 flex flex-col" style={{ height: "calc(100dvh - 56px)" }}>
+    <div className="fixed inset-x-0 bottom-0 flex flex-col z-20" style={{ top: "56px" }}>
       <TutorBoardHub
         students={list}
         initialId={initialId}
