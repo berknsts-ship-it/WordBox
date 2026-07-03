@@ -10,6 +10,8 @@ interface Word {
   russian: string;
   example: string | null;
   example_sentence: string | null;
+  bracket_sentence: string | null;
+  bracket_answer: string | null;
 }
 
 interface Student { id: string; name: string; }
@@ -37,8 +39,8 @@ export default function TopicEditor({ setId, initialName, initialWords, allStude
   const [selectedStudents, setSelectedStudents] = useState(() => new Set(assignedIds));
 
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editFields, setEditFields] = useState({ english: "", russian: "", example: "", sentence: "" });
-  const [newFields, setNewFields] = useState({ english: "", russian: "", example: "", sentence: "" });
+  const [editFields, setEditFields] = useState({ english: "", russian: "", example: "", sentence: "", bracketSentence: "", bracketAnswer: "" });
+  const [newFields, setNewFields] = useState({ english: "", russian: "", example: "", sentence: "", bracketSentence: "", bracketAnswer: "" });
 
   const [namePending, startName] = useTransition();
   const [nameSaved, setNameSaved] = useState(false);
@@ -88,12 +90,14 @@ export default function TopicEditor({ setId, initialName, initialWords, allStude
     fd.set("russian", newFields.russian.trim());
     fd.set("example", newFields.example.trim());
     fd.set("example_sentence", newFields.sentence.trim());
+    fd.set("bracket_sentence", newFields.bracketSentence.trim());
+    fd.set("bracket_answer", newFields.bracketAnswer.trim());
     fd.set("answer_variants", "");
     startAdd(async () => {
       const res = await addWord(fd);
       if (res.ok && res.word) {
-        setWords((w) => [...w, res.word as Word]);
-        setNewFields({ english: "", russian: "", example: "", sentence: "" });
+        setWords((w) => [...w, res.word as unknown as Word]);
+        setNewFields({ english: "", russian: "", example: "", sentence: "", bracketSentence: "", bracketAnswer: "" });
       }
     });
   }
@@ -105,6 +109,8 @@ export default function TopicEditor({ setId, initialName, initialWords, allStude
       russian: w.russian,
       example: w.example ?? "",
       sentence: w.example_sentence ?? "",
+      bracketSentence: w.bracket_sentence ?? "",
+      bracketAnswer: w.bracket_answer ?? "",
     });
   }
 
@@ -117,6 +123,8 @@ export default function TopicEditor({ setId, initialName, initialWords, allStude
     fd.set("russian", editFields.russian.trim());
     fd.set("example", editFields.example.trim());
     fd.set("example_sentence", editFields.sentence.trim());
+    fd.set("bracket_sentence", editFields.bracketSentence.trim());
+    fd.set("bracket_answer", editFields.bracketAnswer.trim());
     fd.set("answer_variants", "");
     startEdit(async () => {
       await updateWord(fd);
@@ -129,6 +137,8 @@ export default function TopicEditor({ setId, initialName, initialWords, allStude
                 russian: editFields.russian.trim(),
                 example: editFields.example.trim() || null,
                 example_sentence: editFields.sentence.trim() || null,
+                bracket_sentence: editFields.bracketSentence.trim() || null,
+                bracket_answer: editFields.bracketAnswer.trim() || null,
               }
             : w
         )
@@ -254,13 +264,33 @@ export default function TopicEditor({ setId, initialName, initialWords, allStude
                     className="w-full px-3 py-1.5 rounded-lg border outline-none text-sm"
                     style={input}
                   />
-                  <input
-                    value={editFields.sentence}
-                    onChange={(e) => setEditFields((f) => ({ ...f, sentence: e.target.value }))}
-                    placeholder="Предложение с ___ (вставь слово)"
-                    className="w-full px-3 py-1.5 rounded-lg border outline-none text-sm"
-                    style={input}
-                  />
+                  <div className="rounded-lg p-2.5 space-y-1.5" style={{ background: "var(--cream)" }}>
+                    <p className="text-xs font-semibold" style={{ color: "var(--brown-mid)" }}>Вставить слово</p>
+                    <input
+                      value={editFields.sentence}
+                      onChange={(e) => setEditFields((f) => ({ ...f, sentence: e.target.value }))}
+                      placeholder="She ___ every day."
+                      className="w-full px-3 py-1.5 rounded-lg border outline-none text-sm bg-white"
+                      style={{ borderColor: "var(--brown-pale)", color: "var(--brown-dark)" }}
+                    />
+                  </div>
+                  <div className="rounded-lg p-2.5 space-y-1.5" style={{ background: "var(--cream)" }}>
+                    <p className="text-xs font-semibold" style={{ color: "var(--brown-mid)" }}>Раскрыть скобки</p>
+                    <input
+                      value={editFields.bracketSentence}
+                      onChange={(e) => setEditFields((f) => ({ ...f, bracketSentence: e.target.value }))}
+                      placeholder="She (go) every day."
+                      className="w-full px-3 py-1.5 rounded-lg border outline-none text-sm bg-white"
+                      style={{ borderColor: "var(--brown-pale)", color: "var(--brown-dark)" }}
+                    />
+                    <input
+                      value={editFields.bracketAnswer}
+                      onChange={(e) => setEditFields((f) => ({ ...f, bracketAnswer: e.target.value }))}
+                      placeholder="Правильный ответ: goes"
+                      className="w-full px-3 py-1.5 rounded-lg border outline-none text-sm bg-white"
+                      style={{ borderColor: "var(--brown-pale)", color: "var(--brown-dark)" }}
+                    />
+                  </div>
                   <div className="flex gap-2 pt-1">
                     <button
                       type="button"
@@ -377,13 +407,33 @@ export default function TopicEditor({ setId, initialName, initialWords, allStude
             className="w-full px-3 py-2 rounded-xl border outline-none text-sm"
             style={input}
           />
-          <input
-            value={newFields.sentence}
-            onChange={(e) => setNewFields((f) => ({ ...f, sentence: e.target.value }))}
-            placeholder="Предложение с ___ (вставь слово)"
-            className="w-full px-3 py-2 rounded-xl border outline-none text-sm"
-            style={input}
-          />
+          <div className="rounded-xl p-3 space-y-1.5" style={{ background: "var(--cream)" }}>
+            <p className="text-xs font-semibold" style={{ color: "var(--brown-mid)" }}>Вставить слово</p>
+            <input
+              value={newFields.sentence}
+              onChange={(e) => setNewFields((f) => ({ ...f, sentence: e.target.value }))}
+              placeholder="She ___ every day."
+              className="w-full px-3 py-2 rounded-lg border outline-none text-sm bg-white"
+              style={{ borderColor: "var(--brown-pale)", color: "var(--brown-dark)" }}
+            />
+          </div>
+          <div className="rounded-xl p-3 space-y-1.5" style={{ background: "var(--cream)" }}>
+            <p className="text-xs font-semibold" style={{ color: "var(--brown-mid)" }}>Раскрыть скобки</p>
+            <input
+              value={newFields.bracketSentence}
+              onChange={(e) => setNewFields((f) => ({ ...f, bracketSentence: e.target.value }))}
+              placeholder="She (go) every day."
+              className="w-full px-3 py-2 rounded-lg border outline-none text-sm bg-white"
+              style={{ borderColor: "var(--brown-pale)", color: "var(--brown-dark)" }}
+            />
+            <input
+              value={newFields.bracketAnswer}
+              onChange={(e) => setNewFields((f) => ({ ...f, bracketAnswer: e.target.value }))}
+              placeholder="Правильный ответ: goes"
+              className="w-full px-3 py-2 rounded-lg border outline-none text-sm bg-white"
+              style={{ borderColor: "var(--brown-pale)", color: "var(--brown-dark)" }}
+            />
+          </div>
           <button
             type="submit"
             disabled={addPending || !newFields.english.trim() || !newFields.russian.trim()}

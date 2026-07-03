@@ -20,7 +20,7 @@ export default async function TrainerTab({
       supabase.from("vocabulary_sets").select("name").eq("id", activeSetId).single(),
       supabase
         .from("vocabulary_words")
-        .select("id, english, russian, example, example_sentence, answer_variants")
+        .select("id, english, russian, example, example_sentence, bracket_sentence, bracket_answer, answer_variants")
         .eq("set_id", activeSetId),
     ]);
 
@@ -50,6 +50,8 @@ export default async function TrainerTab({
       russian: w.russian,
       example: w.example ?? null,
       example_sentence: (w as { example_sentence?: string | null }).example_sentence ?? null,
+      bracket_sentence: (w as { bracket_sentence?: string | null }).bracket_sentence ?? null,
+      bracket_answer: (w as { bracket_answer?: string | null }).bracket_answer ?? null,
       answer_variants: (w as { answer_variants?: string[] | null }).answer_variants ?? [],
     }));
 

@@ -23,7 +23,7 @@ export default async function SetDetailPage({
       .single(),
     supabase
       .from("vocabulary_words")
-      .select("id, english, russian, example, example_sentence")
+      .select("id, english, russian, example, example_sentence, bracket_sentence, bracket_answer")
       .eq("set_id", setId)
       .order("created_at", { ascending: true }),
     supabase

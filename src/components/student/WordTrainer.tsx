@@ -12,13 +12,15 @@ type TrainerWord = {
   russian: string;
   example: string | null;
   example_sentence: string | null;
+  bracket_sentence: string | null;
+  bracket_answer: string | null;
   answer_variants: string[];
 };
 
-type CardMode = "flash" | "selfcheck" | "matching" | "fillblank" | "mixed";
+type CardMode = "flash" | "selfcheck" | "matching" | "fillblank" | "openbrackets" | "mixed";
 type SessionPhase = "mode-select" | "training" | "done";
 type QueueItem = { word: TrainerWord; pass: 1 | 2 };
-type SingleCardType = "flash" | "selfcheck" | "fillblank";
+type SingleCardType = "flash" | "selfcheck" | "fillblank" | "openbrackets";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -39,10 +41,11 @@ function getCardType(word: TrainerWord, pass: 1 | 2, mode: CardMode): SingleCard
   if (mode === "flash") return "flash";
   if (mode === "selfcheck") return "selfcheck";
   if (mode === "fillblank") return word.example_sentence ? "fillblank" : "flash";
+  if (mode === "openbrackets") return word.bracket_sentence ? "openbrackets" : "flash";
   if (mode === "mixed") {
     const available: SingleCardType[] = ["flash", "selfcheck"];
     if (word.example_sentence) available.push("fillblank");
-    // Deterministic per word+pass so it doesn't flicker on re-render
+    if (word.bracket_sentence) available.push("openbrackets");
     const idx = (word.id.charCodeAt(0) + pass) % available.length;
     return available[idx];
   }
@@ -147,13 +150,15 @@ function ModeSelectScreen({
   onStart: (mode: CardMode) => void;
 }) {
   const hasSentences = words.some((w) => w.example_sentence);
+  const hasBrackets = words.some((w) => w.bracket_sentence);
 
   const modes: { mode: CardMode; icon: string; label: string; desc: string; disabled?: boolean }[] = [
-    { mode: "flash",     icon: "🃏", label: "Флешкарты",       desc: "Переворачивай и оценивай сам" },
-    { mode: "selfcheck", icon: "✍️", label: "Проверь себя",    desc: "Введи перевод вручную" },
-    { mode: "matching",  icon: "🔗", label: "Сопоставление",   desc: "Соедини слово с переводом" },
-    { mode: "fillblank", icon: "📝", label: "Заполни пробел",  desc: "Вставь слово в предложение", disabled: !hasSentences },
-    { mode: "mixed",     icon: "🔀", label: "Смешанный",       desc: "Все типы вперемешку" },
+    { mode: "flash",        icon: "🃏", label: "Флешкарты",        desc: "Переворачивай и оценивай сам" },
+    { mode: "selfcheck",    icon: "✍️", label: "Проверь себя",     desc: "Введи перевод вручную" },
+    { mode: "matching",     icon: "🔗", label: "Сопоставление",    desc: "Соедини слово с переводом" },
+    { mode: "fillblank",    icon: "📝", label: "Вставить слово",   desc: "Вставь слово в предложение", disabled: !hasSentences },
+    { mode: "openbrackets", icon: "🔤", label: "Раскрыть скобки", desc: "Поставь глагол в нужную форму", disabled: !hasBrackets },
+    { mode: "mixed",        icon: "🔀", label: "Смешанный",        desc: "Все типы вперемешку" },
   ];
 
   return (
@@ -164,7 +169,7 @@ function ModeSelectScreen({
       <p className="text-sm text-center mb-5" style={{ color: "var(--brown-light)" }}>
         {words.length} слов в наборе
       </p>
-      <div className="grid grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
         {modes.map(({ mode, icon, label, desc, disabled }) => (
           <button
             key={mode}
@@ -562,6 +567,129 @@ function FillBlankCard({
   );
 }
 
+// ─── Open-brackets Card ───────────────────────────────────────────────────────
+
+function OpenBracketsCard({
+  word,
+  pass,
+  onKnow,
+  onRetry,
+}: {
+  word: TrainerWord;
+  pass: 1 | 2;
+  onKnow: () => void;
+  onRetry: () => void;
+}) {
+  const [input, setInput] = useState("");
+  const [result, setResult] = useState<"correct" | "wrong" | null>(null);
+
+  useEffect(() => {
+    setInput("");
+    setResult(null);
+  }, [word.id, pass]);
+
+  const sentence = word.bracket_sentence ?? "";
+  const expectedAnswer = word.bracket_answer ?? word.english;
+
+  // Parse "(word)" from sentence → hint
+  const bracketMatch = sentence.match(/\(([^)]+)\)/);
+  const hint = bracketMatch ? bracketMatch[1] : null;
+  // Replace the bracketed part with ___ for display
+  const displaySentence = sentence.replace(/\([^)]+\)/, "___");
+  const parts = displaySentence.split("___");
+
+  function check() {
+    const clean = input.trim().toLowerCase();
+    if (!clean) return;
+    const correct = expectedAnswer.trim().toLowerCase();
+    setResult(clean === correct ? "correct" : "wrong");
+  }
+
+  return (
+    <>
+      <div
+        className="rounded-3xl p-7 mb-5"
+        style={{
+          background: result === "correct" ? "#e8f5e8" : result === "wrong" ? "#fef0f0" : "var(--theme-card-bg)",
+          border: "1.5px solid var(--theme-card-border)",
+          minHeight: "200px",
+        }}
+      >
+        <p className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: "var(--brown-light)" }}>
+          Раскрой скобки
+        </p>
+        <p className="text-xl text-center leading-relaxed font-medium mb-3" style={{ color: "var(--brown-dark)" }}>
+          {result ? (
+            sentence.replace(/\([^)]+\)/, `[${expectedAnswer}]`)
+          ) : (
+            <>
+              {parts[0]}
+              <span className="font-bold" style={{ color: "var(--brown-mid)" }}>___</span>
+              {parts[1]}
+            </>
+          )}
+        </p>
+        {hint && !result && (
+          <p className="text-sm text-center mb-2" style={{ color: "var(--brown-light)" }}>
+            подсказка: <span className="font-semibold" style={{ color: "var(--brown-mid)" }}>({hint})</span>
+          </p>
+        )}
+        <p className="text-sm text-center" style={{ color: "var(--brown-mid)" }}>
+          {word.english} — {word.russian}
+        </p>
+        {result === "correct" && (
+          <p className="text-center mt-3 font-semibold text-sm" style={{ color: "#4a7a5e" }}>✓ Правильно!</p>
+        )}
+        {result === "wrong" && (
+          <p className="text-center mt-3 font-semibold text-sm" style={{ color: "#c04040" }}>
+            Правильный ответ: <strong>{expectedAnswer}</strong>
+          </p>
+        )}
+      </div>
+
+      {!result ? (
+        <div className="flex gap-3">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && check()}
+            placeholder="Введи форму слова..."
+            className="flex-1 px-4 py-3 rounded-2xl border text-sm outline-none"
+            style={{ borderColor: "var(--brown-pale)", background: "white", color: "var(--brown-dark)" }}
+            autoFocus
+          />
+          <button
+            onClick={check}
+            disabled={!input.trim()}
+            className="px-5 py-3 rounded-2xl font-semibold text-sm text-white hover:opacity-80 disabled:opacity-40 transition-opacity"
+            style={{ background: "var(--gradient-primary)" }}
+          >
+            →
+          </button>
+        </div>
+      ) : (
+        <div className="flex gap-3">
+          <button
+            onClick={onRetry}
+            className="flex-1 py-3 rounded-2xl font-semibold text-sm hover:opacity-80 transition-opacity"
+            style={{ background: "var(--theme-card-bg)", color: "var(--brown-mid)", border: "1.5px solid var(--theme-card-border)" }}
+          >
+            🔄 Ещё раз
+          </button>
+          <button
+            onClick={result === "correct" ? onKnow : onRetry}
+            className="flex-1 py-3 rounded-2xl font-semibold text-sm text-white hover:opacity-80 transition-opacity"
+            style={{ background: result === "correct" ? "#6b9e6b" : "var(--gradient-primary)" }}
+          >
+            {result === "correct" ? (pass === 2 ? "✓ Выучил!" : "✓ Знаю!") : "Продолжить →"}
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
+
 // ─── Matching Batch ───────────────────────────────────────────────────────────
 
 function MatchingBatch({
@@ -844,6 +972,15 @@ export default function WordTrainer({
       )}
       {cardType === "fillblank" && current.word.example_sentence && (
         <FillBlankCard
+          key={current.word.id + current.pass}
+          word={current.word}
+          pass={current.pass}
+          onKnow={() => processAnswer(current.word.id, true)}
+          onRetry={() => processAnswer(current.word.id, false)}
+        />
+      )}
+      {cardType === "openbrackets" && current.word.bracket_sentence && (
+        <OpenBracketsCard
           key={current.word.id + current.pass}
           word={current.word}
           pass={current.pass}

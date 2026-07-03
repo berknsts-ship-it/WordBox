@@ -36,6 +36,8 @@ export async function createTopic(formData: FormData) {
     russian: string;
     example: string | null;
     example_sentence: string | null;
+    bracket_sentence: string | null;
+    bracket_answer: string | null;
     answer_variants: string[];
   }[] = [];
 
@@ -45,8 +47,10 @@ export async function createTopic(formData: FormData) {
     const russian = (formData.get(`russian_${i}`) as string)?.trim();
     const example = (formData.get(`example_${i}`) as string)?.trim() || null;
     const example_sentence = (formData.get(`sentence_${i}`) as string)?.trim() || null;
+    const bracket_sentence = (formData.get(`bracket_sentence_${i}`) as string)?.trim() || null;
+    const bracket_answer = (formData.get(`bracket_answer_${i}`) as string)?.trim() || null;
     if (english && russian) {
-      words.push({ set_id: newSet.id, english, russian, example, example_sentence, answer_variants: [] });
+      words.push({ set_id: newSet.id, english, russian, example, example_sentence, bracket_sentence, bracket_answer, answer_variants: [] });
     }
     i++;
   }
@@ -95,9 +99,11 @@ export async function addWord(formData: FormData) {
       russian: (formData.get("russian") as string)?.trim(),
       example: (formData.get("example") as string)?.trim() || null,
       example_sentence: (formData.get("example_sentence") as string)?.trim() || null,
+      bracket_sentence: (formData.get("bracket_sentence") as string)?.trim() || null,
+      bracket_answer: (formData.get("bracket_answer") as string)?.trim() || null,
       answer_variants: answer_variants.length ? answer_variants : [],
     })
-    .select("id, english, russian, example, example_sentence, answer_variants")
+    .select("id, english, russian, example, example_sentence, bracket_sentence, bracket_answer, answer_variants")
     .single();
 
   revalidatePath(`/tutor/vocabulary/${set_id}`);
@@ -118,6 +124,8 @@ export async function updateWord(formData: FormData) {
       russian: (formData.get("russian") as string)?.trim(),
       example: (formData.get("example") as string)?.trim() || null,
       example_sentence: (formData.get("example_sentence") as string)?.trim() || null,
+      bracket_sentence: (formData.get("bracket_sentence") as string)?.trim() || null,
+      bracket_answer: (formData.get("bracket_answer") as string)?.trim() || null,
       answer_variants: answer_variants.length ? answer_variants : [],
     })
     .eq("id", id);

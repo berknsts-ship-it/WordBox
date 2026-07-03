@@ -11,6 +11,8 @@ interface WordRow {
   russian: string;
   example: string;
   sentence: string;
+  bracketSentence: string;
+  bracketAnswer: string;
 }
 
 function speak(text: string) {
@@ -22,7 +24,7 @@ function speak(text: string) {
   window.speechSynthesis.speak(u);
 }
 
-const EMPTY_ROW: WordRow = { english: "", russian: "", example: "", sentence: "" };
+const EMPTY_ROW: WordRow = { english: "", russian: "", example: "", sentence: "", bracketSentence: "", bracketAnswer: "" };
 
 export default function NewTopicForm({ students }: { students: Student[] }) {
   const [rows, setRows] = useState<WordRow[]>([{ ...EMPTY_ROW }, { ...EMPTY_ROW }, { ...EMPTY_ROW }]);
@@ -55,6 +57,8 @@ export default function NewTopicForm({ students }: { students: Student[] }) {
       fd.set(`russian_${i}`, row.russian);
       fd.set(`example_${i}`, row.example);
       fd.set(`sentence_${i}`, row.sentence);
+      fd.set(`bracket_sentence_${i}`, row.bracketSentence);
+      fd.set(`bracket_answer_${i}`, row.bracketAnswer);
     });
     await createTopic(fd);
   }
@@ -120,7 +124,6 @@ export default function NewTopicForm({ students }: { students: Student[] }) {
                   disabled={!row.english}
                   className="px-2.5 rounded-xl border hover:opacity-80 disabled:opacity-30 transition-all shrink-0"
                   style={{ borderColor: "var(--brown-pale)", color: "var(--brown-mid)" }}
-                  title="Произнести"
                 >
                   <Volume2 size={14} />
                 </button>
@@ -143,14 +146,36 @@ export default function NewTopicForm({ students }: { students: Student[] }) {
               style={input}
             />
 
-            {/* Предложение с ___ */}
-            <input
-              value={row.sentence}
-              onChange={(e) => updateRow(i, "sentence", e.target.value)}
-              placeholder="Предложение с ___ (для задания «вставь слово»)"
-              className="w-full px-3 py-2 rounded-xl border outline-none text-sm"
-              style={input}
-            />
+            {/* Fill-in-blank */}
+            <div className="rounded-xl p-3 space-y-1.5" style={{ background: "var(--cream)" }}>
+              <p className="text-xs font-semibold" style={{ color: "var(--brown-mid)" }}>Вставить слово</p>
+              <input
+                value={row.sentence}
+                onChange={(e) => updateRow(i, "sentence", e.target.value)}
+                placeholder="She ___ to school every day."
+                className="w-full px-3 py-2 rounded-lg border outline-none text-sm bg-white"
+                style={{ borderColor: "var(--brown-pale)", color: "var(--brown-dark)" }}
+              />
+            </div>
+
+            {/* Open brackets */}
+            <div className="rounded-xl p-3 space-y-1.5" style={{ background: "var(--cream)" }}>
+              <p className="text-xs font-semibold" style={{ color: "var(--brown-mid)" }}>Раскрыть скобки</p>
+              <input
+                value={row.bracketSentence}
+                onChange={(e) => updateRow(i, "bracketSentence", e.target.value)}
+                placeholder="She (go) to school every day."
+                className="w-full px-3 py-2 rounded-lg border outline-none text-sm bg-white"
+                style={{ borderColor: "var(--brown-pale)", color: "var(--brown-dark)" }}
+              />
+              <input
+                value={row.bracketAnswer}
+                onChange={(e) => updateRow(i, "bracketAnswer", e.target.value)}
+                placeholder="Правильный ответ: goes"
+                className="w-full px-3 py-2 rounded-lg border outline-none text-sm bg-white"
+                style={{ borderColor: "var(--brown-pale)", color: "var(--brown-dark)" }}
+              />
+            </div>
 
             {rows.length > 1 && (
               <div className="flex justify-end">
