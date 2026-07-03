@@ -137,7 +137,6 @@ export default function CalendarView({
         student_id:      studentId,
         date:    d.toISOString(),
         price_rub:       price ? parseInt(price) : null,
-        subscription_id: activeSub?.id ?? null,
       };
     });
 
