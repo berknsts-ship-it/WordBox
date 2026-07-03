@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { updateHomeworkStatus, deleteHomework } from "@/app/actions/homework";
+import { HomeworkActions } from "@/components/tutor/HomeworkActions";
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   pending:   { label: "Не сдано",   color: "bg-[#f5ece3] text-[#74070E]" },
@@ -128,20 +128,7 @@ export default async function HomeworkPage({
                   <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${statusCfg.color}`}>
                     {statusCfg.label}
                   </span>
-                  {hw.status === "submitted" && (
-                    <form action={updateHomeworkStatus.bind(null, hw.id, hw.student_id, "checked")}>
-                      <button type="submit"
-                        className="text-xs px-2.5 py-1 rounded-lg font-semibold hover:opacity-80"
-                        style={{ background: "var(--brown-pale)", color: "var(--brown-mid)" }}>
-                        ✓ Проверено
-                      </button>
-                    </form>
-                  )}
-                  <form action={deleteHomework.bind(null, hw.id, hw.student_id)}>
-                    <button type="submit" className="text-xs text-red-400 hover:text-red-600 px-1.5 py-1">
-                      ✕
-                    </button>
-                  </form>
+                  <HomeworkActions id={hw.id} studentId={hw.student_id} status={hw.status} />
                 </div>
               </div>
             );

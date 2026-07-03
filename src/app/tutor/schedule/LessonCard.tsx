@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { updateLessonStatus, rescheduleLesson, togglePaymentStatus, updateLesson, deleteLesson } from "@/app/actions/lessons";
 import { ChevronDown, Pencil, Trash2 } from "lucide-react";
+import { showToast } from "@/components/ui/toaster";
 
 type Status = "scheduled" | "completed" | "cancelled" | "rescheduled" | "missed";
 type PayStatus = "paid" | "unpaid";
@@ -77,6 +78,7 @@ export default function LessonCard({ lesson }: { lesson: Lesson }) {
     await updateLessonStatus(lesson.id, s);
     setStatus(s);
     setLoading(false);
+    showToast(`Статус: ${STATUS_CONFIG[s].label}`);
   };
 
   const submitReschedule = async () => {
@@ -88,6 +90,7 @@ export default function LessonCard({ lesson }: { lesson: Lesson }) {
     setStatus("rescheduled");
     setRescheduleMode(false);
     setRescheduleLoading(false);
+    showToast("Урок перенесён");
   };
 
   const handleTogglePay = async () => {
@@ -96,6 +99,7 @@ export default function LessonCard({ lesson }: { lesson: Lesson }) {
     await togglePaymentStatus(lesson.id, payStatus);
     setPayStatus("paid");
     setPayLoading(false);
+    showToast("Оплата подтверждена");
   };
 
   const confirmUnpay = async () => {
@@ -104,6 +108,7 @@ export default function LessonCard({ lesson }: { lesson: Lesson }) {
     await togglePaymentStatus(lesson.id, payStatus);
     setPayStatus("unpaid");
     setPayLoading(false);
+    showToast("Оплата снята");
   };
 
   const submitEdit = async () => {
@@ -117,6 +122,7 @@ export default function LessonCard({ lesson }: { lesson: Lesson }) {
     });
     setEditLoading(false);
     setEditMode(false);
+    showToast("Урок сохранён");
   };
 
   const inputStyle = { borderColor: "var(--brown-pale)", background: "#fdf8f0", color: "var(--brown-dark)" };

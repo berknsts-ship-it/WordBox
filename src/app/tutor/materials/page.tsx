@@ -1,9 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { FolderPlus, Trash2, FileText, Link2, Monitor, BookOpen } from "lucide-react";
-import { deleteMaterial } from "@/app/actions/materials";
+import { FolderPlus, FileText, Link2, Monitor, BookOpen } from "lucide-react";
 import MaterialAssignPanel from "@/components/tutor/MaterialAssignPanel";
+import { DeleteMaterialButton } from "@/components/tutor/DeleteMaterialButton";
 
 export default async function MaterialsPage() {
   const supabase = await createClient();
@@ -93,8 +93,6 @@ export default async function MaterialsPage() {
 
             const typeLabel = m.is_iframe ? "Фрейм" : isPdf ? "PDF" : m.file_name ? "Файл" : m.url ? "Ссылка" : "Текст";
 
-            const deleteAction = deleteMaterial.bind(null, m.id);
-
             return (
               <div
                 key={m.id}
@@ -147,16 +145,7 @@ export default async function MaterialsPage() {
                         assignedIds={junctionStudents}
                       />
                     )}
-                    <form action={deleteAction}>
-                      <button
-                        type="submit"
-                        className="p-2 rounded-xl transition-colors hover:bg-red-50 shrink-0"
-                        style={{ color: "var(--brown-light)" }}
-                        title="Удалить"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </form>
+                    <DeleteMaterialButton id={m.id} />
                   </div>
                 </div>
               </div>
