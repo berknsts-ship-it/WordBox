@@ -129,13 +129,15 @@ export default function CalendarView({
     if (!user) { setError("Не авторизован"); setLoading(false); return; }
 
     const weeks = repeat ? Math.max(1, Math.min(12, parseInt(repeatWeeks) || 1)) : 1;
+    const p2 = (n: number) => String(n).padStart(2, "0");
     const rows = Array.from({ length: weeks }, (_, i) => {
       const d = new Date(`${selectedDate}T${time}:00`);
       d.setDate(d.getDate() + i * 7);
+      const naiveDate = `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`;
       return {
         tutor_id:        user.id,
         student_id:      studentId,
-        date:    d.toISOString(),
+        date:    `${naiveDate}T${time}:00`,
         price_rub:       price ? parseInt(price) : null,
       };
     });

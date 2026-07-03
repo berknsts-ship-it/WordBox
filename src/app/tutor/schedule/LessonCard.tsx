@@ -84,7 +84,7 @@ export default function LessonCard({ lesson }: { lesson: Lesson }) {
   const submitReschedule = async () => {
     if (!rescheduleDate || !rescheduleTime) return;
     setRescheduleLoading(true);
-    const iso = new Date(`${rescheduleDate}T${rescheduleTime}:00`).toISOString();
+    const iso = `${rescheduleDate}T${rescheduleTime}:00`;
     await rescheduleLesson(lesson.id, iso);
     setRescheduledTo(iso);
     setStatus("rescheduled");
@@ -115,7 +115,7 @@ export default function LessonCard({ lesson }: { lesson: Lesson }) {
     if (!editDate || !editTime) return;
     setEditLoading(true);
     await updateLesson(lesson.id, {
-      date: new Date(`${editDate}T${editTime}:00`).toISOString(),
+      date: `${editDate}T${editTime}:00`,
       price_rub:    editPrice ? parseInt(editPrice) : null,
       notes:        editNotes.trim() || null,
     });

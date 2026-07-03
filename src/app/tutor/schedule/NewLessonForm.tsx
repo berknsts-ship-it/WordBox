@@ -39,7 +39,7 @@ export default function NewLessonForm({ students, subscriptions = [] }: { studen
     const { error: err } = await supabase.from("lessons").insert({
       tutor_id:        user.id,
       student_id:      studentId,
-      date:    new Date(`${date}T${time}:00`).toISOString(),
+      date:    `${date}T${time}:00`,
       price_rub:       price ? parseInt(price) : null,
       notes:           notes || null,
     });
