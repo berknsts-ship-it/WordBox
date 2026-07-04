@@ -50,11 +50,9 @@ export default function LessonCard({ lesson }: { lesson: Lesson }) {
   const [rescheduleLoading, setRescheduleLoading] = useState(false);
   const [rescheduledTo, setRescheduledTo] = useState(lesson.rescheduled_to ?? null);
 
-  // edit form state — initialised from current lesson values
-  const initDt = new Date(lesson.date);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const initDate = `${initDt.getFullYear()}-${pad(initDt.getMonth()+1)}-${pad(initDt.getDate())}`;
-  const initTime = `${pad(initDt.getHours())}:${pad(initDt.getMinutes())}`;
+  // edit form state — initialised from current lesson values (naive string slice, no tz conversion)
+  const initDate = lesson.date.slice(0, 10);
+  const initTime = lesson.date.slice(11, 16);
 
   const [editDate,     setEditDate]     = useState(initDate);
   const [editTime,     setEditTime]     = useState(initTime);
@@ -64,7 +62,10 @@ export default function LessonCard({ lesson }: { lesson: Lesson }) {
   const [editLoading,  setEditLoading]  = useState(false);
 
   const cfg  = STATUS_CONFIG[status] ?? STATUS_CONFIG.scheduled;
-  const dt   = new Date(lesson.date);
+  // naive date parts — no timezone conversion
+  const [_y, _m, _d] = lesson.date.slice(0, 10).split('-').map(Number);
+  const dtLocal = new Date(Date.UTC(_y, _m - 1, _d));
+  const timeDisplay = lesson.date.slice(11, 16);
   const isCancelled = status === "cancelled";
   const DESTRUCTIVE: Status[] = ["cancelled", "missed"];
 
@@ -133,13 +134,13 @@ export default function LessonCard({ lesson }: { lesson: Lesson }) {
         {/* Дата */}
         <div className="text-center min-w-[48px] shrink-0">
           <div className="text-xs font-medium" style={{ color: "var(--brown-light)" }}>
-            {dt.toLocaleDateString("ru", { weekday: "short" })}
+            {dtLocal.toLocaleDateString("ru", { weekday: "short", timeZone: "UTC" })}
           </div>
           <div className="text-2xl font-bold leading-tight" style={{ color: "var(--brown-dark)" }}>
-            {dt.getDate()}
+            {_d}
           </div>
           <div className="text-xs" style={{ color: "var(--brown-light)" }}>
-            {dt.toLocaleDateString("ru", { month: "short" })}
+            {dtLocal.toLocaleDateString("ru", { month: "short", timeZone: "UTC" })}
           </div>
         </div>
 
@@ -151,7 +152,7 @@ export default function LessonCard({ lesson }: { lesson: Lesson }) {
             {lesson.students?.name ?? "Ученик"}
           </div>
           <div className="text-sm" style={{ color: "var(--brown-mid)" }}>
-            {dt.toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" })}
+            {timeDisplay}
             {lesson.duration_min ? ` · ${lesson.duration_min} мин` : ""}
             {lesson.price_rub ? ` · ${lesson.price_rub} ₽` : ""}
           </div>

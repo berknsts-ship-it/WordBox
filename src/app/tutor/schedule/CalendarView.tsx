@@ -39,9 +39,8 @@ function initials(name: string) {
   return name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
 }
 
-function toDateKey(iso: string) {
-  const d = new Date(iso);
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+function toDateKey(iso: string): string {
+  return iso.slice(0, 10);
 }
 
 function pluralWeeks(n: number) {
@@ -78,6 +77,7 @@ export default function CalendarView({
   const [loading,     setLoading]     = useState(false);
   const [error,       setError]       = useState<string | null>(null);
   const router = useRouter();
+  const p2 = (n: number) => String(n).padStart(2, "0");
 
   function prevMonth() {
     if (month === 0) { setYear(y => y - 1); setMonth(11); } else setMonth(m => m - 1);
@@ -97,10 +97,10 @@ export default function CalendarView({
 
   const lessonsByDate = useMemo(() => {
     const map: Record<string, Lesson[]> = {};
+    const monthPrefix = `${year}-${String(month+1).padStart(2,"0")}`;
     for (const l of lessons) {
       const key = toDateKey(l.date);
-      const d = new Date(key);
-      if (d.getFullYear() === year && d.getMonth() === month) {
+      if (key.startsWith(monthPrefix)) {
         (map[key] ??= []).push(l);
       }
     }
@@ -129,7 +129,6 @@ export default function CalendarView({
     if (!user) { setError("Не авторизован"); setLoading(false); return; }
 
     const weeks = repeat ? Math.max(1, Math.min(12, parseInt(repeatWeeks) || 1)) : 1;
-    const p2 = (n: number) => String(n).padStart(2, "0");
     const rows = Array.from({ length: weeks }, (_, i) => {
       const d = new Date(`${selectedDate}T${time}:00`);
       d.setDate(d.getDate() + i * 7);
@@ -150,7 +149,7 @@ export default function CalendarView({
     router.refresh();
   }
 
-  const todayKey  = toDateKey(today.toISOString());
+  const todayKey = `${today.getFullYear()}-${p2(today.getMonth()+1)}-${p2(today.getDate())}`;
   const inputStyle = { borderColor: "var(--brown-pale)", background: "#fdf8f0", color: "var(--brown-dark)" };
 
   const cells: (number | null)[] = [
@@ -159,7 +158,10 @@ export default function CalendarView({
   ];
 
   const selectedLabel = selectedDate
-    ? new Date(selectedDate + "T12:00:00").toLocaleDateString("ru", { weekday: "long", day: "numeric", month: "long" })
+    ? (() => {
+        const [sy, sm, sd] = selectedDate.split('-').map(Number);
+        return new Date(Date.UTC(sy, sm - 1, sd)).toLocaleDateString("ru", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
+      })()
     : "";
 
   return (
@@ -211,7 +213,7 @@ export default function CalendarView({
                     style={{ background: STATUS_BG[l.status] ?? "#f1f5f9", color: STATUS_TEXT[l.status] ?? "#64748b" }}>
                     {l.students ? initials(l.students.name) : "?"}
                     <span className="hidden sm:inline ml-0.5">
-                      {new Date(l.date).toLocaleTimeString("ru",{hour:"2-digit",minute:"2-digit"})}
+                      {l.date.slice(11,16)}
                     </span>
                   </div>
                 ))}
