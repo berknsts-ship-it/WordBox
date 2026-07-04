@@ -54,7 +54,7 @@ export default async function TestViewPage({ params }: { params: Promise<{ id: s
     .select("*, test_questions(prompt, type, points, options, correct_answer)")
     .eq("test_id", id);
 
-  const student = test.students as { name: string; access_code: string } | null;
+  const student = (test.students as unknown) as { name: string; access_code: string } | null;
   const totalPoints = (sections ?? []).flatMap(s =>
     (s.test_questions as { points: number }[] ?? []).map(q => q.points)
   ).reduce((a, b) => a + b, 0);
@@ -90,8 +90,8 @@ export default async function TestViewPage({ params }: { params: Promise<{ id: s
           </div>
           <span className="px-3 py-1 rounded-full text-sm font-semibold"
             style={{
-              background: { draft: "#f1f5f9", issued: "#e8f0ff", in_progress: "#fff3cc", submitted: "#f3e8ff", graded: "#d8f5e0" }[test.status] ?? "#f1f5f9",
-              color: { draft: "#94a3b8", issued: "#2060d0", in_progress: "#c07800", submitted: "#7c3aed", graded: "#1a7a3a" }[test.status] ?? "#94a3b8",
+              background: ({ draft: "#f1f5f9", issued: "#e8f0ff", in_progress: "#fff3cc", submitted: "#f3e8ff", graded: "#d8f5e0" } as Record<string, string>)[test.status as string] ?? "#f1f5f9",
+              color: ({ draft: "#94a3b8", issued: "#2060d0", in_progress: "#c07800", submitted: "#7c3aed", graded: "#1a7a3a" } as Record<string, string>)[test.status as string] ?? "#94a3b8",
             }}>
             {STATUS_LABEL[test.status] ?? test.status}
           </span>

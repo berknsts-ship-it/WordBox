@@ -66,7 +66,7 @@ export default async function TestsPage() {
       ) : (
         <div className="space-y-3">
           {tests.map(t => {
-            const student = t.students as { name: string } | null;
+            const student = (t.students as unknown) as { name: string } | null;
             const total = (t.auto_score ?? 0) + (t.manual_score ?? 0);
             return (
               <div key={t.id} className="rounded-xl border p-4 flex items-center gap-4 flex-wrap" style={card}>

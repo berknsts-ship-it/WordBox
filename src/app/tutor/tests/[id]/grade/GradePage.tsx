@@ -41,7 +41,7 @@ export default async function GradePage({ params }: { params: Promise<{ id: stri
         .single()
     : { data: null };
 
-  const student = test.students as { name: string } | null;
+  const student = (test.students as unknown) as { name: string } | null;
 
   return (
     <div className="max-w-2xl">
