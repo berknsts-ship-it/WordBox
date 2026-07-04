@@ -6,7 +6,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   LayoutDashboard, Users, CalendarDays, ClipboardList,
-  BookOpen, LogOut, X, Menu, PenLine, Bell, FolderOpen,
+  BookOpen, LogOut, X, Menu, PenLine, Bell, FolderOpen, GraduationCap,
 } from "lucide-react";
 import WBLogo from "@/components/WBLogo";
 
@@ -15,6 +15,7 @@ const NAV = [
   { label: "Ученики",          href: "/tutor/students",   icon: Users },
   { label: "Доска",            href: "/tutor/board",      icon: PenLine },
   { label: "Расписание",       href: "/tutor/schedule",   icon: CalendarDays },
+  { label: "Контрольные",      href: "/tutor/tests",         icon: GraduationCap },
   { label: "Домашние задания", href: "/tutor/homework",      icon: ClipboardList },
   { label: "Материалы",        href: "/tutor/materials",     icon: FolderOpen },
   { label: "Словари",          href: "/tutor/vocabulary",    icon: BookOpen },

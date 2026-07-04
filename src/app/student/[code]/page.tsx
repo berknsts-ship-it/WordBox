@@ -8,14 +8,15 @@ import TrainerTab from "@/components/student/tabs/TrainerTab";
 import BoardTab from "@/components/student/tabs/BoardTab";
 import GrammarTab from "@/components/student/tabs/GrammarTab";
 import MaterialsTab from "@/components/student/tabs/MaterialsTab";
+import TestsTab from "@/components/student/tabs/TestsTab";
 import SplashScreen from "@/components/student/SplashScreen";
 import ThemeOnboardingGate from "@/components/student/ThemeOnboardingGate";
 import StudentBanner from "@/components/student/StudentBanner";
 import NotificationBanner from "@/components/student/NotificationBanner";
 import PushSubscribeButton from "@/components/student/PushSubscribeButton";
 
-type Tab = "schedule" | "homework" | "materials" | "board" | "journal" | "trainer" | "grammar";
-const VALID_TABS: Tab[] = ["schedule", "homework", "materials", "board", "journal", "trainer", "grammar"];
+type Tab = "schedule" | "homework" | "materials" | "board" | "journal" | "trainer" | "grammar" | "tests";
+const VALID_TABS: Tab[] = ["schedule", "homework", "materials", "board", "journal", "trainer", "grammar", "tests"];
 
 export default async function StudentCabinetPage({
   params,
@@ -107,6 +108,7 @@ export default async function StudentCabinetPage({
               <TrainerTab studentId={student.id} code={code} activeSetId={set} />
             )}
             {activeTab === "grammar"   && <GrammarTab textbook={student.textbook ?? null} />}
+            {activeTab === "tests"     && <TestsTab studentId={student.id} accessCode={code} />}
           </div>
         </div>
       )}

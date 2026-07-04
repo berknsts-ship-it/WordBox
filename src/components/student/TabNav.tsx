@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import {
   // defaults
-  CalendarDays, ClipboardList, PenLine, NotebookText, Brain, BookText, FolderOpen,
+  CalendarDays, ClipboardList, PenLine, NotebookText, Brain, BookText, FolderOpen, GraduationCap,
   // ocean
   Anchor, Shell, Fish, Globe, Paintbrush,
   // forest
@@ -34,6 +34,7 @@ const TABS = [
   { id: "journal",   label: "Журнал",     icon: NotebookText },
   { id: "trainer",   label: "Тренажёр",   icon: Brain },
   { id: "grammar",   label: "Грамматика", icon: BookText },
+  { id: "tests",     label: "Тесты",      icon: GraduationCap },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
