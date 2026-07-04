@@ -4,7 +4,6 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, ChevronDown, ChevronUp, GripVertical } from "lucide-react";
 import { createTest } from "@/app/actions/tests";
-import { createClient } from "@/lib/supabase/client";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -359,12 +358,13 @@ export default function TestBuilder({
   };
 
   async function uploadAudio(file: File): Promise<string | null> {
-    const supabase = createClient();
-    const path = `${Date.now()}-${file.name.replace(/[^a-z0-9.]/gi, "_")}`;
-    const { error } = await supabase.storage.from("test-audio").upload(path, file);
-    if (error) { setError(error.message); return null; }
-    const { data } = supabase.storage.from("test-audio").getPublicUrl(path);
-    return data.publicUrl;
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("folder", "test-audio");
+    const res = await fetch("/api/upload", { method: "POST", body: formData });
+    if (!res.ok) { setError("Ошибка загрузки аудио"); return null; }
+    const data = await res.json();
+    return data.url as string;
   }
 
   async function handleSave(status: "draft" | "issued") {
