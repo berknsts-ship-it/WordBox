@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { startTest, submitTest, incrementPlayCount } from "@/app/actions/tests";
 import { Clock, Volume2, ExternalLink } from "lucide-react";
+import TestRewardIcons from "@/components/student/TestRewardIcons";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -186,14 +187,17 @@ function WritingQuestion({ q, answer, onAnswer }: { q: Question; answer?: Record
 
 // ── Main component ────────────────────────────────────────────────────────────
 
+type SubmitResult = { hasWriting: boolean; stars?: number; autoScore?: number; grade?: number };
+
 export default function TestTaker({
-  test, sections, studentId, studentCode, existingAnswers,
+  test, sections, studentId, studentCode, existingAnswers, themeId,
 }: {
   test: { id: string; title: string; status: string; time_limit_min: number | null; play_count: number; started_at: string | null };
   sections: Section[];
   studentId: string;
   studentCode: string;
   existingAnswers: { question_id: string; answer: Record<string, unknown> }[];
+  themeId: string;
 }) {
   const router = useRouter();
   const [started, setStarted] = useState(test.status === "in_progress");
@@ -204,9 +208,10 @@ export default function TestTaker({
   });
   const [playCount, setPlayCount] = useState(test.play_count);
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const [result, setResult] = useState<SubmitResult | null>(null);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const startedAt = useRef<Date | null>(test.started_at ? new Date(test.started_at) : null);
+  const totalPoints = sections.flatMap(s => s.test_questions).reduce((a, q) => a + q.points, 0);
 
   // Timer
   useEffect(() => {
@@ -235,12 +240,17 @@ export default function TestTaker({
   };
 
   const handleSubmit = useCallback(async () => {
-    if (submitting) return;
+    if (submitting || result) return;
     setSubmitting(true);
     const payload = Object.entries(answers).map(([questionId, answer]) => ({ questionId, answer }));
-    await submitTest(test.id, studentId, payload);
-    setSubmitted(true);
-  }, [answers, submitting, test.id, studentId]);
+    const res = await submitTest(test.id, studentId, payload);
+    setResult({
+      hasWriting: res?.hasWriting ?? false,
+      stars: res?.stars,
+      autoScore: res?.autoScore ?? 0,
+      grade: res?.grade,
+    });
+  }, [answers, submitting, result, test.id, studentId]);
 
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60);
@@ -277,22 +287,47 @@ export default function TestTaker({
     );
   }
 
-  // ── Submitted screen ──
-  if (submitted) {
+  // ── Result screen ──
+  if (result) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4"
         style={{ background: "var(--theme-bg, #f8f4ee)" }}>
         <div className="rounded-2xl border p-8 max-w-md w-full text-center"
           style={{ background: "white", borderColor: "var(--brown-pale)", boxShadow: "var(--shadow-card)" }}>
-          <div className="text-5xl mb-4">✅</div>
-          <h2 className="text-xl font-bold mb-2" style={{ color: "var(--brown-dark)" }}>
-            Работа сдана!
-          </h2>
-          <p className="text-sm mb-6" style={{ color: "var(--brown-mid)" }}>
-            Результат будет доступен после проверки репетитором.
-          </p>
+          {result.hasWriting ? (
+            <>
+              <div className="text-5xl mb-4">✅</div>
+              <h2 className="text-xl font-bold mb-2" style={{ color: "var(--brown-dark)" }}>
+                Работа сдана!
+              </h2>
+              <p className="text-sm mb-6" style={{ color: "var(--brown-mid)" }}>
+                Результат будет доступен после проверки репетитором.
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="mb-5">
+                <TestRewardIcons stars={result.stars ?? 1} themeId={themeId} size={52} />
+              </div>
+              <h2 className="text-xl font-bold mb-2" style={{ color: "var(--brown-dark)" }}>
+                Работа проверена!
+              </h2>
+              <p className="text-lg font-semibold mb-3" style={{ color: "var(--brown-mid)" }}>
+                {result.autoScore} / {totalPoints} баллов
+              </p>
+              {result.grade && (
+                <span className="inline-block px-4 py-1.5 rounded-full text-sm font-bold mb-5"
+                  style={{
+                    background: result.grade >= 4 ? "#d8f5e0" : result.grade === 3 ? "#fff3cc" : "#ffe0e0",
+                    color: result.grade >= 4 ? "#1a7a3a" : result.grade === 3 ? "#c07800" : "#cc3030",
+                  }}>
+                  Оценка: {result.grade}
+                </span>
+              )}
+            </>
+          )}
           <button onClick={() => router.push(`/student/${studentCode}?tab=tests`)}
-            className="px-6 py-2.5 rounded-xl font-semibold text-white"
+            className="w-full py-2.5 rounded-xl font-semibold text-white"
             style={{ background: "var(--gradient-primary)" }}>
             Вернуться к кабинету
           </button>

@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import Link from "next/link";
-import { ClipboardCheck, Clock, CheckCircle, AlertCircle } from "lucide-react";
+import { ClipboardCheck, Clock, AlertCircle } from "lucide-react";
+import TestRewardIcons from "@/components/student/TestRewardIcons";
 
 const STATUS_LABEL: Record<string, string> = {
   issued: "Ожидает выполнения",
@@ -26,15 +27,17 @@ const STATUS_BG: Record<string, string> = {
 export default async function TestsTab({
   studentId,
   accessCode,
+  themeId,
 }: {
   studentId: string;
   accessCode: string;
+  themeId?: string | null;
 }) {
   const db = createAdminClient();
 
   const { data: tests } = await db
     .from("tests")
-    .select("id, title, status, time_limit_min, issued_at, auto_score, manual_score, grade")
+    .select("id, title, status, time_limit_min, issued_at, auto_score, manual_score, grade, stars")
     .eq("student_id", studentId)
     .neq("status", "draft")
     .order("created_at", { ascending: false });
@@ -103,8 +106,10 @@ export default async function TestsTab({
                 <AlertCircle size={13} /> Ожидает проверки
               </span>
             )}
-            {t.status === "graded" && (
-              <CheckCircle size={20} style={{ color: "#1a7a3a", flexShrink: 0 }} />
+            {t.status === "graded" && t.stars && (
+              <div className="shrink-0">
+                <TestRewardIcons stars={t.stars} themeId={themeId ?? "default"} size={30} />
+              </div>
             )}
           </div>
         );

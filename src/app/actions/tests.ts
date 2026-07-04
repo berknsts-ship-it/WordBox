@@ -141,10 +141,21 @@ export async function gradeWriting(
     const total = (test.auto_score ?? 0) + manualTotal;
     const grade = computeGrade(total, test.score_5, test.score_4, test.score_3);
 
+    // Total possible points for stars
+    const { data: gradeSecs } = await supabase.from("test_sections").select("id").eq("test_id", testId);
+    let totalPossible = 0;
+    if (gradeSecs?.length) {
+      const { data: gradeQs } = await supabase.from("test_questions")
+        .select("points").in("section_id", gradeSecs.map(s => s.id));
+      totalPossible = (gradeQs ?? []).reduce((s, q) => s + (q.points ?? 0), 0);
+    }
+    const stars = computeStars(total, totalPossible);
+
     await supabase.from("tests").update({
       manual_score: manualTotal,
       writing_comment: comment,
       grade,
+      stars,
       status: "graded",
     }).eq("id", testId);
   }
@@ -227,24 +238,46 @@ export async function submitTest(testId: string, studentId: string, answers: Ans
 
   const autoScore = answerRows.reduce((s, a) => s + (a.auto_score ?? 0), 0);
 
-  const { data: secs } = await db.from("test_sections").select("type").eq("test_id", testId);
+  const { data: secs } = await db.from("test_sections").select("id, type").eq("test_id", testId);
   const hasWriting = secs?.some(s => s.type === "writing") ?? false;
+
+  // Total possible points for stars
+  let totalPossible = 0;
+  if (secs?.length) {
+    const { data: allQs } = await db.from("test_questions")
+      .select("points").in("section_id", secs.map(s => s.id));
+    totalPossible = (allQs ?? []).reduce((s, q) => s + (q.points ?? 0), 0);
+  }
 
   const { data: test } = await db.from("tests")
     .select("score_5, score_4, score_3")
     .eq("id", testId).single();
 
+  const grade = !hasWriting && test ? computeGrade(autoScore, test.score_5, test.score_4, test.score_3) : null;
+  const stars = !hasWriting ? computeStars(autoScore, totalPossible) : null;
+
   await db.from("tests").update({
     status: hasWriting ? "submitted" : "graded",
     submitted_at: new Date().toISOString(),
     auto_score: autoScore,
-    ...(!hasWriting && test ? { grade: computeGrade(autoScore, test.score_5, test.score_4, test.score_3) } : {}),
+    ...(grade !== null ? { grade } : {}),
+    ...(stars !== null ? { stars } : {}),
   }).eq("id", testId);
 
-  return { autoScore, hasWriting };
+  return { autoScore, hasWriting, stars: stars ?? undefined, grade: grade ?? undefined };
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+function computeStars(score: number, totalPossible: number): number {
+  if (totalPossible <= 0) return 1;
+  const pct = (score / totalPossible) * 100;
+  if (pct >= 90) return 5;
+  if (pct >= 75) return 4;
+  if (pct >= 60) return 3;
+  if (pct >= 45) return 2;
+  return 1;
+}
 
 function computeGrade(
   total: number,

@@ -108,7 +108,7 @@ export default async function StudentCabinetPage({
               <TrainerTab studentId={student.id} code={code} activeSetId={set} />
             )}
             {activeTab === "grammar"   && <GrammarTab textbook={student.textbook ?? null} />}
-            {activeTab === "tests"     && <TestsTab studentId={student.id} accessCode={code} />}
+            {activeTab === "tests"     && <TestsTab studentId={student.id} accessCode={code} themeId={student.theme} />}
           </div>
         </div>
       )}

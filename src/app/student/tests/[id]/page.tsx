@@ -16,7 +16,7 @@ export default async function StudentTestPage({
 
   // Verify student via access code
   const { data: student } = code
-    ? await db.from("students").select("id, name").eq("access_code", code).single()
+    ? await db.from("students").select("id, name, theme").eq("access_code", code).single()
     : { data: null };
 
   if (!student) notFound();
@@ -49,6 +49,7 @@ export default async function StudentTestPage({
       studentId={student.id}
       studentCode={code ?? ""}
       existingAnswers={existingAnswers ?? []}
+      themeId={student.theme ?? "default"}
     />
   );
 }
