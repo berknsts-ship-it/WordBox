@@ -10,6 +10,7 @@ import {
   Maximize2, Hand, Navigation, Undo2, Redo2, Pointer, Lock, Unlock, ImagePlus, Link, FileText,
   Shapes, LayoutTemplate, Map as MapIcon, Minimize2, Magnet, Smile, Sparkles,
   ChevronsUp, ChevronsDown, ChevronUp, ChevronDown,
+  LocateFixed, LockKeyhole, LockKeyholeOpen,
 } from "lucide-react";
 
 // ── types ─────────────────────────────────────────────────────────────────────
@@ -113,6 +114,7 @@ type WsEvent =
   | { type: "pdf_page"; pdfUrl: string; pdfPage: number }
   | { type: "pdf_clear" }
   | { type: "ruling";  ruling: Ruling }
+  | { type: "goto";    zoom: number; panX: number; panY: number }
   | { type: "video_sync"; id: string; action: "play" | "pause" | "seek"; position: number; sentAt: number };
 
 // ── image cache ───────────────────────────────────────────────────────────────
@@ -811,33 +813,48 @@ function renderFunction(ctx: CanvasRenderingContext2D, item: FunctionItem, zoom:
   ctx.restore(); // restore translate
 }
 
+function drawLockBadge(ctx: CanvasRenderingContext2D, x: number, y: number, zoom: number) {
+  const sz = Math.max(8, Math.min(18, 14 / zoom));
+  ctx.save();
+  ctx.fillStyle = "rgba(234,88,12,0.88)";
+  ctx.beginPath(); ctx.rect(x, y, sz, sz); ctx.fill();
+  ctx.fillStyle = "rgba(255,255,255,0.95)";
+  ctx.font = `${sz * 0.78}px Arial`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText("🔒", x + sz / 2, y + sz / 2 + 0.5);
+  ctx.restore();
+}
+
 function renderItem(ctx: CanvasRenderingContext2D, item: DrawItem, zoom: number, onLoad?: () => void) {
-  if (item.type === "path")    return renderPath(ctx, item);
-  if (item.type === "image")   return renderImage(ctx, item, onLoad ?? (() => {}));
-  if (item.type === "shape")   return renderShape(ctx, item);
-  if (item.type === "frame")   return renderFrame(ctx, item);
-  if (item.type === "function") return renderFunction(ctx, item, zoom);
-  if (item.type === "video") {
+  if (item.type === "path")    { renderPath(ctx, item); }
+  else if (item.type === "image")   { renderImage(ctx, item, onLoad ?? (() => {})); }
+  else if (item.type === "shape")   { renderShape(ctx, item); }
+  else if (item.type === "frame")   { renderFrame(ctx, item); }
+  else if (item.type === "function") { renderFunction(ctx, item, zoom); }
+  else if (item.type === "video") {
     ctx.save();
     ctx.fillStyle = "#111"; ctx.fillRect(item.x, item.y, item.w, item.h);
     ctx.fillStyle = "rgba(255,255,255,0.15)";
     const vcx = item.x + item.w/2, vcy = item.y + item.h/2, vr = Math.min(item.w, item.h) * 0.18;
     ctx.beginPath(); ctx.moveTo(vcx + vr, vcy); ctx.arc(vcx, vcy, vr, 0, Math.PI*2); ctx.fill();
-    ctx.restore(); return;
-  }
-  if (item.type === "dice" || item.type === "wheel") {
+    ctx.restore();
+  } else if (item.type === "dice" || item.type === "wheel") {
     ctx.save();
     ctx.strokeStyle = "#4a80f055"; ctx.lineWidth = 1;
     ctx.strokeRect(item.x, item.y, item.w, item.h);
-    ctx.restore(); return;
-  }
-  if (item.type === "table") {
+    ctx.restore();
+  } else if (item.type === "table") {
     ctx.save();
     ctx.strokeStyle = "#4a80f055"; ctx.lineWidth = 1;
     ctx.strokeRect(item.x, item.y, item.w, item.h);
-    ctx.restore(); return;
+    ctx.restore();
+  } else {
+    renderText(ctx, item as TextItem);
   }
-  renderText(ctx, item as TextItem);
+  if ((item as { locked?: boolean }).locked) {
+    const ix = (item as { x?: number; wx1?: number }).x ?? (item as { wx1?: number }).wx1 ?? 0;
+    const iy = (item as { y?: number; wy1?: number }).y ?? (item as { wy1?: number }).wy1 ?? 0;
+    drawLockBadge(ctx, ix, iy, zoom);
+  }
 }
 
 // ── RulingIcon ────────────────────────────────────────────────────────────────
@@ -917,10 +934,15 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
   const livePathRef   = useRef<PathItem | null>(null);
   const remotePathsRef= useRef<Map<string, PathItem>>(new Map());
   const viewRef       = useRef({ zoom: 1, panX: 0, panY: 0 });
+  const remoteViewportRef      = useRef<{ zoom: number; panX: number; panY: number } | null>(null);
+  const viewportThrottleRef    = useRef(0);
+  const skipViewportBroadcast  = useRef(false);
+  const gotoAnimRef            = useRef<{ rafId: number } | null>(null);
   const rulingRef     = useRef<Ruling>("none");
   const pdfPageRef    = useRef<number | null>(null); // null = no PDF active
 
   const [vpZoom,      setVpZoom]      = useState(100);
+  const [hasRemoteViewport, setHasRemoteViewport] = useState(false);
   const [ruling,      setRulingUI]    = useState<Ruling>("none");
   const [rulingSize,  setRulingSize]  = useState<RulingSize>("M");
   const rulingSizeRef = useRef<RulingSize>("M");
@@ -1229,6 +1251,14 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
   const applyView = useCallback((zoom: number, panX: number, panY: number) => {
     viewRef.current = { zoom, panX, panY };
     setVpZoom(Math.round(zoom * 100)); setPanVer(v => v + 1); render();
+    if (role === "student" && !skipViewportBroadcast.current) {
+      const now = Date.now();
+      if (now - viewportThrottleRef.current > 120) {
+        viewportThrottleRef.current = now;
+        channelRef.current?.send({ type: "broadcast", event: "draw", payload: { type: "viewport", zoom, panX, panY } });
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [render]);
 
   const zoomAt = useCallback((cx: number, cy: number, factor: number) => {
@@ -1436,6 +1466,23 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
     render(); setPdf(null); send({ type: "pdf_clear" });
   };
 
+  const animateGoto = useCallback((tZoom: number, tPanX: number, tPanY: number) => {
+    if (gotoAnimRef.current) cancelAnimationFrame(gotoAnimRef.current.rafId);
+    const { zoom: fz, panX: fx, panY: fy } = viewRef.current;
+    const DURATION = 380;
+    const t0 = performance.now();
+    const step = (now: number) => {
+      const p = Math.min(1, (now - t0) / DURATION);
+      const e = 1 - Math.pow(1 - p, 3);
+      skipViewportBroadcast.current = true;
+      applyView(fz + (tZoom - fz) * e, fx + (tPanX - fx) * e, fy + (tPanY - fy) * e);
+      skipViewportBroadcast.current = false;
+      if (p < 1) gotoAnimRef.current = { rafId: requestAnimationFrame(step) };
+      else gotoAnimRef.current = null;
+    };
+    gotoAnimRef.current = { rafId: requestAnimationFrame(step) };
+  }, [applyView]);
+
   // ── Realtime ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     const supabase = createClient();
@@ -1445,7 +1492,23 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
         if (payload.type === "clear")     { itemsRef.current = []; remotePathsRef.current.clear(); render(); return; }
         if (payload.type === "pdf_clear") { pdfOffscreen.current = null; render(); setPdf(null); return; }
         if (payload.type === "pdf_page")  { loadPdfPage(payload.pdfUrl, "", payload.pdfPage); return; }
-        if (payload.type === "viewport")  { applyView(payload.zoom, payload.panX, payload.panY); return; }
+        if (payload.type === "viewport")  {
+          remoteViewportRef.current = { zoom: payload.zoom, panX: payload.panX, panY: payload.panY };
+          if (role === "student") {
+            skipViewportBroadcast.current = true;
+            applyView(payload.zoom, payload.panX, payload.panY);
+            skipViewportBroadcast.current = false;
+          } else {
+            setHasRemoteViewport(true);
+            renderMinimapFnRef.current?.();
+          }
+          return;
+        }
+        if (payload.type === "goto") {
+          remoteViewportRef.current = { zoom: payload.zoom, panX: payload.panX, panY: payload.panY };
+          animateGoto(payload.zoom, payload.panX, payload.panY);
+          return;
+        }
         if (payload.type === "ruling")    { setRuling(payload.ruling); return; }
         if (payload.type === "laser") {
           setLaserPos({ x: payload.x, y: payload.y });
@@ -1491,10 +1554,17 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
       .subscribe(s => setConnected(s === "SUBSCRIBED"));
     channelRef.current = ch;
     return () => { supabase.removeChannel(ch); };
-  }, [roomId, render, applyView, loadPdfPage]);
+  }, [roomId, render, applyView, loadPdfPage, animateGoto]);
 
   const send = (p: WsEvent) => channelRef.current?.send({ type: "broadcast", event: "draw", payload: p });
-  const bringToMe = () => { const { zoom, panX, panY } = viewRef.current; send({ type: "viewport", zoom, panX, panY }); };
+  const bringToMe  = () => { const { zoom, panX, panY } = viewRef.current; send({ type: "goto", zoom, panX, panY }); };
+  const findStudent = () => { if (remoteViewportRef.current) { const { zoom, panX, panY } = remoteViewportRef.current; applyView(zoom, panX, panY); } };
+
+  const lockAll = (locked: boolean) => {
+    itemsRef.current = itemsRef.current.map(it => ({ ...it, locked })) as DrawItem[];
+    render();
+    for (const item of itemsRef.current) send({ type: "update", item });
+  };
 
   // cursor broadcast
   const broadcastCursor = (wx: number, wy: number) => {
@@ -2718,6 +2788,22 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
     mctx.strokeStyle = "#3b82f6";
     mctx.lineWidth = Math.max(1.5, dpr);
     mctx.strokeRect(vpDstX, vpDstY, vpDstW, vpDstH);
+
+    // Student viewport indicator (green) — tutor only
+    const rv = remoteViewportRef.current;
+    if (role === "tutor" && rv) {
+      const rvx1 = -rv.panX / rv.zoom, rvy1 = -rv.panY / rv.zoom;
+      const rvx2 = (cw - rv.panX) / rv.zoom, rvy2 = (ch - rv.panY) / rv.zoom;
+      const rvX = mx(rvx1), rvY = my(rvy1), rvW = (rvx2 - rvx1) * scale, rvH = (rvy2 - rvy1) * scale;
+      mctx.fillStyle = "rgba(34,197,94,0.08)";
+      mctx.fillRect(rvX, rvY, rvW, rvH);
+      mctx.strokeStyle = "#22c55e";
+      mctx.lineWidth = Math.max(1.5, dpr);
+      mctx.setLineDash([4 * dpr, 3 * dpr]);
+      mctx.strokeRect(rvX, rvY, rvW, rvH);
+      mctx.setLineDash([]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showMinimap]);
 
   // keep fn ref in sync
@@ -3157,10 +3243,28 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
             </button>
             <Sep/>
             {role==="tutor" && (
-              <button onClick={bringToMe} title="Перенести ученика ко мне" className="p-1.5 rounded-lg border-2"
-                style={{ borderColor:"var(--brown-dark)", color:"var(--brown-dark)" }}>
-                <Navigation size={13}/>
-              </button>
+              <>
+                <button onClick={bringToMe} title="Перенести ученика ко мне" className="p-1.5 rounded-lg border-2"
+                  style={{ borderColor:"var(--brown-dark)", color:"var(--brown-dark)" }}>
+                  <Navigation size={13}/>
+                </button>
+                <button onClick={findStudent} disabled={!hasRemoteViewport}
+                  title="Найти ученика — перейти к его позиции на доске"
+                  className="p-1.5 rounded-lg border-2 disabled:opacity-30"
+                  style={{ borderColor:"var(--brown-dark)", color:"var(--brown-dark)" }}>
+                  <LocateFixed size={13}/>
+                </button>
+                <button onClick={() => lockAll(true)} title="Заблокировать все элементы"
+                  className="p-1.5 rounded-lg border"
+                  style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
+                  <LockKeyhole size={13}/>
+                </button>
+                <button onClick={() => lockAll(false)} title="Разблокировать все элементы"
+                  className="p-1.5 rounded-lg border"
+                  style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
+                  <LockKeyholeOpen size={13}/>
+                </button>
+              </>
             )}
             <button title="Очистить доску — двойной клик" onDoubleClick={handleClear} onClick={()=>{}}
               className="p-1.5 rounded-lg border hover:bg-red-50"
@@ -4467,10 +4571,18 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
           </ToolBtn>
           <div className="flex-1 shrink-0 min-w-2"/>
           {role==="tutor" && (
-            <button onClick={bringToMe} className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg border-2 font-medium shrink-0"
-              style={{ borderColor:"var(--brown-dark)", color:"var(--brown-dark)" }}>
-              <Navigation size={12}/> Ко мне
-            </button>
+            <>
+              <button onClick={bringToMe} className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg border-2 font-medium shrink-0"
+                style={{ borderColor:"var(--brown-dark)", color:"var(--brown-dark)" }}>
+                <Navigation size={12}/> Ко мне
+              </button>
+              <button onClick={findStudent} disabled={!hasRemoteViewport}
+                className="p-2 rounded-lg border disabled:opacity-30 shrink-0"
+                style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}
+                title="Найти ученика">
+                <LocateFixed size={14}/>
+              </button>
+            </>
           )}
           <button onClick={undo} disabled={!canUndo} className="p-2 rounded-lg border disabled:opacity-25 shrink-0" style={{ borderColor:"var(--brown-pale)" }}><Undo2 size={16} style={{ color:"var(--brown-dark)" }}/></button>
           <button onClick={redo} disabled={!canRedo} className="p-2 rounded-lg border disabled:opacity-25 shrink-0" style={{ borderColor:"var(--brown-pale)" }}><Redo2 size={16} style={{ color:"var(--brown-dark)" }}/></button>
