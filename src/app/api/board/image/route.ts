@@ -11,9 +11,17 @@ export async function POST(req: NextRequest) {
   const file = form.get("file") as File | null;
   if (!file) return NextResponse.json({ error: "No file" }, { status: 400 });
 
-  const ext  = file.name.split(".").pop() ?? "jpg";
-  const path = `board/${user.id}/${Date.now()}.${ext}`;
+  const ALLOWED: Record<string, string> = {
+    jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png",
+    gif: "image/gif", webp: "image/webp",
+    mp4: "video/mp4", webm: "video/webm", mov: "video/quicktime",
+    pdf: "application/pdf",
+  };
+  const rawExt = (file.name.split(".").pop() ?? "").toLowerCase();
+  if (!ALLOWED[rawExt]) return NextResponse.json({ error: "File type not allowed" }, { status: 400 });
 
-  const blob = await put(path, file, { access: "public" });
+  const path = `board/${user.id}/${Date.now()}.${rawExt}`;
+
+  const blob = await put(path, file, { access: "public", contentType: ALLOWED[rawExt] });
   return NextResponse.json({ url: blob.url });
 }
