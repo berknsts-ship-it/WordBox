@@ -3000,26 +3000,31 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
             </SideBtn>
             {showMoreTools && moreToolsPos && (
               <div className="fixed z-[10000] rounded-2xl border shadow-xl overflow-hidden"
+                onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()}
                 style={{ background:"white", borderColor:"var(--brown-pale)", width:260, top: moreToolsPos.top, bottom: moreToolsPos.bottom, left: moreToolsPos.left }}>
                 <div className="px-3 py-2 text-xs font-medium border-b" style={{ color:"var(--brown-mid)", borderColor:"var(--brown-pale)" }}>Ещё инструменты</div>
                 <div className="p-2 grid grid-cols-3 gap-1.5">
                   <button onClick={()=>{setShowSymbols(v=>!v);setShowMoreTools(false);}}
+                    onTouchEnd={e=>{e.preventDefault();e.stopPropagation();(e.currentTarget as HTMLButtonElement).click();}}
                     className="flex flex-col items-center gap-1 p-2 rounded-xl border hover:opacity-70"
                     style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
                     <span className="text-xl">∑</span><span className="text-xs">Символы</span>
                   </button>
                   <button onClick={()=>{setShowDice(v=>!v);setShowMoreTools(false);}}
+                    onTouchEnd={e=>{e.preventDefault();e.stopPropagation();(e.currentTarget as HTMLButtonElement).click();}}
                     className="flex flex-col items-center gap-1 p-2 rounded-xl border hover:opacity-70"
                     style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
                     <span className="text-xl">🎲</span><span className="text-xs">Кубик</span>
                   </button>
                   <button onClick={()=>{setShowWheel(v=>!v);setShowMoreTools(false);}}
+                    onTouchEnd={e=>{e.preventDefault();e.stopPropagation();(e.currentTarget as HTMLButtonElement).click();}}
                     className="flex flex-col items-center gap-1 p-2 rounded-xl border hover:opacity-70"
                     style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
                     <span className="text-xl">🎡</span><span className="text-xs">Колесо</span>
                   </button>
                   {role==="tutor" && (
                     <button onClick={()=>{setShowTablePicker(v=>!v);setShowMoreTools(false);}}
+                      onTouchEnd={e=>{e.preventDefault();e.stopPropagation();(e.currentTarget as HTMLButtonElement).click();}}
                       className="flex flex-col items-center gap-1 p-2 rounded-xl border hover:opacity-70"
                       style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
                       <span className="text-xl">⊞</span><span className="text-xs">Таблица</span>
@@ -4649,27 +4654,32 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
         {showMoreTools && (
           <div className="flex items-center gap-1.5 px-2 py-2 border-b overflow-x-auto" style={{ borderColor:"var(--brown-pale)", touchAction:"pan-x" }}>
             <button onClick={()=>{setShowSymbols(v=>!v);setShowMoreTools(false);}}
+              onTouchEnd={e=>{e.preventDefault();e.stopPropagation();(e.currentTarget as HTMLButtonElement).click();}}
               className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl border shrink-0"
               style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
               <span className="text-lg">∑</span><span className="text-xs">Символы</span>
             </button>
             <button onClick={()=>{setShowDice(v=>!v);setShowMoreTools(false);}}
+              onTouchEnd={e=>{e.preventDefault();e.stopPropagation();(e.currentTarget as HTMLButtonElement).click();}}
               className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl border shrink-0"
               style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
               <span className="text-lg">🎲</span><span className="text-xs">Кубик</span>
             </button>
             <button onClick={()=>{setShowWheel(v=>!v);setShowMoreTools(false);}}
+              onTouchEnd={e=>{e.preventDefault();e.stopPropagation();(e.currentTarget as HTMLButtonElement).click();}}
               className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl border shrink-0"
               style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
               <span className="text-lg">🎡</span><span className="text-xs">Колесо</span>
             </button>
             <button onClick={()=>{setShowFnPanel(v=>!v);setShowMoreTools(false);}}
+              onTouchEnd={e=>{e.preventDefault();e.stopPropagation();(e.currentTarget as HTMLButtonElement).click();}}
               className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl border shrink-0"
               style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
               <span className="text-sm font-bold font-mono leading-none mb-0.5">f(x)</span><span className="text-xs">График</span>
             </button>
             {role==="tutor" && (
               <button onClick={()=>{setShowTablePicker(v=>!v);setShowMoreTools(false);}}
+                onTouchEnd={e=>{e.preventDefault();e.stopPropagation();(e.currentTarget as HTMLButtonElement).click();}}
                 className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl border shrink-0"
                 style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
                 <span className="text-lg">⊞</span><span className="text-xs">Таблица</span>
