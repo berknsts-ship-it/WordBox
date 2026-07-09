@@ -151,3 +151,35 @@ export async function updateTopicName(setId: string, name: string) {
   revalidatePath(`/tutor/vocabulary/${setId}`);
   revalidatePath("/tutor/vocabulary");
 }
+
+// ── Folders ───────────────────────────────────────────────────────────────────
+
+export async function createFolder(name: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Не авторизован" };
+  const { error } = await supabase
+    .from("vocabulary_folders")
+    .insert({ tutor_id: user.id, name: name.trim() });
+  if (error) return { error: error.message };
+  revalidatePath("/tutor/vocabulary");
+  return { error: null };
+}
+
+export async function deleteFolder(folderId: string) {
+  const supabase = await createClient();
+  await supabase.from("vocabulary_folders").delete().eq("id", folderId);
+  revalidatePath("/tutor/vocabulary");
+}
+
+export async function renameFolder(folderId: string, name: string) {
+  const supabase = await createClient();
+  await supabase.from("vocabulary_folders").update({ name: name.trim() }).eq("id", folderId);
+  revalidatePath("/tutor/vocabulary");
+}
+
+export async function moveSetToFolder(setId: string, folderId: string | null) {
+  const supabase = await createClient();
+  await supabase.from("vocabulary_sets").update({ folder_id: folderId }).eq("id", setId);
+  revalidatePath("/tutor/vocabulary");
+}
