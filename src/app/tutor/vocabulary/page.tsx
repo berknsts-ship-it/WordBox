@@ -19,13 +19,13 @@ export default async function VocabularyPage() {
     { data: students },
     { data: allAssignments },
   ] = await Promise.all([
-    supabase
+    admin
       .from("vocabulary_folders")
       .select("id, name, sort_order")
       .eq("tutor_id", user!.id)
       .order("sort_order")
       .order("created_at"),
-    supabase
+    admin
       .from("vocabulary_sets")
       .select("id, name, folder_id")
       .eq("tutor_id", user!.id)
