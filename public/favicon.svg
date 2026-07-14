@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- Outer ring -->
+  <circle cx="50" cy="50" r="44" stroke="#D98E2D" stroke-width="2.2"/>
+  <!-- Inner ring -->
+  <circle cx="50" cy="50" r="38" stroke="#D98E2D" stroke-width="1.2"/>
+  <!-- WB monogram -->
+  <text x="50" y="48" text-anchor="middle" dominant-baseline="middle"
+    font-family="Georgia, serif" font-weight="600" font-size="26"
+    fill="#D98E2D" letter-spacing="-1">WB</text>
+  <!-- Separator line + dot -->
+  <line x1="36" y1="60" x2="64" y2="60" stroke="#D98E2D" stroke-width="1.2"/>
+  <circle cx="50" cy="60" r="2.2" fill="#D98E2D"/>
+</svg>
