@@ -1,27 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
-import { put } from "@vercel/blob";
 import { createClient } from "@/lib/supabase/server";
+import { writeFile, mkdir } from "fs/promises";
+import path from "path";
+
+export const runtime = "nodejs";
+
+const UPLOAD_DIR = process.env.UPLOAD_DIR ?? "/var/www/uploads";
+const SITE_URL = process.env.SITE_URL ?? "https://word-box.ru";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const { data: { session } } = await supabase.auth.getSession();
-
-  if (!session) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
+  if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const formData = await request.formData();
   const file = formData.get("file") as File;
-  const folder = formData.get("folder") as string;
+  const folder = (formData.get("folder") as string) || "misc";
 
-  if (!file || !folder) {
-    return NextResponse.json({ error: "Missing file or folder" }, { status: 400 });
-  }
+  if (!file) return NextResponse.json({ error: "Missing file" }, { status: 400 });
 
   const ext = file.name.split(".").pop();
-  const path = `${folder}/${Date.now()}.${ext}`;
+  const filePath = `${folder}/${Date.now()}.${ext}`;
+  const fullPath = path.join(UPLOAD_DIR, filePath);
 
-  const blob = await put(path, file, { access: "public" });
+  await mkdir(path.dirname(fullPath), { recursive: true });
+  await writeFile(fullPath, Buffer.from(await file.arrayBuffer()));
 
-  return NextResponse.json({ url: blob.url, name: file.name });
+  return NextResponse.json({ url: `${SITE_URL}/uploads/${filePath}`, name: file.name });
 }

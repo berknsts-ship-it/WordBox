@@ -3,7 +3,6 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Upload, FileText, X, Link as LinkIcon } from "lucide-react";
-import { uploadPresigned } from "@vercel/blob/client";
 
 export default function NewMaterialPage() {
   const router = useRouter();
@@ -32,16 +31,28 @@ export default function NewMaterialPage() {
     setUploadError(null);
     setProgress(0);
 
-    // Загрузка напрямую в Vercel Blob из браузера (без лимита serverless)
     try {
-      const blob = await uploadPresigned(`materials/${Date.now()}-${f.name}`, f, {
-        access: "public",
-        handleUploadUrl: "/api/upload/blob",
-        onUploadProgress: ({ percentage }) => {
-          setProgress(Math.round(percentage * 0.95));
-        },
+      const signRes = await fetch("/api/upload/material-sign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileName: f.name }),
       });
-      setUploadedUrl(blob.url);
+      const signData = await signRes.json();
+      if (!signRes.ok || signData.error) throw new Error(signData.error ?? "Ошибка подписи");
+
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("PUT", signData.signedUrl);
+        xhr.setRequestHeader("Content-Type", f.type || "application/octet-stream");
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) setProgress(Math.round((e.loaded / e.total) * 95));
+        };
+        xhr.onload = () => xhr.status < 300 ? resolve() : reject(new Error(`Upload failed: ${xhr.status}`));
+        xhr.onerror = () => reject(new Error("Ошибка сети"));
+        xhr.send(f);
+      });
+
+      setUploadedUrl(signData.publicUrl);
       setUploadedName(f.name);
       setProgress(100);
     } catch (err) {
@@ -123,7 +134,7 @@ export default function NewMaterialPage() {
           {/* Файл */}
           <div>
             <label className="block text-xs font-semibold mb-1" style={{ color: "var(--brown-mid)" }}>
-              Загрузить файл (PDF, картинка, документ — до 200 МБ)
+              Загрузить файл (PDF, видео, картинка, документ — до 300 МБ)
             </label>
             {file ? (
               <div className="flex items-center gap-3 px-4 py-3 rounded-xl border"
