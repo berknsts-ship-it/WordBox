@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { put } from "@vercel/blob";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const storage = createAdminClient();
   const form = await req.formData();
   const file = form.get("file") as File | null;
   if (!file) return NextResponse.json({ error: "No file" }, { status: 400 });
@@ -19,10 +20,15 @@ export async function POST(req: NextRequest) {
     pdf: "application/pdf",
   };
   const rawExt = (file.name.split(".").pop() ?? "").toLowerCase();
-  if (!rawExt || !ALLOWED[rawExt]) return NextResponse.json({ error: "File type not allowed", ext: rawExt }, { status: 400 });
+  const contentType = ALLOWED[rawExt];
+  if (!contentType) return NextResponse.json({ error: "File type not allowed" }, { status: 400 });
 
   const path = `board/${user.id}/${Date.now()}.${rawExt}`;
+  const { data, error } = await storage.storage
+    .from("board-images")
+    .upload(path, file, { contentType, upsert: false });
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const blob = await put(path, file, { access: "public", contentType: ALLOWED[rawExt] });
-  return NextResponse.json({ url: blob.url });
+  const { data: { publicUrl } } = storage.storage.from("board-images").getPublicUrl(data.path);
+  return NextResponse.json({ url: publicUrl });
 }

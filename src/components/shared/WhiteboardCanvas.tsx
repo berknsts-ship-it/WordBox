@@ -2165,6 +2165,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
         }
         return;
       }
+      return; // below threshold, never pan with drawing tool
     }
 
     if (e.touches.length === 2) {
