@@ -1230,6 +1230,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
     const dpr = window.devicePixelRatio || 1;
     const { zoom, panX, panY } = viewRef.current;
     const w = canvas.width, h = canvas.height;
+    if (!w || !h) return;
 
     // ── offscreen static canvas — rebuilt only when content/view changes ─────────
     let sc = staticCanvasRef.current;
@@ -1292,7 +1293,6 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
         saveBoardState(roomIdRef.current, itemsRef.current);
       }, 1500);
     }
-    // When nothing is actively being drawn, invalidate static so next render rebuilds
     if (!livePathRef.current && !liveShapeRef.current && !liveFrameRef.current) {
       staticValidRef.current = false;
     }
