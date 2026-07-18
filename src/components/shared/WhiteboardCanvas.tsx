@@ -1398,7 +1398,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
   // ── view helpers ─────────────────────────────────────────────────────────────
   const applyView = useCallback((zoom: number, panX: number, panY: number) => {
     viewRef.current = { zoom, panX, panY };
-    setVpZoom(Math.round(zoom * 100)); setPanVer(v => v + 1); scheduleRender();
+    setVpZoom(Math.round(zoom * 100)); scheduleRender();
     if (role === "student" && !skipViewportBroadcast.current) {
       const now = Date.now();
       if (now - viewportThrottleRef.current > 120) {
@@ -2097,7 +2097,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
     }
     if (!livePathRef.current) return;
     const item = livePathRef.current; livePathRef.current = null;
-    itemsRef.current.push(item); render();
+    itemsRef.current.push(item); staticValidRef.current = false; render();
     if (ptFlushTimerRef.current) { clearTimeout(ptFlushTimerRef.current); ptFlushTimerRef.current = null; }
     for (const pt of ptBatchRef.current) send({ type:"path-pt", ...pt });
     ptBatchRef.current = [];
@@ -2325,12 +2325,12 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
           x2:Math.max(ls.wx1,ls.wx2), y2:Math.max(ls.wy1,ls.wy2),
           color, size, fill: shapeFill ? color+"33" : undefined,
         };
-        itemsRef.current.push(item); render(); send({ type:"path", item }); pushHistory({ type:"add", item });
+        itemsRef.current.push(item); staticValidRef.current = false; render(); send({ type:"path", item }); pushHistory({ type:"add", item });
       }
     }
     if (e.touches.length === 0 && livePathRef.current) {
       const item = livePathRef.current; livePathRef.current = null;
-      itemsRef.current.push(item); render();
+      itemsRef.current.push(item); staticValidRef.current = false; render();
       if (ptFlushTimerRef.current) { clearTimeout(ptFlushTimerRef.current); ptFlushTimerRef.current = null; }
       for (const pt of ptBatchRef.current) send({ type:"path-pt", ...pt });
       ptBatchRef.current = [];
