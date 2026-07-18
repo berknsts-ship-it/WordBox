@@ -1002,6 +1002,11 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
   const minimapMapRef   = useRef<{ minX:number; minY:number; scale:number; offX:number; offY:number } | null>(null);
   const renderMinimapFnRef = useRef<() => void>(() => {});
   const pdfOffscreen    = useRef<HTMLCanvasElement | null>(null);
+  const staticCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const staticValidRef  = useRef(false);
+  const rafPendingRef   = useRef(false);
+  const ptBatchRef      = useRef<Array<{id:string;x:number;y:number;color:string;size:number;eraser:boolean;highlight:boolean}>>([]);
+  const ptFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const channelRef      = useRef<ReturnType<ReturnType<typeof createClient>["channel"]> | null>(null);
   const saveTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipSaveRef     = useRef(false);
@@ -1217,6 +1222,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
 
   // ── render ──────────────────────────────────────────────────────────────────
   const render = useCallback(() => {
+    if (process.env.NODE_ENV === "development") console.time("render");
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -1224,22 +1230,37 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
     const dpr = window.devicePixelRatio || 1;
     const { zoom, panX, panY } = viewRef.current;
     const w = canvas.width, h = canvas.height;
-    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h);
-    // Grid is drawn in physical pixels
-    if (rulingRef.current === "none") drawGrid(ctx, w, h, panX * dpr, panY * dpr, zoom * dpr);
-    // World-space drawing: scale by dpr so 1 world unit = 1 CSS pixel
-    ctx.save(); ctx.setTransform(zoom * dpr, 0, 0, zoom * dpr, panX * dpr, panY * dpr);
-    drawRuling(ctx, rulingRef.current, w / dpr, h / dpr, zoom, panX, panY, rulingSizeRef.current);
-    if (pdfOffscreen.current) ctx.drawImage(pdfOffscreen.current, 0, 0);
-    for (const item of itemsRef.current) {
-      if (item.id === editingIdRef.current) continue;
-      const itemPage = item.pdfPage;
-      if (itemPage !== undefined && pdfPageRef.current !== null && itemPage !== pdfPageRef.current) continue;
-      renderItem(ctx, item, zoom, render);
+
+    // ── offscreen static canvas — rebuilt only when content/view changes ─────────
+    let sc = staticCanvasRef.current;
+    if (!sc || sc.width !== w || sc.height !== h) {
+      sc = document.createElement("canvas");
+      sc.width = w; sc.height = h;
+      staticCanvasRef.current = sc;
+      staticValidRef.current = false;
     }
+    if (!staticValidRef.current) {
+      const sctx = sc.getContext("2d")!;
+      sctx.fillStyle = "#fff"; sctx.fillRect(0, 0, w, h);
+      if (rulingRef.current === "none") drawGrid(sctx, w, h, panX * dpr, panY * dpr, zoom * dpr);
+      sctx.save(); sctx.setTransform(zoom * dpr, 0, 0, zoom * dpr, panX * dpr, panY * dpr);
+      drawRuling(sctx, rulingRef.current, w / dpr, h / dpr, zoom, panX, panY, rulingSizeRef.current);
+      if (pdfOffscreen.current) sctx.drawImage(pdfOffscreen.current, 0, 0);
+      for (const item of itemsRef.current) {
+        if (item.id === editingIdRef.current) continue;
+        const itemPage = item.pdfPage;
+        if (itemPage !== undefined && pdfPageRef.current !== null && itemPage !== pdfPageRef.current) continue;
+        renderItem(sctx, item, zoom, () => { staticValidRef.current = false; render(); });
+      }
+      sctx.restore();
+      staticValidRef.current = true;
+    }
+
+    // ── blit static then draw dynamic elements on top ────────────────────────────
+    ctx.drawImage(sc, 0, 0);
+    ctx.save(); ctx.setTransform(zoom * dpr, 0, 0, zoom * dpr, panX * dpr, panY * dpr);
     if (livePathRef.current) renderPath(ctx, livePathRef.current);
     for (const [, rp] of remotePathsRef.current) renderPath(ctx, rp);
-    // live shape preview while dragging
     if (liveShapeRef.current) {
       const ls = liveShapeRef.current;
       renderShape(ctx, {
@@ -1271,8 +1292,19 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
         saveBoardState(roomIdRef.current, itemsRef.current);
       }, 1500);
     }
+    // When nothing is actively being drawn, invalidate static so next render rebuilds
+    if (!livePathRef.current && !liveShapeRef.current && !liveFrameRef.current) {
+      staticValidRef.current = false;
+    }
+    if (process.env.NODE_ENV === "development") console.timeEnd("render");
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const scheduleRender = useCallback(() => {
+    if (rafPendingRef.current) return;
+    rafPendingRef.current = true;
+    requestAnimationFrame(() => { rafPendingRef.current = false; render(); });
+  }, [render]);
 
   // ── board persistence: keep roomIdRef in sync ────────────────────────────────
   useEffect(() => { roomIdRef.current = roomId; }, [roomId]);
@@ -1366,7 +1398,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
   // ── view helpers ─────────────────────────────────────────────────────────────
   const applyView = useCallback((zoom: number, panX: number, panY: number) => {
     viewRef.current = { zoom, panX, panY };
-    setVpZoom(Math.round(zoom * 100)); setPanVer(v => v + 1); render();
+    setVpZoom(Math.round(zoom * 100)); setPanVer(v => v + 1); scheduleRender();
     if (role === "student" && !skipViewportBroadcast.current) {
       const now = Date.now();
       if (now - viewportThrottleRef.current > 120) {
@@ -1375,7 +1407,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [render]);
+  }, [scheduleRender]);
 
   const zoomAt = useCallback((cx: number, cy: number, factor: number) => {
     const { zoom, panX, panY } = viewRef.current;
@@ -1893,7 +1925,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
         const idx = itemsRef.current.findIndex(i => i.id === id);
         if (idx >= 0) itemsRef.current[idx] = shiftItem(orig, ddx, ddy);
       }
-      setPanVer(v => v + 1); render(); return;
+      setPanVer(v => v + 1); scheduleRender(); return;
     }
 
     if (selDragRef.current) {
@@ -1918,7 +1950,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
         const newDiag = Math.max(20, Math.hypot(w.x - tb.x0, w.y - tb.y0));
         (itemsRef.current[idx] as TextItem).fontSize = Math.max(8, Math.round(drag.origFontSize * newDiag / drag.origDiag));
       }
-      setPanVer(v => v + 1); render(); return;
+      setPanVer(v => v + 1); scheduleRender(); return;
     }
 
     broadcastCursor(w.x, w.y);
@@ -1933,12 +1965,12 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
     if (tool === "shape" && liveShapeRef.current) {
       const sp = snapPt(w.x, w.y);
       liveShapeRef.current.wx2 = sp.x; liveShapeRef.current.wy2 = sp.y;
-      render(); return;
+      scheduleRender(); return;
     }
     if (tool === "frame" && liveFrameRef.current) {
       const sp = snapPt(w.x, w.y);
       liveFrameRef.current.wx2 = sp.x; liveFrameRef.current.wy2 = sp.y;
-      render(); return;
+      scheduleRender(); return;
     }
     if (tool === "eraser" && eraserActiveRef.current) {
       eraseAt(w.x, w.y); return;
@@ -1947,8 +1979,15 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
     const sp = snapPt(w.x, w.y);
     livePathRef.current.points.push(sp);
     const { color: c, size: s, eraser, highlight: hl, id } = livePathRef.current;
-    render();
-    send({ type:"path-pt", id, x:sp.x, y:sp.y, color:c, size:s, eraser, highlight:hl });
+    scheduleRender();
+    ptBatchRef.current.push({ id, x:sp.x, y:sp.y, color:c, size:s, eraser, highlight:hl });
+    if (!ptFlushTimerRef.current) {
+      ptFlushTimerRef.current = setTimeout(() => {
+        ptFlushTimerRef.current = null;
+        for (const pt of ptBatchRef.current) send({ type:"path-pt", ...pt });
+        ptBatchRef.current = [];
+      }, 50);
+    }
   };
 
   // ── pointer up ───────────────────────────────────────────────────────────────
@@ -2059,6 +2098,9 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
     if (!livePathRef.current) return;
     const item = livePathRef.current; livePathRef.current = null;
     itemsRef.current.push(item); render();
+    if (ptFlushTimerRef.current) { clearTimeout(ptFlushTimerRef.current); ptFlushTimerRef.current = null; }
+    for (const pt of ptBatchRef.current) send({ type:"path-pt", ...pt });
+    ptBatchRef.current = [];
     send({ type:"path", item });
     pushHistory({ type:"add", item });
   };
@@ -2207,21 +2249,29 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
           const newDiag = Math.max(20, Math.hypot(w.x - tb.x0, w.y - tb.y0));
           (itemsRef.current[idx] as TextItem).fontSize = Math.max(8, Math.round(drag.origFontSize * newDiag / drag.origDiag));
         }
-        render();
+        scheduleRender();
       }
       return;
     }
     if (tool === "shape" && liveShapeRef.current) {
       const sp = snapPt(w.x, w.y);
       liveShapeRef.current.wx2 = sp.x; liveShapeRef.current.wy2 = sp.y;
-      render(); return;
+      scheduleRender(); return;
     }
     if (tool === "laser") { setOwnLaser(w); if (ownLaserTimer.current) clearTimeout(ownLaserTimer.current); ownLaserTimer.current = setTimeout(() => setOwnLaser(null), 2500); send({ type:"laser", x:w.x, y:w.y }); return; }
     if (tool === "eraser" && eraserActiveRef.current) { eraseAt(w.x, w.y); return; }
     if (!livePathRef.current) return;
     livePathRef.current.points.push(w);
     const { color: c, size: s, eraser, highlight:hl, id } = livePathRef.current;
-    render(); send({ type:"path-pt", id, x:w.x, y:w.y, color:c, size:s, eraser, highlight:hl });
+    scheduleRender();
+    ptBatchRef.current.push({ id, x:w.x, y:w.y, color:c, size:s, eraser, highlight:hl });
+    if (!ptFlushTimerRef.current) {
+      ptFlushTimerRef.current = setTimeout(() => {
+        ptFlushTimerRef.current = null;
+        for (const pt of ptBatchRef.current) send({ type:"path-pt", ...pt });
+        ptBatchRef.current = [];
+      }, 50);
+    }
   };
 
   const onTouchEnd = (e: React.TouchEvent) => {
@@ -2280,7 +2330,11 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
     }
     if (e.touches.length === 0 && livePathRef.current) {
       const item = livePathRef.current; livePathRef.current = null;
-      itemsRef.current.push(item); render(); send({ type:"path", item }); pushHistory({ type:"add", item });
+      itemsRef.current.push(item); render();
+      if (ptFlushTimerRef.current) { clearTimeout(ptFlushTimerRef.current); ptFlushTimerRef.current = null; }
+      for (const pt of ptBatchRef.current) send({ type:"path-pt", ...pt });
+      ptBatchRef.current = [];
+      send({ type:"path", item }); pushHistory({ type:"add", item });
     }
   };
 
