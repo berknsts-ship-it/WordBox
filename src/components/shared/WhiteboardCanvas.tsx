@@ -405,6 +405,16 @@ function itemBounds(item: DrawItem) {
   if (item.type === "card")    return { x0: item.x, y0: item.y, x1: item.x + item.w, y1: item.y + item.h };
   return item.type === "path" ? pathBounds(item) : textBounds(item as TextItem);
 }
+const pathBboxCache = new WeakMap<PathItem, ReturnType<typeof pathBounds>>();
+function cachedPathBounds(item: PathItem) {
+  let b = pathBboxCache.get(item);
+  if (!b) { b = pathBounds(item); pathBboxCache.set(item, b); }
+  return b;
+}
+function itemInViewport(item: DrawItem, vx0: number, vy0: number, vx1: number, vy1: number): boolean {
+  const b = item.type === "path" ? cachedPathBounds(item) : itemBounds(item);
+  return b.x0 < vx1 && b.x1 > vx0 && b.y0 < vy1 && b.y1 > vy0;
+}
 function hitTest(item: DrawItem, wx: number, wy: number): boolean {
   if (item.type === "function") return wx >= item.x && wx <= item.x + item.w && wy >= item.y && wy <= item.y + item.h;
   if (item.type === "shape") {
@@ -904,6 +914,20 @@ function isCardSpeakerHit(card: CardItem, wx: number, wy: number): boolean {
 }
 
 function renderItem(ctx: CanvasRenderingContext2D, item: DrawItem, zoom: number, onLoad?: () => void) {
+  if (zoom < 0.3) {
+    if (item.type === "text") {
+      ctx.save();
+      const lines = item.text.split("\n"); const lineH = item.fontSize * 1.4;
+      ctx.fillStyle = item.color + "88";
+      lines.forEach((line, i) => { const lw = Math.max(line.length * item.fontSize * 0.6, 6); ctx.fillRect(item.x, item.y + i * lineH, lw, Math.max(item.fontSize * 0.72, 2)); });
+      ctx.restore(); return;
+    }
+    if (item.type === "image") {
+      ctx.save(); ctx.fillStyle = "#e8e8e8"; ctx.fillRect(item.x, item.y, item.w, item.h);
+      ctx.strokeStyle = "#c0c0c0"; ctx.lineWidth = Math.max(1/zoom, 0.5); ctx.strokeRect(item.x, item.y, item.w, item.h);
+      ctx.restore(); return;
+    }
+  }
   if (item.type === "card")    { drawCard(ctx, item as CardItem, zoom); if (item.locked) drawLockBadge(ctx, item.x + item.w - 14/zoom - 2/zoom, item.y + 2/zoom, zoom); return; }
   if (item.type === "path")    { renderPath(ctx, item); }
   else if (item.type === "image")   { renderImage(ctx, item, onLoad ?? (() => {})); }
@@ -1255,10 +1279,15 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
       sctx.save(); sctx.setTransform(zoom * dpr, 0, 0, zoom * dpr, panX * dpr, panY * dpr);
       drawRuling(sctx, rulingRef.current, w / dpr, h / dpr, zoom, panX, panY, rulingSizeRef.current);
       if (pdfOffscreen.current) sctx.drawImage(pdfOffscreen.current, 0, 0);
+      // ── viewport culling: world-space bounds of visible area ─────────────────
+      const cssW = w / dpr, cssH = h / dpr;
+      const vx0 = -panX / zoom, vy0 = -panY / zoom;
+      const vx1 = (cssW - panX) / zoom, vy1 = (cssH - panY) / zoom;
       for (const item of itemsRef.current) {
         if (item.id === editingIdRef.current) continue;
         const itemPage = item.pdfPage;
         if (itemPage !== undefined && pdfPageRef.current !== null && itemPage !== pdfPageRef.current) continue;
+        if (!itemInViewport(item, vx0, vy0, vx1, vy1)) continue;
         renderItem(sctx, item, zoom, () => { staticValidRef.current = false; render(); });
       }
       sctx.restore();
