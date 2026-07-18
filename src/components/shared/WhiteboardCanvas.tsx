@@ -124,7 +124,11 @@ type WsEvent =
   | { type: "ruling";  ruling: Ruling }
   | { type: "goto";     zoom: number; panX: number; panY: number }
   | { type: "lock_all"; locked: boolean }
-  | { type: "video_sync"; id: string; action: "play" | "pause" | "seek"; position: number; sentAt: number };
+  | { type: "video_sync"; id: string; action: "play" | "pause" | "seek"; position: number; sentAt: number }
+  | { type: "text_typing"; id: string; x: number; y: number; text: string; font: string; fontSize: number; color: string; bold: boolean; italic: boolean; align: TextAlign }
+  | { type: "text_typing_cancel"; id: string };
+
+type DraftTextEntry = { x: number; y: number; text: string; font: string; fontSize: number; color: string; bold: boolean; italic: boolean; align: TextAlign };
 
 // ── image cache ───────────────────────────────────────────────────────────────
 const imgCache = new Map<string, HTMLImageElement>();
@@ -1015,6 +1019,9 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
   const itemsRef      = useRef<DrawItem[]>([]);
   const livePathRef   = useRef<PathItem | null>(null);
   const remotePathsRef= useRef<Map<string, PathItem>>(new Map());
+  const remoteDraftsRef = useRef<Map<string, DraftTextEntry>>(new Map());
+  const draftIdRef    = useRef("");
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const viewRef       = useRef({ zoom: 1, panX: 0, panY: 0 });
   const remoteViewportRef      = useRef<{ zoom: number; panX: number; panY: number } | null>(null);
   const viewportThrottleRef    = useRef(0);
@@ -1263,6 +1270,11 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
     ctx.save(); ctx.setTransform(zoom * dpr, 0, 0, zoom * dpr, panX * dpr, panY * dpr);
     if (livePathRef.current) renderPath(ctx, livePathRef.current);
     for (const [, rp] of remotePathsRef.current) renderPath(ctx, rp);
+    for (const [, draft] of remoteDraftsRef.current) {
+      ctx.save(); ctx.globalAlpha = 0.6;
+      renderText(ctx, { type:"text", id:"__draft__", x:draft.x, y:draft.y, text:draft.text||"▍", font:draft.font, fontSize:draft.fontSize, color:draft.color, bold:draft.bold, italic:draft.italic, align:draft.align });
+      ctx.restore();
+    }
     if (liveShapeRef.current) {
       const ls = liveShapeRef.current;
       renderShape(ctx, {
@@ -1688,12 +1700,23 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
           skipSaveRef.current = true; render(); skipSaveRef.current = false;
           return;
         }
+        if (payload.type === "text_typing") {
+          const { id, x, y, text, font, fontSize, color, bold, italic, align } = payload;
+          remoteDraftsRef.current.set(id, { x, y, text, font, fontSize, color, bold, italic, align });
+          render(); return;
+        }
+        if (payload.type === "text_typing_cancel") {
+          remoteDraftsRef.current.delete(payload.id);
+          render(); return;
+        }
         if (payload.type === "path") {
           if (payload.item.type === "image") console.log("[board] received image item", payload.item.id, "url-len:", (payload.item as {url:string}).url?.length ?? 0);
+          remoteDraftsRef.current.delete(payload.item.id);
           remotePathsRef.current.delete(payload.item.id);
           itemsRef.current.push(payload.item); render(); return;
         }
         if (payload.type === "update") {
+          remoteDraftsRef.current.delete(payload.item.id);
           const idx = itemsRef.current.findIndex(it => it.id === payload.item.id);
           if (idx >= 0) { itemsRef.current[idx] = payload.item; render(); }
           return;
@@ -1861,7 +1884,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
         const it = itemsRef.current[i];
         if (it.type === "text" && hitTest(it, w.x, w.y)) {
           const ti = it as TextItem;
-          editingIdRef.current = ti.id; setEditingId(ti.id);
+          editingIdRef.current = ti.id; setEditingId(ti.id); draftIdRef.current = ti.id;
           setTextInput({ wx: ti.x, wy: ti.y }); setTextValue(ti.text);
           setBold(ti.bold); setItalic(ti.italic); setAlign(ti.align); setFontSize(ti.fontSize);
           const fi = FONTS.findIndex(f => f.family === ti.font); setFontIdx(fi >= 0 ? fi : 0);
@@ -1873,7 +1896,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
           }, 30); return;
         }
       }
-      setTextInput({ wx: w.x, wy: w.y }); setTextValue("");
+      draftIdRef.current = uid(); setTextInput({ wx: w.x, wy: w.y }); setTextValue("");
       setTimeout(() => textRef.current?.focus(), 50); return;
     }
 
@@ -2151,7 +2174,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
     // Text tool always creates new text at the tap point — never selects/moves
     if (tool === "text") {
       setSelectedId(null); setSelectedIds(new Set());
-      setTextInput({ wx: w.x, wy: w.y }); setTextValue("");
+      draftIdRef.current = uid(); setTextInput({ wx: w.x, wy: w.y }); setTextValue("");
       setTimeout(() => textRef.current?.focus(), 50); return;
     }
 
@@ -2354,15 +2377,19 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
   const commitText = () => {
     const eid = editingIdRef.current;
     if (!textInput || !textValue.trim()) {
+      if (typingTimerRef.current) { clearTimeout(typingTimerRef.current); typingTimerRef.current = null; }
+      if (draftIdRef.current) { send({ type:"text_typing_cancel", id: draftIdRef.current }); draftIdRef.current = ""; }
       editingIdRef.current = null; setEditingId(null); setTextInput(null); render(); return;
     }
+    if (typingTimerRef.current) { clearTimeout(typingTimerRef.current); typingTimerRef.current = null; }
     const newItem: TextItem = {
-      type:"text", id: eid ?? uid(),
+      type:"text", id: eid ?? (draftIdRef.current || uid()),
       x: textInput.wx, y: textInput.wy, text: textValue,
       font: FONTS[fontIdx].family, color, fontSize, bold, italic, align,
       ...(textBgOpacity > 0 ? { bgColor: textBgColor, bgOpacity: textBgOpacity } : {}),
       ...(textOpacity < 100 ? { opacity: textOpacity } : {}),
     };
+    draftIdRef.current = "";
     if (eid) {
       const idx = itemsRef.current.findIndex(i => i.id === eid);
       if (idx >= 0) {
@@ -3590,7 +3617,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
           const w = s2w(cx, cy);
           const hit = [...itemsRef.current].reverse().find(item => hitTest(item, w.x, w.y));
           if (hit) return; // let item handle its own dblclick
-          setTextInput({ wx: w.x, wy: w.y }); setTextValue("");
+          draftIdRef.current = uid(); setTextInput({ wx: w.x, wy: w.y }); setTextValue("");
           setTimeout(() => textRef.current?.focus(), 30);
         }}
         onTouchStart={onTouchStart}
@@ -4003,7 +4030,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
                   onTouchEnd={e=>{e.preventDefault();e.stopPropagation();(e.currentTarget as HTMLButtonElement).click();}}
                   onClick={() => {
                     const ti = selectedItem as TextItem;
-                    editingIdRef.current = ti.id; setEditingId(ti.id);
+                    editingIdRef.current = ti.id; setEditingId(ti.id); draftIdRef.current = ti.id;
                     setTextInput({ wx:ti.x, wy:ti.y }); setTextValue(ti.text);
                     setBold(ti.bold); setItalic(ti.italic); setAlign(ti.align); setFontSize(ti.fontSize);
                     const fi = FONTS.findIndex(f => f.family === ti.font); setFontIdx(fi>=0?fi:0);
@@ -4261,9 +4288,13 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
                         el.style.width = Math.max(maxW + 24, Math.round(60 * zoom)) + "px";
                         el.style.height = "auto";
                         el.style.height = el.scrollHeight + "px";
+                        if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+                        typingTimerRef.current = setTimeout(() => {
+                          if (textInput && draftIdRef.current) send({ type:"text_typing", id:draftIdRef.current, x:textInput.wx, y:textInput.wy, text:val, font:FONTS[fontIdx].family, fontSize, color, bold, italic, align });
+                        }, 300);
                       }}
                       onKeyDown={e => {
-                        if (e.key === "Escape") { e.preventDefault(); setTextInput(null); editingIdRef.current=null; setEditingId(null); render(); }
+                        if (e.key === "Escape") { e.preventDefault(); if(typingTimerRef.current){clearTimeout(typingTimerRef.current);typingTimerRef.current=null;} if(draftIdRef.current){send({type:"text_typing_cancel",id:draftIdRef.current});draftIdRef.current="";} setTextInput(null); editingIdRef.current=null; setEditingId(null); render(); }
                         if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commitText(); }
                       }}
                       rows={1} placeholder="Текст..."
@@ -4291,7 +4322,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
 
               {/* ── Mobile bottom sheet — fixed, keyboard-aware, escapes overflow-hidden ── */}
               {isMobile && (() => {
-                const cancel = () => { setTextInput(null); editingIdRef.current=null; setEditingId(null); render(); };
+                const cancel = () => { if(typingTimerRef.current){clearTimeout(typingTimerRef.current);typingTimerRef.current=null;} if(draftIdRef.current){send({type:"text_typing_cancel",id:draftIdRef.current});draftIdRef.current="";} setTextInput(null); editingIdRef.current=null; setEditingId(null); render(); };
                 return (
                   <div style={{ position:"fixed", inset:0, zIndex:300, touchAction:"auto" }} onClick={cancel}
                     onTouchStart={e=>e.stopPropagation()} onTouchMove={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()}>
@@ -4331,10 +4362,15 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
                           ref={textRef}
                           value={textValue}
                           onChange={e => {
-                            setTextValue(e.target.value);
+                            const val = e.target.value;
+                            setTextValue(val);
                             const ta = e.target;
                             ta.style.height = "auto";
                             ta.style.height = ta.scrollHeight + "px";
+                            if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+                            typingTimerRef.current = setTimeout(() => {
+                              if (textInput && draftIdRef.current) send({ type:"text_typing", id:draftIdRef.current, x:textInput.wx, y:textInput.wy, text:val, font:FONTS[fontIdx].family, fontSize, color, bold, italic, align });
+                            }, 300);
                           }}
                           placeholder="Введите текст..."
                           autoFocus
