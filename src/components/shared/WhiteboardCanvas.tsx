@@ -1207,6 +1207,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
   const [pendingSymbol, setPendingSymbol]   = useState<string | null>(null);
   const [pendingSymbolPos, setPendingSymbolPos] = useState<{ sx: number; sy: number } | null>(null);
   const [touchDragging, setTouchDragging] = useState(false);
+  const [kbOffset, setKbOffset] = useState(0);
 
   // vocab card panel
   type VocabTopic = { id: string; title: string; words: { id: string; word: string; translation: string }[] };
@@ -1374,6 +1375,17 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
     ta.style.height = "auto";
     ta.style.height = ta.scrollHeight + "px";
   }, [fontSize, textInput]);
+
+  useEffect(() => {
+    if (textInput === null) { setKbOffset(0); return; }
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const update = () => setKbOffset(Math.max(0, window.innerHeight - vv.height - vv.offsetTop));
+    update();
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    return () => { vv.removeEventListener("resize", update); vv.removeEventListener("scroll", update); };
+  }, [textInput]);
 
   // ── resize observer — DPR-aware canvas sizing ────────────────────────────────
   useEffect(() => {
@@ -4284,10 +4296,11 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
                   <div style={{ position:"fixed", inset:0, zIndex:300, touchAction:"auto" }} onClick={cancel}
                     onTouchStart={e=>e.stopPropagation()} onTouchMove={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()}>
                     <div style={{
-                      position:"absolute", bottom:0, left:0, right:0,
+                      position:"absolute", bottom:kbOffset, left:0, right:0,
                       background:"white", borderRadius:"20px 20px 0 0",
                       borderTop:"2px solid #e8ddd2",
                       boxShadow:"0 -4px 24px rgba(0,0,0,0.15)",
+                      transition:"bottom 0.15s ease",
                     }} onClick={e => e.stopPropagation()}>
                       {/* Controls */}
                       <div style={{ display:"flex", alignItems:"center", gap:6, padding:"10px 12px", borderBottom:"1px solid #e8ddd2", overflowX:"auto", touchAction:"pan-x" }}>
@@ -4328,7 +4341,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
                           rows={2}
                           style={{
                             width:"100%", boxSizing:"border-box",
-                            fontSize: Math.min(fontSize, 28)+"px",
+                            fontSize: Math.max(16, Math.min(fontSize, 28))+"px",
                             fontFamily: FONTS[fontIdx].family,
                             fontWeight: bold?"bold":"normal",
                             fontStyle: italic?"italic":"normal",
