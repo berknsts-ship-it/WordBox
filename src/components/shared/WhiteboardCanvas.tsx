@@ -4317,10 +4317,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
                         el.style.width = Math.max(maxW + 24, Math.round(60 * zoom)) + "px";
                         el.style.height = "auto";
                         el.style.height = el.scrollHeight + "px";
-                        if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
-                        typingTimerRef.current = setTimeout(() => {
-                          if (textInput && draftIdRef.current) send({ type:"text_typing", id:draftIdRef.current, x:textInput.wx, y:textInput.wy, text:val, font:FONTS[fontIdx].family, fontSize, color, bold, italic, align });
-                        }, 300);
+                        if (textInput && draftIdRef.current) send({ type:"text_typing", id:draftIdRef.current, x:textInput.wx, y:textInput.wy, text:val, font:FONTS[fontIdx].family, fontSize, color, bold, italic, align });
                       }}
                       onKeyDown={e => {
                         if (e.key === "Escape") { e.preventDefault(); if(typingTimerRef.current){clearTimeout(typingTimerRef.current);typingTimerRef.current=null;} if(draftIdRef.current){send({type:"text_typing_cancel",id:draftIdRef.current});draftIdRef.current="";} setTextInput(null); editingIdRef.current=null; setEditingId(null); render(); }
@@ -4396,10 +4393,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
                             const ta = e.target;
                             ta.style.height = "auto";
                             ta.style.height = ta.scrollHeight + "px";
-                            if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
-                            typingTimerRef.current = setTimeout(() => {
-                              if (textInput && draftIdRef.current) send({ type:"text_typing", id:draftIdRef.current, x:textInput.wx, y:textInput.wy, text:val, font:FONTS[fontIdx].family, fontSize, color, bold, italic, align });
-                            }, 300);
+                            if (textInput && draftIdRef.current) send({ type:"text_typing", id:draftIdRef.current, x:textInput.wx, y:textInput.wy, text:val, font:FONTS[fontIdx].family, fontSize, color, bold, italic, align });
                           }}
                           placeholder="Введите текст..."
                           autoFocus
