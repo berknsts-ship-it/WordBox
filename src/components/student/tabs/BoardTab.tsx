@@ -5,7 +5,6 @@ import { useRef, useState, useTransition } from "react";
 import type { WhiteboardRef } from "@/components/shared/WhiteboardCanvas";
 import { saveSnapshot, deleteSnapshot, getSnapshotItems, renameSnapshot } from "@/app/actions/board";
 import { Save, BookOpen, Trash2, Download, Plus, ChevronRight, GitMerge, Check, Pencil } from "lucide-react";
-import SyncedVideo from "@/components/shared/SyncedVideo";
 
 const WhiteboardCanvas = dynamic(
   () => import("@/components/shared/WhiteboardCanvas"),
@@ -156,7 +155,6 @@ export default function BoardTab({
           <div className="flex flex-col flex-1 overflow-hidden min-h-0">
             <WhiteboardCanvas ref={canvasRef} roomId={studentId} role={role} />
           </div>
-          <SyncedVideo roomId={studentId} role={role} />
         </div>
 
         {/* History panel */}
