@@ -6,7 +6,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   LayoutDashboard, Users, CalendarDays, ClipboardList,
-  BookOpen, LogOut, X, Menu, PenLine, Bell, FolderOpen, GraduationCap,
+  BookOpen, LogOut, X, Menu, PenLine, Bell, FolderOpen, GraduationCap, Settings,
 } from "lucide-react";
 import WBLogo from "@/components/WBLogo";
 
@@ -20,6 +20,7 @@ const NAV = [
   { label: "Материалы",        href: "/tutor/materials",     icon: FolderOpen },
   { label: "Словари",          href: "/tutor/vocabulary",    icon: BookOpen },
   { label: "Уведомления",      href: "/tutor/notifications", icon: Bell },
+  { label: "Настройки",        href: "/tutor/settings",      icon: Settings },
 ];
 
 export default function TutorNav({ userEmail }: { userEmail: string }) {
