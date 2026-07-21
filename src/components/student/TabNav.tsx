@@ -168,10 +168,13 @@ export default function TabNav({
           const showBadge = tab.id === "homework" && pendingHomework > 0;
           const Icon: LucideIcon = themeIconSet?.[tab.id] ?? tab.icon;
 
+          const isExternalBoard = tab.id === "board";
           return (
             <Link
               key={tab.id}
-              href={`/student/${code}?tab=${tab.id}`}
+              href={isExternalBoard ? `/student/${code}/board` : `/student/${code}?tab=${tab.id}`}
+              target={isExternalBoard ? "_blank" : undefined}
+              rel={isExternalBoard ? "noopener noreferrer" : undefined}
               className="relative flex flex-col items-center justify-center gap-1.5 py-2.5 px-1 rounded-xl sm:rounded-2xl transition-all"
               style={
                 isActive
