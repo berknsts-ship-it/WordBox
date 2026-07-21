@@ -2585,13 +2585,13 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
       for (const pageNum of pages) {
         const pg = await doc.getPage(pageNum);
         const vp0 = pg.getViewport({ scale: 1 });
-        const baseScale = Math.min(1600 / vp0.width, 900 / vp0.height, 2);
-        const renderScale = baseScale * Math.min(dpr, 2);
+        // 2.5× — removes the 900/h cap that limited A4 pages to ~1× render
+        const renderScale = Math.min(2.5, 2500 / vp0.width, 4000 / vp0.height);
         const vp = pg.getViewport({ scale: renderScale });
         const tmp = document.createElement("canvas");
         tmp.width = Math.round(vp.width); tmp.height = Math.round(vp.height);
         await pg.render({ canvas: tmp, viewport: vp }).promise;
-        const dataUrl = tmp.toDataURL("image/jpeg", 0.92);
+        const dataUrl = tmp.toDataURL("image/jpeg", 0.95);
         const w = Math.min(tmp.width / renderScale, 800);
         const h = Math.round(w * (tmp.height / tmp.width));
         const item: ImageItem = {
@@ -3775,7 +3775,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
           render();
         }}>
 
-        <canvas ref={canvasRef} className="absolute inset-0" style={{ touchAction:"none" }} />
+        <canvas ref={canvasRef} className="absolute inset-0" style={{ touchAction:"none" }} onContextMenu={e => e.preventDefault()} />
 
         {/* Video overlays */}
         {itemsRef.current.filter(it => it.type === "video").map(it => {
