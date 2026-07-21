@@ -2563,13 +2563,14 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
       for (const pageNum of pages) {
         const pg = await doc.getPage(pageNum);
         const vp0 = pg.getViewport({ scale: 1 });
-        const scale = Math.min(1600 / vp0.width, 900 / vp0.height, 2);
-        const vp = pg.getViewport({ scale });
+        const baseScale = Math.min(1600 / vp0.width, 900 / vp0.height, 2);
+        const renderScale = baseScale * Math.min(dpr, 2);
+        const vp = pg.getViewport({ scale: renderScale });
         const tmp = document.createElement("canvas");
         tmp.width = Math.round(vp.width); tmp.height = Math.round(vp.height);
         await pg.render({ canvas: tmp, viewport: vp }).promise;
-        const dataUrl = tmp.toDataURL("image/jpeg", 0.88);
-        const w = Math.min(tmp.width / scale, 800);
+        const dataUrl = tmp.toDataURL("image/jpeg", 0.92);
+        const w = Math.min(tmp.width / renderScale, 800);
         const h = Math.round(w * (tmp.height / tmp.width));
         const item: ImageItem = {
           type: "image", id: uid(), url: dataUrl,
