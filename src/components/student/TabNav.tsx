@@ -161,8 +161,8 @@ export default function TabNav({
   const iconFg = tid ? (ICON_FG[tid] ?? "#ffffff") : "#ffffff";
 
   return (
-    <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 pb-1 sm:pb-0">
-      <div className="flex sm:grid sm:grid-cols-7 gap-1.5 sm:gap-2 w-max sm:w-full">
+    <div>
+      <div className="grid grid-cols-4 gap-1.5 sm:gap-2 w-full">
         {TABS.map((tab) => {
           const isActive = activeTab === tab.id;
           const showBadge = tab.id === "homework" && pendingHomework > 0;
@@ -172,7 +172,7 @@ export default function TabNav({
             <Link
               key={tab.id}
               href={`/student/${code}?tab=${tab.id}`}
-              className="relative flex flex-col items-center justify-center gap-1.5 py-2.5 px-2 sm:px-1 rounded-xl sm:rounded-2xl transition-all min-w-[62px] sm:min-w-0"
+              className="relative flex flex-col items-center justify-center gap-1.5 py-2.5 px-1 rounded-xl sm:rounded-2xl transition-all"
               style={
                 isActive
                   ? {
@@ -207,7 +207,7 @@ export default function TabNav({
               </div>
 
               <span
-                className="text-xs text-center leading-tight whitespace-nowrap"
+                className="text-xs text-center leading-tight"
                 style={{
                   color: isActive ? "var(--theme-text)" : "var(--theme-text-secondary)",
                   fontWeight: isActive ? 700 : 600,
