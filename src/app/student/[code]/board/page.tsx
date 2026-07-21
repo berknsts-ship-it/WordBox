@@ -1,11 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
-import dynamic from "next/dynamic";
-
-const BoardTab = dynamic(
-  () => import("@/components/student/tabs/BoardTab"),
-  { ssr: false, loading: () => <div className="flex-1 animate-pulse" style={{ background: "#e8e8e8" }} /> }
-);
+import BoardPageClient from "./BoardPageClient";
 
 export default async function StudentBoardPage({
   params,
@@ -22,9 +17,5 @@ export default async function StudentBoardPage({
 
   if (!student) notFound();
 
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: "#e8e8e8" }}>
-      <BoardTab studentId={student.id} role="student" />
-    </div>
-  );
+  return <BoardPageClient studentId={student.id} />;
 }
