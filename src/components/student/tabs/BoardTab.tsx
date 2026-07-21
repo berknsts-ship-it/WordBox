@@ -5,6 +5,7 @@ import { useRef, useState, useTransition } from "react";
 import type { WhiteboardRef } from "@/components/shared/WhiteboardCanvas";
 import { saveSnapshot, deleteSnapshot, getSnapshotItems, renameSnapshot } from "@/app/actions/board";
 import { Save, BookOpen, Trash2, Download, Plus, ChevronRight, GitMerge, Check, Pencil } from "lucide-react";
+import type { BoardMaterial } from "@/app/actions/board";
 
 const WhiteboardCanvas = dynamic(
   () => import("@/components/shared/WhiteboardCanvas"),
@@ -24,11 +25,13 @@ export default function BoardTab({
   snapshots: initialSnapshots = [],
   role = "student",
   boardUrl = null,
+  materials = [],
 }: {
   studentId: string;
   snapshots?: Snapshot[];
   role?: "tutor" | "student";
   boardUrl?: string | null;
+  materials?: BoardMaterial[];
 }) {
   const canvasRef = useRef<WhiteboardRef>(null);
 
@@ -153,7 +156,7 @@ export default function BoardTab({
         {/* Canvas + Audio/Video */}
         <div className="flex flex-col flex-1 overflow-hidden min-h-0">
           <div className="flex flex-col flex-1 overflow-hidden min-h-0">
-            <WhiteboardCanvas ref={canvasRef} roomId={studentId} role={role} />
+            <WhiteboardCanvas ref={canvasRef} roomId={studentId} role={role} materials={materials} />
           </div>
         </div>
 

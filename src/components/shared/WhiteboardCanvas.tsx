@@ -3638,36 +3638,6 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
                 ))}
               </div>
             )}
-            {/* f(x) button — вставить график */}
-            <div className="relative">
-              <button onClick={() => setShowFnPanel(p => !p)}
-                title="Вставить график функции (y = x², sin(x), 2x+1…)"
-                className="text-xs font-bold px-2 py-1 rounded-lg border-2 font-mono"
-                style={{ borderColor: showFnPanel?"var(--brown-dark)":"var(--brown-pale)", color:"var(--brown-dark)", background: showFnPanel?"var(--brown-pale)":"white" }}>
-                f(x)
-              </button>
-              {showFnPanel && (
-                <div className="absolute top-full mt-1 right-0 z-30 bg-white rounded-xl border shadow-lg p-2"
-                  style={{ borderColor:"var(--brown-pale)", minWidth:280 }}>
-                  <div className="text-xs mb-1.5" style={{ color:"var(--brown-mid)" }}>
-                    График вставляется как объект — можно двигать и масштабировать
-                  </div>
-                  <form className="flex items-center gap-1" onSubmit={e => { e.preventDefault(); addFunction(); setShowFnPanel(false); }}>
-                    <span className="text-sm font-mono shrink-0" style={{ color:"var(--brown-mid)" }}>y =</span>
-                    <input value={fnFormula} onChange={e => { setFnFormula(e.target.value); setFnError(false); }}
-                      placeholder="x², sin(x), 2x+1…" autoComplete="off" spellCheck={false} autoFocus
-                      className="text-sm font-mono px-2 py-1 rounded-lg border outline-none flex-1"
-                      style={{ borderColor: fnError ? "#e05050" : "var(--brown-pale)", background:"#fdf8f0", color:"var(--brown-dark)" }}/>
-                    <button type="submit" disabled={!fnFormula.trim()}
-                      className="text-sm px-3 py-1 rounded-lg font-medium shrink-0 disabled:opacity-40"
-                      style={{ background:"var(--gradient-primary)", color:"white" }}>
-                      Добавить
-                    </button>
-                  </form>
-                  {fnError && <div className="text-xs mt-1" style={{ color:"#e05050" }}>Неверная формула. Примеры: x^2, sin(x), 2*x+1</div>}
-                </div>
-              )}
-            </div>
             <Sep/>
             {pdfMaterials.length > 0 && role === "tutor" && (
               <div className="relative">
@@ -5310,12 +5280,6 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
               className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl border shrink-0"
               style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
               <span className="text-lg">🎡</span><span className="text-xs">Колесо</span>
-            </button>
-            <button onClick={()=>{setShowFnPanel(v=>!v);setShowMoreTools(false);}}
-              onTouchEnd={e=>{e.preventDefault();e.stopPropagation();(e.currentTarget as HTMLButtonElement).click();}}
-              className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl border shrink-0"
-              style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
-              <span className="text-sm font-bold font-mono leading-none mb-0.5">f(x)</span><span className="text-xs">График</span>
             </button>
             {role==="tutor" && (
               <button onClick={()=>{setShowTablePicker(v=>!v);setShowMoreTools(false);}}

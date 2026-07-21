@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import dynamic from "next/dynamic";
-import { getSnapshots } from "@/app/actions/board";
+import { getSnapshots, type BoardMaterial } from "@/app/actions/board";
 
 const BoardTab = dynamic(
   () => import("@/components/student/tabs/BoardTab"),
@@ -16,10 +16,12 @@ export default function TutorBoardHub({
   students,
   initialId,
   initialSnapshots,
+  materials = [],
 }: {
   students: Student[];
   initialId: string | null;
   initialSnapshots: Snapshot[];
+  materials?: BoardMaterial[];
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(initialId ?? students[0]?.id ?? null);
   const [snapshots, setSnapshots] = useState<Snapshot[]>(initialSnapshots);
@@ -102,6 +104,7 @@ export default function TutorBoardHub({
               role="tutor"
               boardUrl={student?.canvas_url ?? null}
               snapshots={snapshots}
+              materials={materials}
             />
           ) : (
             <div className="flex-1 flex items-center justify-center text-center p-8">

@@ -83,3 +83,17 @@ export async function loadBoardState(studentId: string): Promise<unknown[]> {
     .single();
   return (data?.data as { items: unknown[] } | null)?.items ?? [];
 }
+
+export interface BoardMaterial { id: string; title: string; file_url: string | null; file_name: string | null; }
+
+export async function getMaterialsForBoard(): Promise<BoardMaterial[]> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+  const { data } = await supabase
+    .from("materials")
+    .select("id, title, file_url, file_name")
+    .eq("tutor_id", user.id)
+    .order("created_at", { ascending: false });
+  return data ?? [];
+}

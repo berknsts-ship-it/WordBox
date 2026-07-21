@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { getSnapshots } from "@/app/actions/board";
+import { getSnapshots, getMaterialsForBoard } from "@/app/actions/board";
 import TutorBoardHub from "@/components/tutor/TutorBoardHub";
 
 export default async function TutorBoardPage({
@@ -22,7 +22,10 @@ export default async function TutorBoardPage({
     ? studentParam
     : (list[0]?.id ?? null);
 
-  const initialSnapshots = initialId ? await getSnapshots(initialId) : [];
+  const [initialSnapshots, materials] = await Promise.all([
+    initialId ? getSnapshots(initialId) : Promise.resolve([]),
+    getMaterialsForBoard(),
+  ]);
 
   return (
     <div className="fixed inset-x-0 bottom-0 flex flex-col z-20" style={{ top: "56px" }}>
@@ -30,6 +33,7 @@ export default async function TutorBoardPage({
         students={list}
         initialId={initialId}
         initialSnapshots={initialSnapshots as unknown as Parameters<typeof TutorBoardHub>[0]["initialSnapshots"]}
+        materials={materials}
       />
     </div>
   );
