@@ -91,10 +91,16 @@ export async function getMaterialsForBoard(): Promise<BoardMaterial[]> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
   const db = createAdminClient();
+  // In WordBox the column is "url", not "file_url" — map it for WhiteboardCanvas compatibility
   const { data } = await db
     .from("materials")
-    .select("id, title, file_url, file_name")
+    .select("id, title, url, file_name")
     .eq("tutor_id", user.id)
     .order("created_at", { ascending: false });
-  return data ?? [];
+  return (data ?? []).map((m: { id: string; title: string; url: string | null; file_name: string | null }) => ({
+    id:       m.id,
+    title:    m.title,
+    file_url: m.url,
+    file_name: m.file_name,
+  }));
 }
