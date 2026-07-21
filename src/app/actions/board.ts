@@ -90,7 +90,8 @@ export async function getMaterialsForBoard(): Promise<BoardMaterial[]> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
-  const { data } = await supabase
+  const db = createAdminClient();
+  const { data } = await db
     .from("materials")
     .select("id, title, file_url, file_name")
     .eq("tutor_id", user.id)
