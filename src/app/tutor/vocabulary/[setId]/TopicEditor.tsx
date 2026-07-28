@@ -12,6 +12,8 @@ interface Word {
   example_sentence: string | null;
   bracket_sentence: string | null;
   bracket_answer: string | null;
+  added_by?: string | null;
+  added_by_id?: string | null;
 }
 
 interface Student { id: string; name: string; }
@@ -22,6 +24,7 @@ interface Props {
   initialWords: Word[];
   allStudents: Student[];
   assignedIds: string[];
+  studentNames?: Record<string, string>;
 }
 
 function speak(text: string) {
@@ -33,7 +36,7 @@ function speak(text: string) {
   window.speechSynthesis.speak(u);
 }
 
-export default function TopicEditor({ setId, initialName, initialWords, allStudents, assignedIds }: Props) {
+export default function TopicEditor({ setId, initialName, initialWords, allStudents, assignedIds, studentNames = {} }: Props) {
   const [words, setWords] = useState<Word[]>(initialWords);
   const [topicName, setTopicName] = useState(initialName);
   const [selectedStudents, setSelectedStudents] = useState(() => new Set(assignedIds));
@@ -334,6 +337,14 @@ export default function TopicEditor({ setId, initialName, initialWords, allStude
                         <Volume2 size={12} />
                       </button>
                       <span className="text-sm" style={{ color: "var(--brown-mid)" }}>— {w.russian}</span>
+                      {w.added_by === "student" && (
+                        <span
+                          className="text-xs font-semibold px-1.5 py-0.5 rounded-md"
+                          style={{ background: "var(--brown-pale)", color: "var(--brown-mid)" }}
+                        >
+                          Добавил{studentNames[w.added_by_id ?? ""] ? `: ${studentNames[w.added_by_id ?? ""]}` : " ученик"}
+                        </span>
+                      )}
                     </div>
                     {w.example && (
                       <p className="text-xs italic mt-0.5 truncate" style={{ color: "var(--brown-light)" }}>

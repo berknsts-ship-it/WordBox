@@ -25,7 +25,7 @@ export default async function SetDetailPage({
       .single(),
     supabase
       .from("vocabulary_words")
-      .select("id, english, russian, example, example_sentence, bracket_sentence, bracket_answer")
+      .select("id, english, russian, example, example_sentence, bracket_sentence, bracket_answer, added_by, added_by_id")
       .eq("set_id", setId)
       .order("created_at", { ascending: true }),
     supabase
@@ -63,6 +63,7 @@ export default async function SetDetailPage({
         initialWords={words ?? []}
         allStudents={students ?? []}
         assignedIds={assignedIds}
+        studentNames={Object.fromEntries((students ?? []).map((s) => [s.id, s.name]))}
       />
     </div>
   );

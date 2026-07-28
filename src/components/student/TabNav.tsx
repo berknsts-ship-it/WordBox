@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import {
   // defaults
-  CalendarDays, ClipboardList, PenLine, NotebookText, Brain, BookText, FolderOpen, GraduationCap,
+  CalendarDays, ClipboardList, PenLine, NotebookText, Brain, BookText, FolderOpen, GraduationCap, Library,
   // ocean
   Anchor, Shell, Fish, Globe, Paintbrush,
   // forest
@@ -33,6 +33,7 @@ const TABS = [
   { id: "board",     label: "Доска",      icon: PenLine },
   { id: "journal",   label: "Журнал",     icon: NotebookText },
   { id: "trainer",   label: "Тренажёр",   icon: Brain },
+  { id: "vocabulary", label: "Словарь",   icon: Library },
   { id: "grammar",   label: "Грамматика", icon: BookText },
   { id: "tests",     label: "Тесты",      icon: GraduationCap },
 ] as const;
@@ -162,7 +163,7 @@ export default function TabNav({
 
   return (
     <div>
-      <div className="grid grid-cols-4 gap-1.5 sm:gap-2 w-full">
+      <div className="grid grid-cols-3 gap-1.5 sm:gap-2 w-full">
         {TABS.map((tab) => {
           const isActive = activeTab === tab.id;
           const showBadge = tab.id === "homework" && pendingHomework > 0;
