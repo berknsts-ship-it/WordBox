@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Lora, Nunito, Cormorant_Garamond } from "next/font/google";
 import "./globals.css";
 import BackgroundDecor from "@/components/BackgroundDecor";
+import ServiceWorkerRegister from "@/components/shared/ServiceWorkerRegister";
 
 const lora = Lora({
   variable: "--font-lora",
@@ -46,6 +47,7 @@ export default function RootLayout({
   return (
     <html lang="ru" className={`${lora.variable} ${nunito.variable} ${cormorant.variable} h-full`}>
       <body className="min-h-full flex flex-col">
+        <ServiceWorkerRegister />
         <BackgroundDecor />
         <div className="relative flex flex-col flex-1" style={{ zIndex: 1 }}>{children}</div>
       </body>
