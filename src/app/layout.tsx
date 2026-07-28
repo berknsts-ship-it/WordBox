@@ -3,6 +3,7 @@ import { Lora, Nunito, Cormorant_Garamond } from "next/font/google";
 import "./globals.css";
 import BackgroundDecor from "@/components/BackgroundDecor";
 import ServiceWorkerRegister from "@/components/shared/ServiceWorkerRegister";
+import NetworkStatusBanner from "@/components/shared/NetworkStatusBanner";
 
 const lora = Lora({
   variable: "--font-lora",
@@ -19,7 +20,8 @@ const cormorant = Cormorant_Garamond({
   variable: "--font-cormorant",
   subsets: ["latin", "cyrillic"],
   weight: ["500", "600"],
-  style: ["normal", "italic"],
+  // italic is never used anywhere in the app — dropping it halves the
+  // preloaded font files for this family on every single page.
 });
 
 export const metadata: Metadata = {
@@ -48,6 +50,7 @@ export default function RootLayout({
     <html lang="ru" className={`${lora.variable} ${nunito.variable} ${cormorant.variable} h-full`}>
       <body className="min-h-full flex flex-col">
         <ServiceWorkerRegister />
+        <NetworkStatusBanner />
         <BackgroundDecor />
         <div className="relative flex flex-col flex-1" style={{ zIndex: 1 }}>{children}</div>
       </body>
