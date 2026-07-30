@@ -116,8 +116,7 @@ export default async function TestsPage() {
                     }}>
                       <button type="submit"
                         className="px-3 py-1.5 rounded-lg border text-sm"
-                        style={{ borderColor: "#fecaca", color: "#dc2626" }}
-                        onClick={() => {}} >
+                        style={{ borderColor: "#fecaca", color: "#dc2626" }}>
                         Удалить
                       </button>
                     </form>
