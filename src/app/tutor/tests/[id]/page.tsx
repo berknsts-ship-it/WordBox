@@ -222,7 +222,7 @@ export default async function TestViewPage({ params }: { params: Promise<{ id: s
                             </span>
                           </span>
                           {q.prompt && (
-                            <p className="mt-1" style={{ color: "var(--brown-dark)" }}>{q.prompt}</p>
+                            <p className="mt-1 whitespace-pre-wrap" style={{ color: "var(--brown-dark)" }}>{q.prompt}</p>
                           )}
 
                           {/* Options preview */}

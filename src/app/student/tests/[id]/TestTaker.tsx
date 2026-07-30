@@ -446,7 +446,7 @@ export default function TestTaker({
                       Вопрос {qi + 1} · {q.points} б.
                     </span>
                     {q.prompt && (
-                      <p className="mt-1 font-medium" style={{ color: "var(--brown-dark)" }}>{q.prompt}</p>
+                      <p className="mt-1 font-medium whitespace-pre-wrap" style={{ color: "var(--brown-dark)" }}>{q.prompt}</p>
                     )}
                   </div>
 
