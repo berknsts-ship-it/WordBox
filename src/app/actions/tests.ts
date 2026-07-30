@@ -47,28 +47,14 @@ export type TestInput = {
 
 // ── Tutor actions ─────────────────────────────────────────────────────────────
 
-export async function createTest(input: TestInput) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Не авторизован" };
-
-  const { data: test, error: testErr } = await supabase.from("tests").insert({
-    tutor_id: user.id,
-    student_id: input.student_id || null,
-    title: input.title,
-    time_limit_min: input.time_limit_min,
-    issued_at: input.issued_at || null,
-    score_5: input.score_5,
-    score_4: input.score_4,
-    score_3: input.score_3,
-    status: "draft",
-  }).select("id").single();
-
-  if (testErr || !test) return { error: testErr?.message ?? "Ошибка создания" };
-
-  for (const section of input.sections) {
+async function insertSections(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  testId: string,
+  sections: SectionInput[]
+) {
+  for (const section of sections) {
     const { data: sec } = await supabase.from("test_sections").insert({
-      test_id: test.id,
+      test_id: testId,
       type: section.type,
       order_index: section.order_index,
       media_type: section.media_type ?? null,
@@ -103,9 +89,71 @@ export async function createTest(input: TestInput) {
       );
     }
   }
+}
+
+export async function createTest(input: TestInput) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Не авторизован" };
+
+  const { data: test, error: testErr } = await supabase.from("tests").insert({
+    tutor_id: user.id,
+    student_id: input.student_id || null,
+    title: input.title,
+    time_limit_min: input.time_limit_min,
+    issued_at: input.issued_at || null,
+    score_5: input.score_5,
+    score_4: input.score_4,
+    score_3: input.score_3,
+    status: "draft",
+  }).select("id").single();
+
+  if (testErr || !test) return { error: testErr?.message ?? "Ошибка создания" };
+
+  await insertSections(supabase, test.id, input.sections);
 
   revalidatePath("/tutor/tests");
   return { id: test.id };
+}
+
+// Full rebuild of an existing test's content. Only allowed while the test
+// is still a draft: once issued, test_answers rows exist keyed to specific
+// question ids, and wiping/recreating test_questions would cascade-delete
+// a student's real answers/grades. Editing a live test is out of scope —
+// this is for fixing up drafts (typos from OCR'd content, reorganizing an
+// auto-migrated section into proper tasks) before they ever reach a student.
+export async function updateTest(testId: string, input: TestInput) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Не авторизован" };
+
+  const { data: test } = await supabase
+    .from("tests")
+    .select("id, status")
+    .eq("id", testId)
+    .eq("tutor_id", user.id)
+    .single();
+  if (!test) return { error: "Тест не найден" };
+  if (test.status !== "draft") return { error: "Редактировать можно только черновик" };
+
+  const { error: updateErr } = await supabase.from("tests").update({
+    title: input.title,
+    time_limit_min: input.time_limit_min,
+    issued_at: input.issued_at || null,
+    score_5: input.score_5,
+    score_4: input.score_4,
+    score_3: input.score_3,
+  }).eq("id", testId);
+  if (updateErr) return { error: updateErr.message };
+
+  // Sections cascade into tasks, tasks cascade into questions — one
+  // delete clears the whole old tree before rebuilding it.
+  await supabase.from("test_sections").delete().eq("test_id", testId);
+  await insertSections(supabase, testId, input.sections);
+
+  revalidatePath("/tutor/tests");
+  revalidatePath(`/tutor/tests/${testId}`);
+  return { id: testId };
 }
 
 export async function issueTest(testId: string) {

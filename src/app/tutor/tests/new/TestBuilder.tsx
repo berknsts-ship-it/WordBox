@@ -3,15 +3,15 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, ChevronDown, ChevronUp, GripVertical } from "lucide-react";
-import { createTest } from "@/app/actions/tests";
+import { createTest, updateTest } from "@/app/actions/tests";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type QType = "mcq" | "true_false" | "fill_in" | "match" | "gap_fill";
-type MediaType = "audio" | "youtube" | "external";
-type SectionType = "listening" | "reading" | "vocabulary" | "writing";
+export type QType = "mcq" | "true_false" | "fill_in" | "match" | "gap_fill";
+export type MediaType = "audio" | "youtube" | "external";
+export type SectionType = "listening" | "reading" | "vocabulary" | "writing";
 
-type Question = {
+export type Question = {
   _id: string;
   type: QType;
   prompt: string;
@@ -32,14 +32,14 @@ type Question = {
   gapCorrect: string[];
 };
 
-type Task = {
+export type Task = {
   _id: string;
   title: string;
   instruction: string;
   questions: Question[];
 };
 
-type Section = {
+export type Section = {
   type: SectionType;
   enabled: boolean;
   tasks: Task[];
@@ -121,11 +121,15 @@ function QuestionEditor({
   index,
   onUpdate,
   onDelete,
+  taskOptions,
+  onMoveToTask,
 }: {
   q: Question;
   index: number;
   onUpdate: (updated: Question) => void;
   onDelete: () => void;
+  taskOptions?: { index: number; label: string }[];
+  onMoveToTask?: (toTaskIndex: number) => void;
 }) {
   const [open, setOpen] = useState(true);
   const set = (patch: Partial<Question>) => onUpdate({ ...q, ...patch });
@@ -144,6 +148,21 @@ function QuestionEditor({
           {index + 1}. {Q_LABELS[q.type]} — {q.points} б.
           {q.prompt && <span style={{ color: "var(--brown-light)" }}> · {q.prompt.slice(0, 40)}{q.prompt.length > 40 ? "…" : ""}</span>}
         </span>
+        {taskOptions && taskOptions.length > 0 && onMoveToTask && (
+          <select
+            value=""
+            onChange={e => { if (e.target.value !== "") onMoveToTask(parseInt(e.target.value)); }}
+            onClick={e => e.stopPropagation()}
+            className="text-xs px-1.5 py-1 rounded-lg border outline-none"
+            style={{ borderColor: "var(--brown-pale)", color: "var(--brown-mid)", background: "white" }}
+            title="Переместить в другое задание"
+          >
+            <option value="">→ в задание…</option>
+            {taskOptions.map(t => (
+              <option key={t.index} value={t.index}>{t.label}</option>
+            ))}
+          </select>
+        )}
         <button type="button" onClick={e => { e.stopPropagation(); onDelete(); }}
           className="p-1 rounded hover:opacity-70"
           style={{ color: "#dc2626" }}>
@@ -328,11 +347,15 @@ function TaskEditor({
   index,
   onUpdate,
   onDelete,
+  taskOptions,
+  onMoveQuestion,
 }: {
   task: Task;
   index: number;
   onUpdate: (updated: Task) => void;
   onDelete: () => void;
+  taskOptions: { index: number; label: string }[];
+  onMoveQuestion: (qIdx: number, toTaskIndex: number) => void;
 }) {
   const inp = { borderColor: "var(--brown-pale)", background: "white", color: "var(--brown-dark)" };
   const lbl = { color: "var(--brown-light)", fontSize: 11, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.05em" };
@@ -342,6 +365,8 @@ function TaskEditor({
     onUpdate({ ...task, questions: task.questions.map((qq, j) => j === qIdx ? q : qq) });
   const deleteQuestion = (qIdx: number) =>
     onUpdate({ ...task, questions: task.questions.filter((_, j) => j !== qIdx) });
+
+  const otherTaskOptions = taskOptions.filter(t => t.index !== index);
 
   return (
     <div className="rounded-xl border-2 p-3.5 space-y-3" style={{ borderColor: "var(--brown-pale)", background: "white" }}>
@@ -376,6 +401,8 @@ function TaskEditor({
             index={qIdx}
             onUpdate={updated => updateQuestion(qIdx, updated)}
             onDelete={() => deleteQuestion(qIdx)}
+            taskOptions={otherTaskOptions}
+            onMoveToTask={toIndex => onMoveQuestion(qIdx, toIndex)}
           />
         ))}
         <button type="button" onClick={addQuestion}
@@ -390,23 +417,38 @@ function TaskEditor({
 
 // ── Main TestBuilder ──────────────────────────────────────────────────────────
 
+export type TestBuilderInitial = {
+  title: string;
+  studentId: string;
+  timeLimitMin: string;
+  issuedAt: string;
+  score5: string;
+  score4: string;
+  score3: string;
+  sections: Section[];
+};
+
 export default function TestBuilder({
   students,
+  existingTestId,
+  initial,
 }: {
   students: { id: string; name: string }[];
+  existingTestId?: string;
+  initial?: TestBuilderInitial;
 }) {
   const router = useRouter();
 
-  const [title, setTitle] = useState("");
-  const [studentId, setStudentId] = useState("");
-  const [timeLimitMin, setTimeLimitMin] = useState("");
-  const [issuedAt, setIssuedAt] = useState("");
-  const [score5, setScore5] = useState("");
-  const [score4, setScore4] = useState("");
-  const [score3, setScore3] = useState("");
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [studentId, setStudentId] = useState(initial?.studentId ?? "");
+  const [timeLimitMin, setTimeLimitMin] = useState(initial?.timeLimitMin ?? "");
+  const [issuedAt, setIssuedAt] = useState(initial?.issuedAt ?? "");
+  const [score5, setScore5] = useState(initial?.score5 ?? "");
+  const [score4, setScore4] = useState(initial?.score4 ?? "");
+  const [score3, setScore3] = useState(initial?.score3 ?? "");
 
   const SECTION_ORDER: SectionType[] = ["listening", "reading", "vocabulary", "writing"];
-  const [sections, setSections] = useState<Section[]>(SECTION_ORDER.map(defaultSection));
+  const [sections, setSections] = useState<Section[]>(initial?.sections ?? SECTION_ORDER.map(defaultSection));
 
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -433,6 +475,18 @@ export default function TestBuilder({
     setSections(prev => prev.map((s, i) =>
       i === sIdx ? { ...s, tasks: s.tasks.filter((_, j) => j !== tIdx) } : s
     ));
+  };
+
+  const moveQuestionToTask = (sIdx: number, fromTaskIdx: number, qIdx: number, toTaskIdx: number) => {
+    if (fromTaskIdx === toTaskIdx) return;
+    setSections(prev => prev.map((s, i) => {
+      if (i !== sIdx) return s;
+      const tasks = [...s.tasks];
+      const question = tasks[fromTaskIdx].questions[qIdx];
+      tasks[fromTaskIdx] = { ...tasks[fromTaskIdx], questions: tasks[fromTaskIdx].questions.filter((_, j) => j !== qIdx) };
+      tasks[toTaskIdx] = { ...tasks[toTaskIdx], questions: [...tasks[toTaskIdx].questions, question] };
+      return { ...s, tasks };
+    }));
   };
 
   async function uploadAudio(file: File): Promise<string | null> {
@@ -511,7 +565,7 @@ export default function TestBuilder({
         };
       });
 
-    const result = await createTest({
+    const testInput = {
       title: title.trim(),
       student_id: studentId || null,
       time_limit_min: timeLimitMin ? parseInt(timeLimitMin) : null,
@@ -520,7 +574,11 @@ export default function TestBuilder({
       score_4: score4 ? parseInt(score4) : null,
       score_3: score3 ? parseInt(score3) : null,
       sections: sectionInputs,
-    });
+    };
+
+    const result = existingTestId
+      ? await updateTest(existingTestId, testInput)
+      : await createTest(testInput);
 
     setSaving(false);
     if (result.error) { setError(result.error); return; }
@@ -531,7 +589,7 @@ export default function TestBuilder({
       await issueTest(result.id);
     }
 
-    router.push("/tutor/tests");
+    router.push(existingTestId ? `/tutor/tests/${existingTestId}` : "/tutor/tests");
   }
 
   const inp = { borderColor: "var(--brown-pale)", background: "white", color: "var(--brown-dark)" };
@@ -711,6 +769,8 @@ export default function TestBuilder({
                         index={tIdx}
                         onUpdate={updated => updateTask(sIdx, tIdx, updated)}
                         onDelete={() => deleteTask(sIdx, tIdx)}
+                        taskOptions={s.tasks.map((tt, i) => ({ index: i, label: `Задание ${i + 1}${tt.title ? `: ${tt.title}` : ""}` }))}
+                        onMoveQuestion={(qIdx, toTaskIndex) => moveQuestionToTask(sIdx, tIdx, qIdx, toTaskIndex)}
                       />
                     ))}
                     <button type="button" onClick={() => addTask(sIdx)}
@@ -744,7 +804,7 @@ export default function TestBuilder({
           onClick={() => handleSave("draft")}
           className="px-5 py-2.5 rounded-xl border text-sm font-semibold disabled:opacity-50"
           style={{ borderColor: "var(--brown-pale)", color: "var(--brown-dark)" }}>
-          {saving ? "Сохраняю..." : "Сохранить черновик"}
+          {saving ? "Сохраняю..." : existingTestId ? "Сохранить изменения" : "Сохранить черновик"}
         </button>
         <button type="button" disabled={saving}
           onClick={() => handleSave("issued")}

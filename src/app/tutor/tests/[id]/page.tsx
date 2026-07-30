@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, Send, RotateCcw, CheckCircle } from "lucide-react";
+import { ChevronLeft, Send, RotateCcw, CheckCircle, Pencil } from "lucide-react";
 import { issueTest, retractTest } from "@/app/actions/tests";
 import TestAssignPanel from "@/components/tutor/TestAssignPanel";
 
@@ -129,12 +129,19 @@ export default async function TestViewPage({ params }: { params: Promise<{ id: s
         {/* Actions */}
         <div className="flex gap-3 mt-4 flex-wrap">
           {test.status === "draft" && (
-            <form action={async () => { "use server"; await issueTest(id); }}>
-              <button className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white"
-                style={{ background: "var(--gradient-primary)" }}>
-                <Send size={13} /> Выдать ученику
-              </button>
-            </form>
+            <>
+              <form action={async () => { "use server"; await issueTest(id); }}>
+                <button className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white"
+                  style={{ background: "var(--gradient-primary)" }}>
+                  <Send size={13} /> Выдать ученику
+                </button>
+              </form>
+              <Link href={`/tutor/tests/${id}/edit`}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl border text-sm font-medium"
+                style={{ borderColor: "var(--brown-pale)", color: "var(--brown-mid)" }}>
+                <Pencil size={13} /> Редактировать
+              </Link>
+            </>
           )}
           {test.status === "issued" && (
             <form action={async () => { "use server"; await retractTest(id); }}>

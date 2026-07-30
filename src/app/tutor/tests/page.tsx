@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Plus, Clock, CheckCircle, FileText, Eye, AlertCircle } from "lucide-react";
+import { Plus, Clock, CheckCircle, FileText, Eye, AlertCircle, Pencil } from "lucide-react";
 import { deleteTest, issueTest } from "@/app/actions/tests";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -109,6 +109,13 @@ export default async function TestsPage() {
                     style={{ borderColor: "var(--brown-pale)", color: "var(--brown-mid)" }}>
                     <Eye size={13} /> Открыть
                   </Link>
+                  {t.status === "draft" && (
+                    <Link href={`/tutor/tests/${t.id}/edit`}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-medium"
+                      style={{ borderColor: "var(--brown-pale)", color: "var(--brown-mid)" }}>
+                      <Pencil size={13} /> Редактировать
+                    </Link>
+                  )}
                   {(t.status === "draft" || t.status === "issued") && (
                     <form action={async () => {
                       "use server";
