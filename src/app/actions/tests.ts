@@ -115,6 +115,109 @@ export async function deleteTest(testId: string) {
   revalidatePath("/tutor/tests");
 }
 
+// Assigns a test to one or more students. If the test itself has no
+// assignee yet, the first newly-selected student takes over this test
+// row directly; everyone else gets an independent copy (same sections
+// and questions, own submission/grade state) — a test's progress fields
+// (status, answers, score) are per test row, so sharing one row across
+// several students isn't possible, only duplicating the content is.
+export async function assignTestToStudents(testId: string, studentIds: string[]) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Не авторизован" };
+
+  const { data: test } = await supabase
+    .from("tests")
+    .select("*")
+    .eq("id", testId)
+    .eq("tutor_id", user.id)
+    .single();
+  if (!test) return { error: "Тест не найден" };
+
+  let remaining = studentIds.filter((id) => id !== test.student_id);
+
+  if (!test.student_id && remaining.length > 0) {
+    const [first, ...rest] = remaining;
+    await supabase.from("tests").update({ student_id: first }).eq("id", testId);
+    remaining = rest;
+  }
+
+  if (remaining.length === 0) {
+    revalidatePath("/tutor/tests");
+    revalidatePath(`/tutor/tests/${testId}`);
+    return { created: 0 };
+  }
+
+  const { data: sections } = await supabase
+    .from("test_sections")
+    .select("*")
+    .eq("test_id", testId)
+    .order("order_index");
+
+  const sectionIds = (sections ?? []).map((s) => s.id);
+  const { data: questions } = sectionIds.length > 0
+    ? await supabase.from("test_questions").select("*").in("section_id", sectionIds)
+    : { data: [] as { section_id: string; order_index: number; type: string; prompt: string | null; options: Record<string, unknown> | null; correct_answer: Record<string, unknown> | null; points: number }[] };
+
+  let created = 0;
+  for (const studentId of remaining) {
+    const { data: newTest, error: newTestErr } = await supabase
+      .from("tests")
+      .insert({
+        tutor_id: user.id,
+        student_id: studentId,
+        title: test.title,
+        time_limit_min: test.time_limit_min,
+        issued_at: test.issued_at,
+        score_5: test.score_5,
+        score_4: test.score_4,
+        score_3: test.score_3,
+        status: "draft",
+      })
+      .select("id")
+      .single();
+    if (newTestErr || !newTest) continue;
+
+    for (const sec of sections ?? []) {
+      const { data: newSec } = await supabase
+        .from("test_sections")
+        .insert({
+          test_id: newTest.id,
+          type: sec.type,
+          order_index: sec.order_index,
+          media_type: sec.media_type,
+          media_url: sec.media_url,
+          media_file_path: sec.media_file_path,
+          max_plays: sec.max_plays,
+          hide_subtitles: sec.hide_subtitles,
+        })
+        .select("id")
+        .single();
+      if (!newSec) continue;
+
+      const secQuestions = (questions ?? []).filter((q) => q.section_id === sec.id);
+      if (secQuestions.length > 0) {
+        await supabase.from("test_questions").insert(
+          secQuestions.map((q) => ({
+            section_id: newSec.id,
+            order_index: q.order_index,
+            type: q.type,
+            prompt: q.prompt,
+            options: q.options,
+            correct_answer: q.correct_answer,
+            points: q.points,
+          }))
+        );
+      }
+    }
+    created++;
+  }
+
+  revalidatePath("/tutor/tests");
+  revalidatePath(`/tutor/tests/${testId}`);
+  return { created };
+}
+
 export async function gradeWriting(
   testId: string,
   questionId: string | null,

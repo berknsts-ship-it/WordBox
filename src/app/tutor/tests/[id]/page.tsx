@@ -3,6 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, Send, RotateCcw, CheckCircle } from "lucide-react";
 import { issueTest, retractTest } from "@/app/actions/tests";
+import TestAssignPanel from "@/components/tutor/TestAssignPanel";
 
 const SECTION_LABEL: Record<string, string> = {
   listening: "Аудирование",
@@ -42,6 +43,12 @@ export default async function TestViewPage({ params }: { params: Promise<{ id: s
     .single();
 
   if (!test) notFound();
+
+  const { data: allStudents } = await supabase
+    .from("students")
+    .select("id, name")
+    .eq("tutor_id", user.id)
+    .order("name");
 
   const { data: sections } = await supabase
     .from("test_sections")
@@ -122,6 +129,11 @@ export default async function TestViewPage({ params }: { params: Promise<{ id: s
               <CheckCircle size={13} /> Проверить письмо
             </Link>
           )}
+          <TestAssignPanel
+            testId={id}
+            allStudents={allStudents ?? []}
+            currentStudentId={test.student_id}
+          />
           {student?.access_code && (
             <span className="text-xs px-3 py-2 rounded-xl border flex items-center gap-1"
               style={{ borderColor: "var(--brown-pale)", color: "var(--brown-light)" }}>
