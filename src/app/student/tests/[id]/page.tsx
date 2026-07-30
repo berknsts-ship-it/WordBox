@@ -32,9 +32,19 @@ export default async function StudentTestPage({
 
   const { data: sections } = await db
     .from("test_sections")
-    .select("*, test_questions(id, type, prompt, options, points, order_index)")
+    .select("*, test_tasks(id, order_index, title, instruction, test_questions(id, type, prompt, options, points, order_index))")
     .eq("test_id", id)
     .order("order_index");
+
+  // Sort tasks and their questions server-side so TestTaker can render as-is
+  type QuestionRow = { id: string; type: string; prompt: string | null; options: Record<string, unknown> | null; points: number; order_index: number };
+  type TaskRow = { id: string; order_index: number; title: string | null; instruction: string | null; test_questions: QuestionRow[] };
+  const sortedSections = (sections ?? []).map(s => ({
+    ...s,
+    test_tasks: ((s.test_tasks as TaskRow[]) ?? [])
+      .map(t => ({ ...t, test_questions: [...t.test_questions].sort((a, b) => a.order_index - b.order_index) }))
+      .sort((a, b) => a.order_index - b.order_index),
+  }));
 
   // Get existing answers if resuming
   const { data: existingAnswers } = await db
@@ -45,7 +55,7 @@ export default async function StudentTestPage({
   return (
     <TestTaker
       test={test}
-      sections={sections ?? []}
+      sections={sortedSections}
       studentId={student.id}
       studentCode={code ?? ""}
       existingAnswers={existingAnswers ?? []}

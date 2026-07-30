@@ -15,6 +15,14 @@ type Section = {
   media_url: string | null;
   max_plays: number;
   hide_subtitles: boolean;
+  test_tasks: Task[];
+};
+
+type Task = {
+  id: string;
+  order_index: number;
+  title: string | null;
+  instruction: string | null;
   test_questions: Question[];
 };
 
@@ -211,7 +219,10 @@ export default function TestTaker({
   const [result, setResult] = useState<SubmitResult | null>(null);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const startedAt = useRef<Date | null>(test.started_at ? new Date(test.started_at) : null);
-  const totalPoints = sections.flatMap(s => s.test_questions).reduce((a, q) => a + q.points, 0);
+  const totalPoints = sections
+    .flatMap(s => s.test_tasks)
+    .flatMap(t => t.test_questions)
+    .reduce((a, q) => a + q.points, 0);
 
   // Timer
   useEffect(() => {
@@ -363,7 +374,7 @@ export default function TestTaker({
       {/* Content */}
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-8">
         {sections.map(section => {
-          const questions = [...section.test_questions].sort((a, b) => a.order_index - b.order_index);
+          const tasks = [...section.test_tasks].sort((a, b) => a.order_index - b.order_index);
           return (
             <div key={section.id} className="space-y-4">
               {/* Section header */}
@@ -437,27 +448,49 @@ export default function TestTaker({
                 </div>
               )}
 
-              {/* Questions */}
-              {questions.map((q, qi) => (
-                <div key={q.id} className="rounded-2xl border p-5"
-                  style={{ background: "white", borderColor: "var(--brown-pale)", boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
-                  <div className="mb-3">
-                    <span className="text-xs font-semibold" style={{ color: "var(--brown-light)" }}>
-                      Вопрос {qi + 1} · {q.points} б.
-                    </span>
-                    {q.prompt && (
-                      <p className="mt-1 font-medium whitespace-pre-wrap" style={{ color: "var(--brown-dark)" }}>{q.prompt}</p>
+              {/* Tasks */}
+              {tasks.map((task, taskIdx) => {
+                const questions = [...task.test_questions].sort((a, b) => a.order_index - b.order_index);
+                return (
+                  <div key={task.id} className="rounded-2xl border p-5 space-y-4"
+                    style={{ background: "white", borderColor: "var(--brown-pale)", boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
+                    {(task.title || task.instruction) && (
+                      <div>
+                        {task.title && (
+                          <p className="font-bold text-sm" style={{ color: "var(--brown-dark)" }}>
+                            Задание {taskIdx + 1}. {task.title}
+                          </p>
+                        )}
+                        {task.instruction && (
+                          <p className="text-sm mt-1" style={{ color: "var(--brown-mid)" }}>{task.instruction}</p>
+                        )}
+                      </div>
                     )}
-                  </div>
 
-                  {q.type === "mcq" && <MCQQuestion q={q} answer={answers[q.id]} onAnswer={a => handleAnswer(q.id, a)} />}
-                  {q.type === "true_false" && <TFQuestion q={q} answer={answers[q.id]} onAnswer={a => handleAnswer(q.id, a)} />}
-                  {q.type === "fill_in" && <FillInQuestion q={q} answer={answers[q.id]} onAnswer={a => handleAnswer(q.id, a)} />}
-                  {q.type === "match" && <MatchQuestion q={q} answer={answers[q.id]} onAnswer={a => handleAnswer(q.id, a)} />}
-                  {q.type === "gap_fill" && <GapFillQuestion q={q} answer={answers[q.id]} onAnswer={a => handleAnswer(q.id, a)} />}
-                  {q.type === "writing" && <WritingQuestion q={q} answer={answers[q.id]} onAnswer={a => handleAnswer(q.id, a)} />}
-                </div>
-              ))}
+                    <div className="space-y-4">
+                      {questions.map((q, qi) => (
+                        <div key={q.id}>
+                          <div className="mb-2">
+                            <span className="text-xs font-semibold" style={{ color: "var(--brown-light)" }}>
+                              {qi + 1} · {q.points} б.
+                            </span>
+                            {q.prompt && (
+                              <p className="mt-1 font-medium whitespace-pre-wrap" style={{ color: "var(--brown-dark)" }}>{q.prompt}</p>
+                            )}
+                          </div>
+
+                          {q.type === "mcq" && <MCQQuestion q={q} answer={answers[q.id]} onAnswer={a => handleAnswer(q.id, a)} />}
+                          {q.type === "true_false" && <TFQuestion q={q} answer={answers[q.id]} onAnswer={a => handleAnswer(q.id, a)} />}
+                          {q.type === "fill_in" && <FillInQuestion q={q} answer={answers[q.id]} onAnswer={a => handleAnswer(q.id, a)} />}
+                          {q.type === "match" && <MatchQuestion q={q} answer={answers[q.id]} onAnswer={a => handleAnswer(q.id, a)} />}
+                          {q.type === "gap_fill" && <GapFillQuestion q={q} answer={answers[q.id]} onAnswer={a => handleAnswer(q.id, a)} />}
+                          {q.type === "writing" && <WritingQuestion q={q} answer={answers[q.id]} onAnswer={a => handleAnswer(q.id, a)} />}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           );
         })}

@@ -16,6 +16,13 @@ type QuestionInput = {
   points: number;
 };
 
+type TaskInput = {
+  order_index: number;
+  title: string | null;
+  instruction: string | null;
+  questions: QuestionInput[];
+};
+
 type SectionInput = {
   type: "listening" | "reading" | "vocabulary" | "writing";
   order_index: number;
@@ -24,7 +31,7 @@ type SectionInput = {
   media_file_path?: string | null;
   max_plays?: number;
   hide_subtitles?: boolean;
-  questions: QuestionInput[];
+  tasks: TaskInput[];
 };
 
 export type TestInput = {
@@ -73,10 +80,19 @@ export async function createTest(input: TestInput) {
 
     if (!sec) continue;
 
-    if (section.questions.length > 0) {
+    for (const task of section.tasks) {
+      const { data: t } = await supabase.from("test_tasks").insert({
+        section_id: sec.id,
+        order_index: task.order_index,
+        title: task.title,
+        instruction: task.instruction,
+      }).select("id").single();
+
+      if (!t || task.questions.length === 0) continue;
+
       await supabase.from("test_questions").insert(
-        section.questions.map((q, i) => ({
-          section_id: sec.id,
+        task.questions.map((q, i) => ({
+          task_id: t.id,
           order_index: i,
           type: q.type,
           prompt: q.prompt,
@@ -117,10 +133,10 @@ export async function deleteTest(testId: string) {
 
 // Assigns a test to one or more students. If the test itself has no
 // assignee yet, the first newly-selected student takes over this test
-// row directly; everyone else gets an independent copy (same sections
-// and questions, own submission/grade state) — a test's progress fields
-// (status, answers, score) are per test row, so sharing one row across
-// several students isn't possible, only duplicating the content is.
+// row directly; everyone else gets an independent copy (same sections/
+// tasks/questions, own submission/grade state) — a test's progress
+// fields (status, answers, score) are per test row, so sharing one row
+// across several students isn't possible, only duplicating the content is.
 export async function assignTestToStudents(testId: string, studentIds: string[]) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -155,9 +171,14 @@ export async function assignTestToStudents(testId: string, studentIds: string[])
     .order("order_index");
 
   const sectionIds = (sections ?? []).map((s) => s.id);
-  const { data: questions } = sectionIds.length > 0
-    ? await supabase.from("test_questions").select("*").in("section_id", sectionIds)
-    : { data: [] as { section_id: string; order_index: number; type: string; prompt: string | null; options: Record<string, unknown> | null; correct_answer: Record<string, unknown> | null; points: number }[] };
+  const { data: tasks } = sectionIds.length > 0
+    ? await supabase.from("test_tasks").select("*").in("section_id", sectionIds)
+    : { data: [] as { id: string; section_id: string; order_index: number; title: string | null; instruction: string | null }[] };
+
+  const taskIds = (tasks ?? []).map((t) => t.id);
+  const { data: questions } = taskIds.length > 0
+    ? await supabase.from("test_questions").select("*").in("task_id", taskIds)
+    : { data: [] as { task_id: string; order_index: number; type: string; prompt: string | null; options: Record<string, unknown> | null; correct_answer: Record<string, unknown> | null; points: number }[] };
 
   let created = 0;
   for (const studentId of remaining) {
@@ -195,19 +216,34 @@ export async function assignTestToStudents(testId: string, studentIds: string[])
         .single();
       if (!newSec) continue;
 
-      const secQuestions = (questions ?? []).filter((q) => q.section_id === sec.id);
-      if (secQuestions.length > 0) {
-        await supabase.from("test_questions").insert(
-          secQuestions.map((q) => ({
+      const secTasks = (tasks ?? []).filter((t) => t.section_id === sec.id);
+      for (const task of secTasks) {
+        const { data: newTask } = await supabase
+          .from("test_tasks")
+          .insert({
             section_id: newSec.id,
-            order_index: q.order_index,
-            type: q.type,
-            prompt: q.prompt,
-            options: q.options,
-            correct_answer: q.correct_answer,
-            points: q.points,
-          }))
-        );
+            order_index: task.order_index,
+            title: task.title,
+            instruction: task.instruction,
+          })
+          .select("id")
+          .single();
+        if (!newTask) continue;
+
+        const taskQuestions = (questions ?? []).filter((q) => q.task_id === task.id);
+        if (taskQuestions.length > 0) {
+          await supabase.from("test_questions").insert(
+            taskQuestions.map((q) => ({
+              task_id: newTask.id,
+              order_index: q.order_index,
+              type: q.type,
+              prompt: q.prompt,
+              options: q.options,
+              correct_answer: q.correct_answer,
+              points: q.points,
+            }))
+          );
+        }
       }
     }
     created++;
@@ -244,14 +280,7 @@ export async function gradeWriting(
     const total = (test.auto_score ?? 0) + manualTotal;
     const grade = computeGrade(total, test.score_5, test.score_4, test.score_3);
 
-    // Total possible points for stars
-    const { data: gradeSecs } = await supabase.from("test_sections").select("id").eq("test_id", testId);
-    let totalPossible = 0;
-    if (gradeSecs?.length) {
-      const { data: gradeQs } = await supabase.from("test_questions")
-        .select("points").in("section_id", gradeSecs.map(s => s.id));
-      totalPossible = (gradeQs ?? []).reduce((s, q) => s + (q.points ?? 0), 0);
-    }
+    const totalPossible = await totalPossiblePoints(supabase, testId);
     const stars = computeStars(total, totalPossible);
 
     await supabase.from("tests").update({
@@ -344,13 +373,7 @@ export async function submitTest(testId: string, studentId: string, answers: Ans
   const { data: secs } = await db.from("test_sections").select("id, type").eq("test_id", testId);
   const hasWriting = secs?.some(s => s.type === "writing") ?? false;
 
-  // Total possible points for stars
-  let totalPossible = 0;
-  if (secs?.length) {
-    const { data: allQs } = await db.from("test_questions")
-      .select("points").in("section_id", secs.map(s => s.id));
-    totalPossible = (allQs ?? []).reduce((s, q) => s + (q.points ?? 0), 0);
-  }
+  const totalPossible = await totalPossiblePoints(db, testId);
 
   const { data: test } = await db.from("tests")
     .select("score_5, score_4, score_3")
@@ -371,6 +394,16 @@ export async function submitTest(testId: string, studentId: string, answers: Ans
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function totalPossiblePoints(db: any, testId: string): Promise<number> {
+  const { data: secs } = await db.from("test_sections").select("id").eq("test_id", testId);
+  if (!secs?.length) return 0;
+  const { data: tasks } = await db.from("test_tasks").select("id").in("section_id", secs.map((s: { id: string }) => s.id));
+  if (!tasks?.length) return 0;
+  const { data: qs } = await db.from("test_questions").select("points").in("task_id", tasks.map((t: { id: string }) => t.id));
+  return (qs ?? []).reduce((s: number, q: { points: number }) => s + (q.points ?? 0), 0);
+}
 
 function computeStars(score: number, totalPossible: number): number {
   if (totalPossible <= 0) return 1;

@@ -32,10 +32,17 @@ type Question = {
   gapCorrect: string[];
 };
 
+type Task = {
+  _id: string;
+  title: string;
+  instruction: string;
+  questions: Question[];
+};
+
 type Section = {
   type: SectionType;
   enabled: boolean;
-  questions: Question[];
+  tasks: Task[];
   // Listening
   mediaType: MediaType;
   mediaUrl: string;
@@ -84,11 +91,15 @@ function emptyQuestion(): Question {
   };
 }
 
+function emptyTask(): Task {
+  return { _id: uid(), title: "", instruction: "", questions: [] };
+}
+
 function defaultSection(type: SectionType): Section {
   return {
     type,
     enabled: false,
-    questions: [],
+    tasks: [],
     mediaType: "audio",
     mediaUrl: "",
     mediaFile: null,
@@ -310,6 +321,73 @@ function QuestionEditor({
   );
 }
 
+// ── Task editor ───────────────────────────────────────────────────────────────
+
+function TaskEditor({
+  task,
+  index,
+  onUpdate,
+  onDelete,
+}: {
+  task: Task;
+  index: number;
+  onUpdate: (updated: Task) => void;
+  onDelete: () => void;
+}) {
+  const inp = { borderColor: "var(--brown-pale)", background: "white", color: "var(--brown-dark)" };
+  const lbl = { color: "var(--brown-light)", fontSize: 11, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.05em" };
+
+  const addQuestion = () => onUpdate({ ...task, questions: [...task.questions, emptyQuestion()] });
+  const updateQuestion = (qIdx: number, q: Question) =>
+    onUpdate({ ...task, questions: task.questions.map((qq, j) => j === qIdx ? q : qq) });
+  const deleteQuestion = (qIdx: number) =>
+    onUpdate({ ...task, questions: task.questions.filter((_, j) => j !== qIdx) });
+
+  return (
+    <div className="rounded-xl border-2 p-3.5 space-y-3" style={{ borderColor: "var(--brown-pale)", background: "white" }}>
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-bold shrink-0" style={{ color: "var(--brown-mid)" }}>Задание {index + 1}</span>
+        <div className="flex-1" />
+        <button type="button" onClick={onDelete} className="p-1 rounded hover:opacity-70" style={{ color: "#dc2626" }}>
+          <Trash2 size={14} />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div>
+          <label style={lbl}>Заголовок задания</label>
+          <input value={task.title} onChange={e => onUpdate({ ...task, title: e.target.value })}
+            className="w-full mt-1 px-2 py-1.5 rounded-lg border outline-none text-sm" style={inp}
+            placeholder="Complete with some/any" />
+        </div>
+        <div>
+          <label style={lbl}>Инструкция ученику</label>
+          <input value={task.instruction} onChange={e => onUpdate({ ...task, instruction: e.target.value })}
+            className="w-full mt-1 px-2 py-1.5 rounded-lg border outline-none text-sm" style={inp}
+            placeholder="Complete the voicemail with some or any." />
+        </div>
+      </div>
+
+      <div className="space-y-2 pl-3 border-l-2" style={{ borderColor: "var(--brown-pale)" }}>
+        {task.questions.map((q, qIdx) => (
+          <QuestionEditor
+            key={q._id}
+            q={q}
+            index={qIdx}
+            onUpdate={updated => updateQuestion(qIdx, updated)}
+            onDelete={() => deleteQuestion(qIdx)}
+          />
+        ))}
+        <button type="button" onClick={addQuestion}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border w-full justify-center text-xs font-medium hover:opacity-80 transition-all"
+          style={{ borderColor: "var(--brown-pale)", color: "var(--brown-mid)", borderStyle: "dashed" }}>
+          <Plus size={13} /> Добавить вопрос
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Main TestBuilder ──────────────────────────────────────────────────────────
 
 export default function TestBuilder({
@@ -339,21 +417,21 @@ export default function TestBuilder({
     setSections(prev => prev.map((s, i) => i === idx ? { ...s, ...patch } : s));
   };
 
-  const addQuestion = (sIdx: number) => {
+  const addTask = (sIdx: number) => {
     setSections(prev => prev.map((s, i) =>
-      i === sIdx ? { ...s, questions: [...s.questions, emptyQuestion()] } : s
+      i === sIdx ? { ...s, tasks: [...s.tasks, emptyTask()] } : s
     ));
   };
 
-  const updateQuestion = (sIdx: number, qIdx: number, q: Question) => {
+  const updateTask = (sIdx: number, tIdx: number, task: Task) => {
     setSections(prev => prev.map((s, i) =>
-      i === sIdx ? { ...s, questions: s.questions.map((qq, j) => j === qIdx ? q : qq) } : s
+      i === sIdx ? { ...s, tasks: s.tasks.map((tt, j) => j === tIdx ? task : tt) } : s
     ));
   };
 
-  const deleteQuestion = (sIdx: number, qIdx: number) => {
+  const deleteTask = (sIdx: number, tIdx: number) => {
     setSections(prev => prev.map((s, i) =>
-      i === sIdx ? { ...s, questions: s.questions.filter((_, j) => j !== qIdx) } : s
+      i === sIdx ? { ...s, tasks: s.tasks.filter((_, j) => j !== tIdx) } : s
     ));
   };
 
@@ -383,7 +461,7 @@ export default function TestBuilder({
         setUploading(false);
         if (!url) { setSaving(false); return; }
         finalSections = finalSections.map((s, i) =>
-          i === listeningIdx ? { ...s, media_url: url } : s
+          i === listeningIdx ? { ...s, mediaUrl: url } : s
         );
       }
     }
@@ -396,12 +474,17 @@ export default function TestBuilder({
           return {
             type: s.type,
             order_index: i,
-            questions: [{
-              type: "writing" as const,
-              prompt: s.writingPrompt,
-              options: null,
-              correct_answer: null,
-              points: s.writingPoints,
+            tasks: [{
+              order_index: 0,
+              title: null,
+              instruction: null,
+              questions: [{
+                type: "writing" as const,
+                prompt: s.writingPrompt,
+                options: null,
+                correct_answer: null,
+                points: s.writingPoints,
+              }],
             }],
           };
         }
@@ -413,12 +496,17 @@ export default function TestBuilder({
           media_url: s.type === "listening" ? (s.mediaType !== "audio" ? s.mediaUrl : (finalSections[listeningIdx]?.mediaUrl ?? null)) : null,
           max_plays: s.type === "listening" ? s.maxPlays : 2,
           hide_subtitles: s.type === "listening" ? s.hideSubtitles : false,
-          questions: s.questions.map(q => ({
-            type: q.type,
-            prompt: q.prompt,
-            points: q.points,
-            options: buildOptions(q),
-            correct_answer: buildCorrectAnswer(q),
+          tasks: s.tasks.map((t, ti) => ({
+            order_index: ti,
+            title: t.title.trim() || null,
+            instruction: t.instruction.trim() || null,
+            questions: t.questions.map(q => ({
+              type: q.type,
+              prompt: q.prompt,
+              points: q.points,
+              options: buildOptions(q),
+              correct_answer: buildCorrectAnswer(q),
+            })),
           })),
         };
       });
@@ -614,21 +702,21 @@ export default function TestBuilder({
                     </div>
                   </div>
                 ) : (
-                  /* Questions */
-                  <div className="space-y-2">
-                    {s.questions.map((q, qIdx) => (
-                      <QuestionEditor
-                        key={q._id}
-                        q={q}
-                        index={qIdx}
-                        onUpdate={updated => updateQuestion(sIdx, qIdx, updated)}
-                        onDelete={() => deleteQuestion(sIdx, qIdx)}
+                  /* Tasks */
+                  <div className="space-y-3">
+                    {s.tasks.map((t, tIdx) => (
+                      <TaskEditor
+                        key={t._id}
+                        task={t}
+                        index={tIdx}
+                        onUpdate={updated => updateTask(sIdx, tIdx, updated)}
+                        onDelete={() => deleteTask(sIdx, tIdx)}
                       />
                     ))}
-                    <button type="button" onClick={() => addQuestion(sIdx)}
+                    <button type="button" onClick={() => addTask(sIdx)}
                       className="flex items-center gap-1.5 px-3 py-2 rounded-xl border w-full justify-center text-sm font-medium hover:opacity-80 transition-all"
                       style={{ borderColor: "var(--brown-pale)", color: "var(--brown-mid)", borderStyle: "dashed" }}>
-                      <Plus size={14} /> Добавить вопрос
+                      <Plus size={14} /> Добавить задание
                     </button>
                   </div>
                 )}

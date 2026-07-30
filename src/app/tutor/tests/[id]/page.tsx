@@ -52,7 +52,7 @@ export default async function TestViewPage({ params }: { params: Promise<{ id: s
 
   const { data: sections } = await supabase
     .from("test_sections")
-    .select("*, test_questions(*)")
+    .select("*, test_tasks(*, test_questions(*))")
     .eq("test_id", id)
     .order("order_index");
 
@@ -61,10 +61,32 @@ export default async function TestViewPage({ params }: { params: Promise<{ id: s
     .select("*, test_questions(prompt, type, points, options, correct_answer)")
     .eq("test_id", id);
 
+  type QuestionRow = {
+    id: string; type: string; prompt: string | null;
+    options: Record<string, unknown> | null;
+    correct_answer: Record<string, unknown> | null;
+    points: number; order_index: number;
+  };
+  type TaskRow = { id: string; order_index: number; title: string | null; instruction: string | null; test_questions: QuestionRow[] };
+  type SectionRow = {
+    id: string; type: string; media_type: string | null; media_url: string | null;
+    max_plays: number; hide_subtitles: boolean; test_tasks: TaskRow[];
+  };
+  type TaskWithSortedQuestions = TaskRow & { questionsSorted: QuestionRow[] };
+  type SectionWithTasks = SectionRow & { tasksSorted: TaskWithSortedQuestions[] };
+
+  const sectionsWithTasks: SectionWithTasks[] = ((sections ?? []) as SectionRow[]).map((s) => ({
+    ...s,
+    tasksSorted: (s.test_tasks ?? [])
+      .map((t): TaskWithSortedQuestions => ({ ...t, questionsSorted: [...t.test_questions].sort((a, b) => a.order_index - b.order_index) }))
+      .sort((a, b) => a.order_index - b.order_index),
+  }));
+
   const student = (test.students as unknown) as { name: string; access_code: string } | null;
-  const totalPoints = (sections ?? []).flatMap(s =>
-    (s.test_questions as { points: number }[] ?? []).map(q => q.points)
-  ).reduce((a, b) => a + b, 0);
+  const totalPoints = sectionsWithTasks
+    .flatMap(s => s.tasksSorted)
+    .flatMap(t => t.questionsSorted)
+    .reduce((a, q) => a + q.points, 0);
 
   const card = { background: "white", borderColor: "var(--brown-pale)", boxShadow: "var(--shadow-card)" };
 
@@ -162,23 +184,16 @@ export default async function TestViewPage({ params }: { params: Promise<{ id: s
         )}
       </div>
 
-      {/* Sections and questions */}
+      {/* Sections, tasks and questions */}
       <div className="space-y-4">
-        {(sections ?? []).map(section => {
-          const qs = (section.test_questions as {
-            id: string; type: string; prompt: string | null;
-            options: Record<string, unknown> | null;
-            correct_answer: Record<string, unknown> | null;
-            points: number; order_index: number;
-          }[]).sort((a, b) => a.order_index - b.order_index);
-
+        {sectionsWithTasks.map(section => {
+          const sectionQs = section.tasksSorted.flatMap(t => t.questionsSorted);
           const sectionAnswers = (answers ?? []).filter(a =>
-            qs.some(q => q.id === a.question_id)
+            sectionQs.some(q => q.id === a.question_id)
           );
-
           const sectionAutoScore = sectionAnswers.reduce((s, a) => s + (a.auto_score ?? 0), 0);
           const sectionManualScore = sectionAnswers.reduce((s, a) => s + (a.manual_score ?? 0), 0);
-          const sectionMax = qs.reduce((s, q) => s + q.points, 0);
+          const sectionMax = sectionQs.reduce((s, q) => s + q.points, 0);
 
           return (
             <div key={section.id} className="rounded-2xl border p-4" style={card}>
@@ -207,66 +222,85 @@ export default async function TestViewPage({ params }: { params: Promise<{ id: s
                 </div>
               )}
 
-              <div className="space-y-2">
-                {qs.map((q, qIdx) => {
-                  const ans = sectionAnswers.find(a => a.question_id === q.id);
-                  return (
-                    <div key={q.id} className="p-3 rounded-xl text-sm"
-                      style={{ background: "#f8f4ee", borderLeft: "3px solid var(--brown-pale)" }}>
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1">
-                          <span className="font-medium" style={{ color: "var(--brown-light)" }}>
-                            {qIdx + 1}. <span className="text-xs px-1.5 py-0.5 rounded"
-                              style={{ background: "white", color: "var(--brown-mid)" }}>
-                              {Q_LABEL[q.type]}
-                            </span>
-                          </span>
-                          {q.prompt && (
-                            <p className="mt-1 whitespace-pre-wrap" style={{ color: "var(--brown-dark)" }}>{q.prompt}</p>
-                          )}
-
-                          {/* Options preview */}
-                          {q.type === "mcq" && q.options?.choices && (
-                            <div className="mt-1.5 space-y-0.5">
-                              {(q.options.choices as string[]).map((c, ci) => {
-                                const letter = ["A", "B", "C", "D"][ci];
-                                const isCorrect = (q.correct_answer as { answer: string })?.answer === letter;
-                                const studentPicked = ans ? (ans.answer as { answer: string })?.answer === letter : false;
-                                return (
-                                  <div key={ci} className="flex items-center gap-1.5"
-                                    style={{ color: isCorrect ? "#1a7a3a" : "var(--brown-light)" }}>
-                                    <span className="font-bold">{letter}.</span> {c}
-                                    {isCorrect && " ✓"}
-                                    {studentPicked && !isCorrect && " ✗"}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-
-                          {q.type === "writing" && ans && (
-                            <div className="mt-2 p-2 rounded-lg" style={{ background: "white" }}>
-                              <p style={{ color: "var(--brown-dark)" }}>
-                                {(ans.answer as { text: string })?.text ?? "—"}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                        <div className="text-right shrink-0">
-                          <div className="text-xs font-medium" style={{ color: "var(--brown-mid)" }}>
-                            {ans ? (
-                              <span style={{ color: ans.is_correct ? "#1a7a3a" : "var(--brown-mid)" }}>
-                                {(ans.auto_score ?? 0) + (ans.manual_score ?? 0)} / {q.points}
-                              </span>
-                            ) : (
-                              <span style={{ color: "var(--brown-light)" }}>{q.points} б.</span>
-                            )}
-                          </div>
-                        </div>
+              <div className="space-y-3">
+                {section.tasksSorted.map((task, taskIdx) => (
+                  <div key={task.id} className="rounded-xl p-3" style={{ background: "#f8f4ee" }}>
+                    {(task.title || task.instruction) && (
+                      <div className="mb-2">
+                        {task.title && (
+                          <p className="text-sm font-semibold" style={{ color: "var(--brown-dark)" }}>
+                            Задание {taskIdx + 1}. {task.title}
+                          </p>
+                        )}
+                        {task.instruction && (
+                          <p className="text-xs mt-0.5" style={{ color: "var(--brown-mid)" }}>{task.instruction}</p>
+                        )}
                       </div>
+                    )}
+
+                    <div className="space-y-2">
+                      {task.questionsSorted.map((q, qIdx) => {
+                        const ans = sectionAnswers.find(a => a.question_id === q.id);
+                        return (
+                          <div key={q.id} className="p-3 rounded-xl text-sm"
+                            style={{ background: "white", borderLeft: "3px solid var(--brown-pale)" }}>
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1">
+                                <span className="font-medium" style={{ color: "var(--brown-light)" }}>
+                                  {qIdx + 1}. <span className="text-xs px-1.5 py-0.5 rounded"
+                                    style={{ background: "#f8f4ee", color: "var(--brown-mid)" }}>
+                                    {Q_LABEL[q.type]}
+                                  </span>
+                                </span>
+                                {q.prompt && (
+                                  <p className="mt-1 whitespace-pre-wrap" style={{ color: "var(--brown-dark)" }}>{q.prompt}</p>
+                                )}
+
+                                {/* Options preview */}
+                                {q.type === "mcq" && q.options?.choices && (
+                                  <div className="mt-1.5 space-y-0.5">
+                                    {(q.options.choices as string[]).map((c, ci) => {
+                                      const letter = ["A", "B", "C", "D"][ci];
+                                      const isCorrect = (q.correct_answer as { answer: string })?.answer === letter;
+                                      const studentPicked = ans ? (ans.answer as { answer: string })?.answer === letter : false;
+                                      return (
+                                        <div key={ci} className="flex items-center gap-1.5"
+                                          style={{ color: isCorrect ? "#1a7a3a" : "var(--brown-light)" }}>
+                                          <span className="font-bold">{letter}.</span> {c}
+                                          {isCorrect && " ✓"}
+                                          {studentPicked && !isCorrect && " ✗"}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+
+                                {q.type === "writing" && ans && (
+                                  <div className="mt-2 p-2 rounded-lg" style={{ background: "#f8f4ee" }}>
+                                    <p style={{ color: "var(--brown-dark)" }}>
+                                      {(ans.answer as { text: string })?.text ?? "—"}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="text-right shrink-0">
+                                <div className="text-xs font-medium" style={{ color: "var(--brown-mid)" }}>
+                                  {ans ? (
+                                    <span style={{ color: ans.is_correct ? "#1a7a3a" : "var(--brown-mid)" }}>
+                                      {(ans.auto_score ?? 0) + (ans.manual_score ?? 0)} / {q.points}
+                                    </span>
+                                  ) : (
+                                    <span style={{ color: "var(--brown-light)" }}>{q.points} б.</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
             </div>
           );
