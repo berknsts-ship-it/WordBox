@@ -23,7 +23,7 @@ export default async function StudentTestPage({
 
   const { data: test } = await db
     .from("tests")
-    .select("id, title, status, time_limit_min, play_count, max_plays, started_at")
+    .select("id, title, status, time_limit_min, play_count, started_at")
     .eq("id", id)
     .eq("student_id", student.id)
     .single();
