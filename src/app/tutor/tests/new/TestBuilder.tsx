@@ -573,6 +573,19 @@ export default function TestBuilder({
     }));
   };
 
+  const moveSectionUpdown = (idx: number, dir: -1 | 1) => {
+    setSections(prev => {
+      const arr = [...prev];
+      let target = idx + dir;
+      while (target >= 0 && target < arr.length && !arr[target].enabled) {
+        target += dir;
+      }
+      if (target < 0 || target >= arr.length) return prev;
+      [arr[idx], arr[target]] = [arr[target], arr[idx]];
+      return arr;
+    });
+  };
+
   async function uploadAudio(file: File): Promise<string | null> {
     const formData = new FormData();
     formData.append("file", file);
@@ -755,14 +768,31 @@ export default function TestBuilder({
 
         {/* Section editors */}
         <div className="space-y-6">
-          {sections.map((s, sIdx) => {
-            if (!s.enabled) return null;
-            return (
+          {(() => {
+            const enabledIdxs = sections.map((_, i) => i).filter(i => sections[i].enabled);
+            return sections.map((s, sIdx) => {
+              if (!s.enabled) return null;
+              const pos = enabledIdxs.indexOf(sIdx);
+              const canMoveUp = pos > 0;
+              const canMoveDown = pos < enabledIdxs.length - 1;
+              return (
               <div key={s.type} className="rounded-xl border p-4 space-y-4"
                 style={{ borderColor: "var(--brown-pale)", background: "#fefcf8" }}>
-                <h3 className="font-semibold text-sm" style={{ color: "var(--brown-dark)" }}>
-                  {SECTION_LABELS[s.type]}
-                </h3>
+                <div className="flex items-center gap-2">
+                  <div className="flex flex-col shrink-0 -my-1">
+                    <button type="button" onClick={() => moveSectionUpdown(sIdx, -1)} disabled={!canMoveUp}
+                      className="disabled:opacity-25 hover:opacity-70" style={{ color: "var(--brown-mid)" }} title="Раздел выше">
+                      <ArrowUp size={13} />
+                    </button>
+                    <button type="button" onClick={() => moveSectionUpdown(sIdx, 1)} disabled={!canMoveDown}
+                      className="disabled:opacity-25 hover:opacity-70" style={{ color: "var(--brown-mid)" }} title="Раздел ниже">
+                      <ArrowDown size={13} />
+                    </button>
+                  </div>
+                  <h3 className="font-semibold text-sm" style={{ color: "var(--brown-dark)" }}>
+                    {SECTION_LABELS[s.type]}
+                  </h3>
+                </div>
 
                 {/* Listening media */}
                 {s.type === "listening" && (
@@ -869,8 +899,9 @@ export default function TestBuilder({
                   </div>
                 )}
               </div>
-            );
-          })}
+              );
+            });
+          })()}
 
           {sections.every(s => !s.enabled) && (
             <p className="text-sm text-center py-4" style={{ color: "var(--brown-light)" }}>

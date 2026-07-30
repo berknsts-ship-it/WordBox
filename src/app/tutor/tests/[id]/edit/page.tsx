@@ -14,7 +14,7 @@ type QuestionRow = {
 };
 type TaskRow = { id: string; order_index: number; title: string | null; instruction: string | null; test_questions: QuestionRow[] };
 type SectionRow = {
-  type: SectionType; media_type: string | null; media_url: string | null;
+  type: SectionType; order_index: number; media_type: string | null; media_url: string | null;
   max_plays: number; hide_subtitles: boolean; test_tasks: TaskRow[];
 };
 
@@ -61,8 +61,16 @@ function emptySection(type: SectionType): Section {
 }
 
 function buildInitialSections(dbSections: SectionRow[]): Section[] {
-  const order: SectionType[] = ["listening", "reading", "vocabulary", "writing"];
-  return order.map((type) => {
+  const canonicalOrder: SectionType[] = ["listening", "reading", "vocabulary", "writing"];
+  // Sections the tutor has saved keep the order she arranged (order_index);
+  // any section type she never enabled has no row yet, so it's appended at
+  // the end in canonical order (disabled, ready to be turned on).
+  const ordered = [...dbSections].sort((a, b) => a.order_index - b.order_index);
+  const orderedTypes = ordered.map((s) => s.type);
+  const missingTypes = canonicalOrder.filter((t) => !orderedTypes.includes(t));
+  const types = [...orderedTypes, ...missingTypes];
+
+  return types.map((type) => {
     const dbSec = dbSections.find((s) => s.type === type);
     if (!dbSec) return emptySection(type);
 
@@ -126,7 +134,7 @@ export default async function EditTestPage({ params }: { params: Promise<{ id: s
 
   const { data: sections } = await supabase
     .from("test_sections")
-    .select("type, media_type, media_url, max_plays, hide_subtitles, test_tasks(id, order_index, title, instruction, test_questions(id, type, prompt, options, correct_answer, points, order_index))")
+    .select("type, order_index, media_type, media_url, max_plays, hide_subtitles, test_tasks(id, order_index, title, instruction, test_questions(id, type, prompt, options, correct_answer, points, order_index))")
     .eq("test_id", id);
 
   const initial: TestBuilderInitial = {
