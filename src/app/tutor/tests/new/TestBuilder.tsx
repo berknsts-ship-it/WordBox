@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, ChevronDown, ChevronUp, GripVertical } from "lucide-react";
+import { Plus, Trash2, ChevronDown, ChevronUp, GripVertical, ArrowUp, ArrowDown, CheckCircle2 } from "lucide-react";
 import { createTest, updateTest } from "@/app/actions/tests";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -114,6 +114,21 @@ function countGaps(template: string): number {
   return (template.match(/___/g) ?? []).length;
 }
 
+// Every question type's correct-answer control lives inside this box —
+// same green frame and header everywhere, so it's always obvious which
+// part of the form is "what gets checked" vs. just the question text.
+function AnswerKeyBox({ hint, children }: { hint?: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-lg p-3 border-2" style={{ background: "#f0fdf4", borderColor: "#86efac" }}>
+      <p className="text-xs font-bold uppercase tracking-wide mb-2 flex items-center gap-1.5" style={{ color: "#15803d" }}>
+        <CheckCircle2 size={13} /> Правильный ответ — по нему проверяется работа
+      </p>
+      {hint && <p className="text-xs mb-2" style={{ color: "#15803d", opacity: 0.85 }}>{hint}</p>}
+      {children}
+    </div>
+  );
+}
+
 // ── Question editor ───────────────────────────────────────────────────────────
 
 function QuestionEditor({
@@ -123,6 +138,10 @@ function QuestionEditor({
   onDelete,
   taskOptions,
   onMoveToTask,
+  onMoveUp,
+  onMoveDown,
+  canMoveUp,
+  canMoveDown,
 }: {
   q: Question;
   index: number;
@@ -130,6 +149,10 @@ function QuestionEditor({
   onDelete: () => void;
   taskOptions?: { index: number; label: string }[];
   onMoveToTask?: (toTaskIndex: number) => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
 }) {
   const [open, setOpen] = useState(true);
   const set = (patch: Partial<Question>) => onUpdate({ ...q, ...patch });
@@ -143,7 +166,16 @@ function QuestionEditor({
       <div className="flex items-center gap-2 px-3 py-2 cursor-pointer select-none"
         style={{ background: "#fdf8f0" }}
         onClick={() => setOpen(o => !o)}>
-        <GripVertical size={14} style={{ color: "var(--brown-light)" }} />
+        <div className="flex flex-col shrink-0 -my-1" onClick={e => e.stopPropagation()}>
+          <button type="button" onClick={onMoveUp} disabled={!canMoveUp}
+            className="disabled:opacity-25 hover:opacity-70" style={{ color: "var(--brown-mid)" }} title="Вопрос выше">
+            <ArrowUp size={12} />
+          </button>
+          <button type="button" onClick={onMoveDown} disabled={!canMoveDown}
+            className="disabled:opacity-25 hover:opacity-70" style={{ color: "var(--brown-mid)" }} title="Вопрос ниже">
+            <ArrowDown size={12} />
+          </button>
+        </div>
         <span className="text-sm font-medium flex-1" style={{ color: "var(--brown-dark)" }}>
           {index + 1}. {Q_LABELS[q.type]} — {q.points} б.
           {q.prompt && <span style={{ color: "var(--brown-light)" }}> · {q.prompt.slice(0, 40)}{q.prompt.length > 40 ? "…" : ""}</span>}
@@ -201,76 +233,81 @@ function QuestionEditor({
 
           {/* MCQ */}
           {q.type === "mcq" && (
-            <div>
-              <label style={lbl}>Варианты ответов</label>
-              <div className="mt-1 space-y-1.5">
-                {(["A", "B", "C", "D"] as const).map((letter, i) => (
-                  <div key={letter} className="flex items-center gap-2">
-                    <input type="radio" name={`mcq-${q._id}`} value={letter}
-                      checked={q.mcqCorrect === letter}
-                      onChange={() => set({ mcqCorrect: letter })}
-                      className="accent-amber-700 shrink-0" />
-                    <span className="text-sm font-bold w-4 shrink-0" style={{ color: "var(--brown-mid)" }}>{letter}</span>
-                    <input value={q.choices[i]} onChange={e => {
-                      const c = [...q.choices] as [string, string, string, string];
-                      c[i] = e.target.value;
-                      set({ choices: c });
-                    }}
-                      className="flex-1 px-2 py-1 rounded-lg border outline-none text-sm" style={inp}
-                      placeholder={`Вариант ${letter}`} />
-                  </div>
-                ))}
+            <AnswerKeyBox hint="Нажмите на вариант, который правильный — он подсветится зелёным.">
+              <div className="space-y-1.5">
+                {(["A", "B", "C", "D"] as const).map((letter, i) => {
+                  const isCorrect = q.mcqCorrect === letter;
+                  return (
+                    <div key={letter}
+                      onClick={() => set({ mcqCorrect: letter })}
+                      className="flex items-center gap-2 px-2 py-1.5 rounded-lg border-2 cursor-pointer transition-all"
+                      style={{ borderColor: isCorrect ? "#22c55e" : "var(--brown-pale)", background: isCorrect ? "#dcfce7" : "white" }}>
+                      <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                        style={{ background: isCorrect ? "#22c55e" : "#e5e7eb", color: isCorrect ? "white" : "var(--brown-mid)" }}>
+                        {isCorrect ? "✓" : letter}
+                      </span>
+                      <input value={q.choices[i]} onClick={e => e.stopPropagation()} onChange={e => {
+                        const c = [...q.choices] as [string, string, string, string];
+                        c[i] = e.target.value;
+                        set({ choices: c });
+                      }}
+                        className="flex-1 bg-transparent outline-none text-sm" style={{ color: "var(--brown-dark)" }}
+                        placeholder={`Вариант ${letter}`} />
+                    </div>
+                  );
+                })}
               </div>
-              <p className="text-xs mt-1" style={{ color: "var(--brown-light)" }}>Выберите радиокнопку рядом с правильным ответом</p>
-            </div>
+            </AnswerKeyBox>
           )}
 
           {/* True/False */}
           {q.type === "true_false" && (
-            <div>
-              <label style={lbl}>Правильный ответ</label>
-              <div className="flex gap-4 mt-1">
-                {(["true", "false"] as const).map(v => (
-                  <label key={v} className="flex items-center gap-1.5 cursor-pointer text-sm" style={{ color: "var(--brown-dark)" }}>
-                    <input type="radio" value={v} checked={q.tfCorrect === v}
-                      onChange={() => set({ tfCorrect: v })}
-                      className="accent-amber-700" />
-                    {v === "true" ? "True" : "False"}
-                  </label>
-                ))}
+            <AnswerKeyBox hint="Нажмите, что из этого верно.">
+              <div className="flex gap-3">
+                {(["true", "false"] as const).map(v => {
+                  const isCorrect = q.tfCorrect === v;
+                  return (
+                    <button key={v} type="button" onClick={() => set({ tfCorrect: v })}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border-2 text-sm font-semibold transition-all"
+                      style={{ borderColor: isCorrect ? "#22c55e" : "var(--brown-pale)", background: isCorrect ? "#dcfce7" : "white", color: "var(--brown-dark)" }}>
+                      {isCorrect && <CheckCircle2 size={14} style={{ color: "#22c55e" }} />}
+                      {v === "true" ? "True" : "False"}
+                    </button>
+                  );
+                })}
               </div>
-            </div>
+            </AnswerKeyBox>
           )}
 
           {/* Fill-in */}
           {q.type === "fill_in" && (
-            <div>
-              <label style={lbl}>Правильный ответ</label>
+            <AnswerKeyBox hint="То, что должен напечатать ученик. Регистр букв не важен.">
               <input value={q.fillCorrect} onChange={e => set({ fillCorrect: e.target.value })}
-                className="w-full mt-1 px-2 py-1.5 rounded-lg border outline-none text-sm" style={inp}
-                placeholder="Верный ответ (регистр не важен)" />
-            </div>
+                className="w-full px-2 py-1.5 rounded-lg border-2 outline-none text-sm bg-white"
+                style={{ borderColor: "#86efac", color: "var(--brown-dark)" }}
+                placeholder="Например: goes" />
+            </AnswerKeyBox>
           )}
 
           {/* Match */}
           {q.type === "match" && (
-            <div>
-              <label style={lbl}>Пары (левый → правый)</label>
-              <div className="mt-1 space-y-1.5">
+            <AnswerKeyBox hint="Ученик увидит буквы слева и перемешанные варианты справа — ему нужно подобрать пару. Каждая строка ниже уже и есть верная пара.">
+              <div className="space-y-1.5">
                 {q.matchLeft.map((_, i) => (
                   <div key={i} className="flex items-center gap-2">
+                    <span className="text-xs font-bold shrink-0 w-4" style={{ color: "#22c55e" }}>✓</span>
                     <input value={q.matchLeft[i]} onChange={e => {
                       const l = [...q.matchLeft]; l[i] = e.target.value;
                       set({ matchLeft: l });
                     }}
-                      className="flex-1 px-2 py-1 rounded-lg border outline-none text-sm" style={inp}
+                      className="flex-1 px-2 py-1 rounded-lg border outline-none text-sm bg-white" style={{ borderColor: "#86efac", color: "var(--brown-dark)" }}
                       placeholder="Левый" />
-                    <span style={{ color: "var(--brown-light)" }}>→</span>
+                    <span style={{ color: "#22c55e" }}>=</span>
                     <input value={q.matchRight[i]} onChange={e => {
                       const r = [...q.matchRight]; r[i] = e.target.value;
                       set({ matchRight: r });
                     }}
-                      className="flex-1 px-2 py-1 rounded-lg border outline-none text-sm" style={inp}
+                      className="flex-1 px-2 py-1 rounded-lg border outline-none text-sm bg-white" style={{ borderColor: "#86efac", color: "var(--brown-dark)" }}
                       placeholder="Правый" />
                     {q.matchLeft.length > 2 && (
                       <button type="button" onClick={() => {
@@ -289,48 +326,55 @@ function QuestionEditor({
                     matchRight: [...q.matchRight, ""],
                     matchCorrect: [...q.matchCorrect, q.matchLeft.length],
                   })}
-                  className="text-xs px-2 py-1 rounded-lg border"
-                  style={{ borderColor: "var(--brown-pale)", color: "var(--brown-mid)" }}>
+                  className="text-xs px-2 py-1 rounded-lg border bg-white"
+                  style={{ borderColor: "#86efac", color: "#15803d" }}>
                   + Добавить пару
                 </button>
               </div>
-              <p className="text-xs mt-1.5" style={{ color: "var(--brown-light)" }}>
-                Пары перемешаются для ученика. Ключ задаётся порядком строк (левый[i] → правый[i]).
-              </p>
-            </div>
+            </AnswerKeyBox>
           )}
 
           {/* Gap-fill */}
           {q.type === "gap_fill" && (
-            <div>
-              <label style={lbl}>Текст с пропусками (используйте ___ для каждого пропуска)</label>
-              <textarea value={q.gapTemplate} onChange={e => {
-                const template = e.target.value;
-                const n = countGaps(template);
-                const prev = q.gapCorrect;
-                const gaps = Array.from({ length: n }, (_, i) => prev[i] ?? "");
-                set({ gapTemplate: template, gapCorrect: gaps });
-              }}
-                rows={3}
-                className="w-full mt-1 px-2 py-1.5 rounded-lg border outline-none text-sm resize-none"
-                style={inp} placeholder="The cat ___ on the ___." />
+            <div className="space-y-2">
+              <div className="rounded-lg p-2.5" style={{ background: "#fdf8f0", border: "1px dashed var(--brown-pale)" }}>
+                <p className="text-xs" style={{ color: "var(--brown-mid)" }}>
+                  Напечатайте текст задания и поставьте <b>три подчёркивания ___</b> на месте каждого пропуска.
+                  Например: <i>&quot;She ___ every day.&quot;</i> — после этого ниже появится поле для правильного ответа на этот пропуск.
+                </p>
+              </div>
+              <div>
+                <label style={lbl}>Текст с пропусками</label>
+                <textarea value={q.gapTemplate} onChange={e => {
+                  const template = e.target.value;
+                  const n = countGaps(template);
+                  const prev = q.gapCorrect;
+                  const gaps = Array.from({ length: n }, (_, i) => prev[i] ?? "");
+                  set({ gapTemplate: template, gapCorrect: gaps });
+                }}
+                  rows={3}
+                  className="w-full mt-1 px-2 py-1.5 rounded-lg border outline-none text-sm resize-none"
+                  style={inp} placeholder="The cat ___ on the ___." />
+              </div>
 
               {countGaps(q.gapTemplate) > 0 && (
-                <div className="mt-2">
-                  <label style={lbl}>Правильные ответы</label>
-                  <div className="mt-1 flex flex-wrap gap-2">
+                <AnswerKeyBox hint={`Обнаружено пропусков: ${countGaps(q.gapTemplate)}. Впишите верный ответ для каждого по порядку.`}>
+                  <div className="flex flex-wrap gap-2">
                     {q.gapCorrect.map((g, i) => (
-                      <input key={i} value={g}
-                        onChange={e => {
-                          const gaps = [...q.gapCorrect]; gaps[i] = e.target.value;
-                          set({ gapCorrect: gaps });
-                        }}
-                        className="px-2 py-1 rounded-lg border outline-none text-sm"
-                        style={{ ...inp, width: 120 }}
-                        placeholder={`Пропуск ${i + 1}`} />
+                      <div key={i} className="flex items-center gap-1">
+                        <span className="text-xs font-bold" style={{ color: "#15803d" }}>{i + 1}.</span>
+                        <input value={g}
+                          onChange={e => {
+                            const gaps = [...q.gapCorrect]; gaps[i] = e.target.value;
+                            set({ gapCorrect: gaps });
+                          }}
+                          className="px-2 py-1 rounded-lg border outline-none text-sm bg-white"
+                          style={{ borderColor: "#86efac", color: "var(--brown-dark)", width: 110 }}
+                          placeholder={`Пропуск ${i + 1}`} />
+                      </div>
                     ))}
                   </div>
-                </div>
+                </AnswerKeyBox>
               )}
             </div>
           )}
@@ -349,6 +393,10 @@ function TaskEditor({
   onDelete,
   taskOptions,
   onMoveQuestion,
+  onMoveUp,
+  onMoveDown,
+  canMoveUp,
+  canMoveDown,
 }: {
   task: Task;
   index: number;
@@ -356,6 +404,10 @@ function TaskEditor({
   onDelete: () => void;
   taskOptions: { index: number; label: string }[];
   onMoveQuestion: (qIdx: number, toTaskIndex: number) => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
 }) {
   const inp = { borderColor: "var(--brown-pale)", background: "white", color: "var(--brown-dark)" };
   const lbl = { color: "var(--brown-light)", fontSize: 11, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.05em" };
@@ -365,12 +417,29 @@ function TaskEditor({
     onUpdate({ ...task, questions: task.questions.map((qq, j) => j === qIdx ? q : qq) });
   const deleteQuestion = (qIdx: number) =>
     onUpdate({ ...task, questions: task.questions.filter((_, j) => j !== qIdx) });
+  const moveQuestionUpdown = (qIdx: number, dir: -1 | 1) => {
+    const target = qIdx + dir;
+    if (target < 0 || target >= task.questions.length) return;
+    const qs = [...task.questions];
+    [qs[qIdx], qs[target]] = [qs[target], qs[qIdx]];
+    onUpdate({ ...task, questions: qs });
+  };
 
   const otherTaskOptions = taskOptions.filter(t => t.index !== index);
 
   return (
     <div className="rounded-xl border-2 p-3.5 space-y-3" style={{ borderColor: "var(--brown-pale)", background: "white" }}>
       <div className="flex items-center gap-2">
+        <div className="flex flex-col shrink-0 -my-1">
+          <button type="button" onClick={onMoveUp} disabled={!canMoveUp}
+            className="disabled:opacity-25 hover:opacity-70" style={{ color: "var(--brown-mid)" }} title="Задание выше">
+            <ArrowUp size={13} />
+          </button>
+          <button type="button" onClick={onMoveDown} disabled={!canMoveDown}
+            className="disabled:opacity-25 hover:opacity-70" style={{ color: "var(--brown-mid)" }} title="Задание ниже">
+            <ArrowDown size={13} />
+          </button>
+        </div>
         <span className="text-sm font-bold shrink-0" style={{ color: "var(--brown-mid)" }}>Задание {index + 1}</span>
         <div className="flex-1" />
         <button type="button" onClick={onDelete} className="p-1 rounded hover:opacity-70" style={{ color: "#dc2626" }}>
@@ -403,6 +472,10 @@ function TaskEditor({
             onDelete={() => deleteQuestion(qIdx)}
             taskOptions={otherTaskOptions}
             onMoveToTask={toIndex => onMoveQuestion(qIdx, toIndex)}
+            onMoveUp={() => moveQuestionUpdown(qIdx, -1)}
+            onMoveDown={() => moveQuestionUpdown(qIdx, 1)}
+            canMoveUp={qIdx > 0}
+            canMoveDown={qIdx < task.questions.length - 1}
           />
         ))}
         <button type="button" onClick={addQuestion}
@@ -485,6 +558,17 @@ export default function TestBuilder({
       const question = tasks[fromTaskIdx].questions[qIdx];
       tasks[fromTaskIdx] = { ...tasks[fromTaskIdx], questions: tasks[fromTaskIdx].questions.filter((_, j) => j !== qIdx) };
       tasks[toTaskIdx] = { ...tasks[toTaskIdx], questions: [...tasks[toTaskIdx].questions, question] };
+      return { ...s, tasks };
+    }));
+  };
+
+  const moveTaskUpdown = (sIdx: number, tIdx: number, dir: -1 | 1) => {
+    setSections(prev => prev.map((s, i) => {
+      if (i !== sIdx) return s;
+      const target = tIdx + dir;
+      if (target < 0 || target >= s.tasks.length) return s;
+      const tasks = [...s.tasks];
+      [tasks[tIdx], tasks[target]] = [tasks[target], tasks[tIdx]];
       return { ...s, tasks };
     }));
   };
@@ -771,6 +855,10 @@ export default function TestBuilder({
                         onDelete={() => deleteTask(sIdx, tIdx)}
                         taskOptions={s.tasks.map((tt, i) => ({ index: i, label: `Задание ${i + 1}${tt.title ? `: ${tt.title}` : ""}` }))}
                         onMoveQuestion={(qIdx, toTaskIndex) => moveQuestionToTask(sIdx, tIdx, qIdx, toTaskIndex)}
+                        onMoveUp={() => moveTaskUpdown(sIdx, tIdx, -1)}
+                        onMoveDown={() => moveTaskUpdown(sIdx, tIdx, 1)}
+                        canMoveUp={tIdx > 0}
+                        canMoveDown={tIdx < s.tasks.length - 1}
                       />
                     ))}
                     <button type="button" onClick={() => addTask(sIdx)}
