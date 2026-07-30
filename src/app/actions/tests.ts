@@ -366,6 +366,19 @@ type AnswerPayload = {
   answer: Record<string, unknown>;
 };
 
+// Autosave: called on a debounce from the client while the student is
+// still working. Upserts the whole answers blob — cheap enough at this
+// scale, and much simpler than diffing individual question changes.
+export async function saveAttempt(testId: string, studentId: string, answers: Record<string, Record<string, unknown>>) {
+  const db = createAdminClient();
+  const { error } = await db.from("test_attempts").upsert(
+    { test_id: testId, student_id: studentId, answers, status: "in_progress", updated_at: new Date().toISOString() },
+    { onConflict: "test_id" }
+  );
+  if (error) return { error: error.message };
+  return { ok: true };
+}
+
 export async function submitTest(testId: string, studentId: string, answers: AnswerPayload[]) {
   const db = createAdminClient();
 
@@ -415,6 +428,7 @@ export async function submitTest(testId: string, studentId: string, answers: Ans
 
   await db.from("test_answers").delete().eq("test_id", testId);
   if (answerRows.length > 0) await db.from("test_answers").insert(answerRows);
+  await db.from("test_attempts").update({ status: "submitted", updated_at: new Date().toISOString() }).eq("test_id", testId);
 
   const autoScore = answerRows.reduce((s, a) => s + (a.auto_score ?? 0), 0);
 

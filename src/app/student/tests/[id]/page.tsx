@@ -46,11 +46,12 @@ export default async function StudentTestPage({
       .sort((a, b) => a.order_index - b.order_index),
   }));
 
-  // Get existing answers if resuming
-  const { data: existingAnswers } = await db
-    .from("test_answers")
-    .select("question_id, answer")
-    .eq("test_id", id);
+  // Resume from the last autosaved draft, if any
+  const { data: attempt } = await db
+    .from("test_attempts")
+    .select("answers")
+    .eq("test_id", id)
+    .maybeSingle();
 
   return (
     <TestTaker
@@ -58,7 +59,7 @@ export default async function StudentTestPage({
       sections={sortedSections}
       studentId={student.id}
       studentCode={code ?? ""}
-      existingAnswers={existingAnswers ?? []}
+      initialAnswers={(attempt?.answers as Record<string, Record<string, unknown>>) ?? {}}
       themeId={student.theme ?? "default"}
     />
   );

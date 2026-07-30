@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { startTest, submitTest, incrementPlayCount } from "@/app/actions/tests";
+import { startTest, submitTest, incrementPlayCount, saveAttempt } from "@/app/actions/tests";
 import { Clock, Volume2, ExternalLink } from "lucide-react";
 import TestRewardIcons from "@/components/student/TestRewardIcons";
 
@@ -197,32 +197,46 @@ function WritingQuestion({ q, answer, onAnswer }: { q: Question; answer?: Record
 
 type SubmitResult = { hasWriting: boolean; stars?: number; autoScore?: number; grade?: number };
 
+type SaveStatus = "idle" | "saving" | "saved";
+
 export default function TestTaker({
-  test, sections, studentId, studentCode, existingAnswers, themeId,
+  test, sections, studentId, studentCode, initialAnswers, themeId,
 }: {
   test: { id: string; title: string; status: string; time_limit_min: number | null; play_count: number; started_at: string | null };
   sections: Section[];
   studentId: string;
   studentCode: string;
-  existingAnswers: { question_id: string; answer: Record<string, unknown> }[];
+  initialAnswers: AnswerMap;
   themeId: string;
 }) {
   const router = useRouter();
   const [started, setStarted] = useState(test.status === "in_progress");
-  const [answers, setAnswers] = useState<AnswerMap>(() => {
-    const m: AnswerMap = {};
-    existingAnswers.forEach(a => { m[a.question_id] = a.answer; });
-    return m;
-  });
+  const [answers, setAnswers] = useState<AnswerMap>(initialAnswers);
   const [playCount, setPlayCount] = useState(test.play_count);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<SubmitResult | null>(null);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const startedAt = useRef<Date | null>(test.started_at ? new Date(test.started_at) : null);
   const totalPoints = sections
     .flatMap(s => s.test_tasks)
     .flatMap(t => t.test_questions)
     .reduce((a, q) => a + q.points, 0);
+
+  // Autosave: debounce 2.5s after the last answer change, no user action
+  // needed. Skips the very first render (nothing has changed yet) so
+  // reopening an untouched test doesn't fire a pointless write.
+  const skipFirstSave = useRef(true);
+  useEffect(() => {
+    if (!started) return;
+    if (skipFirstSave.current) { skipFirstSave.current = false; return; }
+    setSaveStatus("saving");
+    const t = setTimeout(async () => {
+      const res = await saveAttempt(test.id, studentId, answers);
+      setSaveStatus(res?.error ? "idle" : "saved");
+    }, 2500);
+    return () => clearTimeout(t);
+  }, [answers, started, test.id, studentId]);
 
   // Timer
   useEffect(() => {
@@ -357,6 +371,11 @@ export default function TestTaker({
           {test.title}
         </h1>
         <div className="flex items-center gap-3 shrink-0">
+          {saveStatus !== "idle" && (
+            <span className="text-xs hidden sm:inline" style={{ color: saveStatus === "saving" ? "var(--brown-light)" : "#1a7a3a" }}>
+              {saveStatus === "saving" ? "Сохраняем…" : "Черновик сохранён ✓"}
+            </span>
+          )}
           {timeLeft !== null && (
             <span className="flex items-center gap-1 text-sm font-mono font-bold px-3 py-1 rounded-full"
               style={{ background: timeLeft < 120 ? "#fee2e2" : "#f0fdf4", color: timeLeft < 120 ? "#dc2626" : "#1a7a3a" }}>
