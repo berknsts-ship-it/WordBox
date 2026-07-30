@@ -34,7 +34,7 @@ SET task_id = t.id
 FROM test_tasks t
 WHERE t.section_id = q.section_id AND q.task_id IS NULL;
 
--- test_questions.section_id is now redundant (task_id -> test_tasks ->
--- section_id covers it) but left in place — dropping a column is hard to
--- reverse, and the app no longer reads it after this change. Safe to
--- drop in a later cleanup once this has been stable for a while.
+-- Correction: section_id turned out to still be NOT NULL on
+-- test_questions, so the app keeps writing both section_id and
+-- task_id on every insert going forward — it's not actually dead,
+-- just redundant with task_id.

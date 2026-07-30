@@ -79,6 +79,7 @@ async function insertSections(
       await supabase.from("test_questions").insert(
         task.questions.map((q, i) => ({
           task_id: t.id,
+          section_id: sec.id, // legacy NOT NULL column — still required by the DB
           order_index: i,
           type: q.type,
           prompt: q.prompt,
@@ -283,6 +284,7 @@ export async function assignTestToStudents(testId: string, studentIds: string[])
           await supabase.from("test_questions").insert(
             taskQuestions.map((q) => ({
               task_id: newTask.id,
+              section_id: newSec.id, // legacy NOT NULL column — still required by the DB
               order_index: q.order_index,
               type: q.type,
               prompt: q.prompt,
