@@ -86,7 +86,7 @@ export default async function StudentCabinetPage({
             <TabNav code={code} activeTab={activeTab} pendingHomework={pendingCount ?? 0} themeId={student.theme} />
           </div>
           <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-            <BoardTab studentId={student.id} role="student" />
+            <BoardTab studentId={student.id} role="student" myName={student.name} />
           </div>
         </div>
       ) : (

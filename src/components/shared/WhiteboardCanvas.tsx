@@ -7,10 +7,10 @@ import { saveBoardState, loadBoardState } from "@/app/actions/board";
 import {
   Pencil, Eraser, Trash2, Type, Highlighter, MousePointer2,
   BookOpen, ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut,
-  Maximize2, Hand, Navigation, Undo2, Redo2, Pointer, Lock, Unlock, ImagePlus, Link, FileText,
+  Maximize2, Hand, Undo2, Redo2, Pointer, Lock, Unlock, ImagePlus, Link, FileText,
   Shapes, LayoutTemplate, Map as MapIcon, Minimize2, Magnet, Smile, Sparkles,
   ChevronsUp, ChevronsDown, ChevronUp, ChevronDown,
-  LocateFixed, LockKeyhole, LockKeyholeOpen,
+  LocateFixed, LockKeyhole, LockKeyholeOpen, Users, Cast,
 } from "lucide-react";
 
 // ── types ─────────────────────────────────────────────────────────────────────
@@ -123,12 +123,12 @@ type WsEvent =
   | { type: "update";  item: DrawItem }
   | { type: "clear" }
   | { type: "laser";   x: number; y: number }
-  | { type: "cursor";  x: number; y: number }
-  | { type: "viewport"; zoom: number; panX: number; panY: number }
+  | { type: "cursor";  x: number; y: number; name: string; senderId: string; color: string }
+  | { type: "viewport"; zoom: number; panX: number; panY: number; senderId: string }
   | { type: "pdf_page"; pdfUrl: string; pdfPage: number }
   | { type: "pdf_clear" }
   | { type: "ruling";  ruling: Ruling }
-  | { type: "goto";     zoom: number; panX: number; panY: number }
+  | { type: "follow_state"; active: boolean; leaderId: string; name: string; zoom: number; panX: number; panY: number }
   | { type: "lock_all"; locked: boolean }
   | { type: "video_sync"; id: string; action: "play" | "pause" | "seek"; position: number; sentAt: number }
   | { type: "audio_sync"; id: string; action: "play" | "pause" | "seek"; position: number; sentAt: number }
@@ -1041,8 +1041,10 @@ function parseFormula(input: string): ((x: number) => number) | null {
 }
 
 // ── component ─────────────────────────────────────────────────────────────────
-const WhiteboardCanvas = forwardRef<WhiteboardRef, { roomId: string; role?: "tutor" | "student"; materials?: BoardMaterial[] }>(
-function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
+const PARTICIPANT_COLORS = ["#4a80f0","#e05050","#20a060","#e08020","#8060d0","#d04090","#20a0a0","#806030"];
+
+const WhiteboardCanvas = forwardRef<WhiteboardRef, { roomId: string; role?: "tutor" | "student"; materials?: BoardMaterial[]; myName?: string }>(
+function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, ref) {
 
   const containerRef    = useRef<HTMLDivElement>(null);
   const canvasRef       = useRef<HTMLCanvasElement>(null);
@@ -1067,15 +1069,27 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
   const draftIdRef    = useRef("");
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const viewRef       = useRef({ zoom: 1, panX: 0, panY: 0 });
-  const remoteViewportRef      = useRef<{ zoom: number; panX: number; panY: number } | null>(null);
+  const remoteViewportsRef     = useRef<Map<string, { zoom: number; panX: number; panY: number }>>(new Map());
   const viewportThrottleRef    = useRef(0);
   const skipViewportBroadcast  = useRef(false);
   const gotoAnimRef            = useRef<{ rafId: number } | null>(null);
+  const mySenderIdRef  = useRef(Math.random().toString(36).slice(2));
+  const myColor = role === "tutor" ? "#5555e0" : PARTICIPANT_COLORS[parseInt(mySenderIdRef.current.slice(0,6), 36) % PARTICIPANT_COLORS.length];
+  // Follow-me / presenter mode: tutor toggles `presenting`, student tracks who (if
+  // anyone) they're currently following. Opting out ("Отвязаться") just clears it;
+  // a fresh follow_state:true broadcast re-engages regardless of a prior opt-out.
+  const [presenting,   setPresenting]   = useState(false);
+  const presentingRef  = useRef(false);
+  const [followInfo,   setFollowInfo]   = useState<{ leaderId: string; leaderName: string } | null>(null);
+  const followLeaderIdRef = useRef<string | null>(null);
+  // Online participants, via Supabase Realtime Presence on the same board channel.
+  type Participant = { id: string; name: string; color: string; role: "tutor" | "student" };
+  const [participants, setParticipants] = useState<Map<string, Participant>>(() => new Map());
+  const [showParticipants, setShowParticipants] = useState(false);
   const rulingRef     = useRef<Ruling>("none");
   const pdfPageRef    = useRef<number | null>(null); // null = no PDF active
 
   const [vpZoom,      setVpZoom]      = useState(100);
-  const [hasRemoteViewport, setHasRemoteViewport] = useState(false);
   const [ruling,      setRulingUI]    = useState<Ruling>("none");
   const [rulingSize,  setRulingSize]  = useState<RulingSize>("M");
   const rulingSizeRef = useRef<RulingSize>("M");
@@ -1187,10 +1201,11 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
   // laser / cursor overlays
   const [laserPos,     setLaserPos]     = useState<Pt|null>(null);
   const [ownLaser,     setOwnLaser]     = useState<Pt|null>(null);
-  const [remoteCursor, setRemoteCursor] = useState<Pt|null>(null);
+  type RemoteCursorEntry = { x: number; y: number; name: string; color: string };
+  const [remoteCursors, setRemoteCursors] = useState<Map<string, RemoteCursorEntry>>(() => new Map());
   const laserTimer        = useRef<ReturnType<typeof setTimeout>|null>(null);
   const ownLaserTimer     = useRef<ReturnType<typeof setTimeout>|null>(null);
-  const remoteCursorTimer = useRef<ReturnType<typeof setTimeout>|null>(null);
+  const remoteCursorTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const cursorThrottle    = useRef(0);
 
   // pdf
@@ -1478,11 +1493,14 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
   const applyView = useCallback((zoom: number, panX: number, panY: number) => {
     viewRef.current = { zoom, panX, panY };
     setVpZoom(Math.round(zoom * 100)); scheduleRender();
-    if (role === "student" && !skipViewportBroadcast.current) {
+    // Student always broadcasts viewport (so the tutor can see their position);
+    // the tutor only broadcasts while presenting (follow-me mode), so followers
+    // can mirror the tutor's pan/zoom live.
+    if ((role === "student" || presentingRef.current) && !skipViewportBroadcast.current) {
       const now = Date.now();
       if (now - viewportThrottleRef.current > 120) {
         viewportThrottleRef.current = now;
-        channelRef.current?.send({ type: "broadcast", event: "draw", payload: { type: "viewport", zoom, panX, panY } });
+        channelRef.current?.send({ type: "broadcast", event: "draw", payload: { type: "viewport", zoom, panX, panY, senderId: mySenderIdRef.current } });
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1715,14 +1733,16 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
     render(); setPdf(null); send({ type: "pdf_clear" });
   };
 
-  const animateGoto = useCallback((tZoom: number, tPanX: number, tPanY: number) => {
+  // Jump-to-participant, follow_state, and continuous follow-mode mirroring all
+  // fly through here — 400-600ms ease-in-out by default; follow-mode's continuous
+  // updates pass a shorter duration since those arrive every ~120ms.
+  const animateGoto = useCallback((tZoom: number, tPanX: number, tPanY: number, duration = 500) => {
     if (gotoAnimRef.current) cancelAnimationFrame(gotoAnimRef.current.rafId);
     const { zoom: fz, panX: fx, panY: fy } = viewRef.current;
-    const DURATION = 380;
     const t0 = performance.now();
     const step = (now: number) => {
-      const p = Math.min(1, (now - t0) / DURATION);
-      const e = 1 - Math.pow(1 - p, 3);
+      const p = Math.min(1, (now - t0) / duration);
+      const e = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2; // ease-in-out cubic
       skipViewportBroadcast.current = true;
       try { applyView(fz + (tZoom - fz) * e, fx + (tPanX - fx) * e, fy + (tPanY - fy) * e); }
       finally { skipViewportBroadcast.current = false; }
@@ -1736,26 +1756,31 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
   useEffect(() => {
     const supabase = createClient();
     const ch = supabase
-      .channel(`board-${roomId}`, { config: { broadcast: { self: false } } })
+      .channel(`board-${roomId}`, { config: { broadcast: { self: false }, presence: { key: mySenderIdRef.current } } })
       .on("broadcast", { event: "draw" }, ({ payload }: { payload: WsEvent }) => {
         if (payload.type === "clear")     { itemsRef.current = []; remotePathsRef.current.clear(); render(); return; }
         if (payload.type === "pdf_clear") { pdfOffscreen.current = null; render(); setPdf(null); return; }
         if (payload.type === "pdf_page")  { loadPdfPage(payload.pdfUrl, "", payload.pdfPage); return; }
         if (payload.type === "viewport")  {
-          remoteViewportRef.current = { zoom: payload.zoom, panX: payload.panX, panY: payload.panY };
-          if (role === "student") {
-            skipViewportBroadcast.current = true;
-            try { applyView(payload.zoom, payload.panX, payload.panY); }
-            finally { skipViewportBroadcast.current = false; }
-          } else {
-            setHasRemoteViewport(true);
-            renderMinimapFnRef.current?.();
+          remoteViewportsRef.current.set(payload.senderId, { zoom: payload.zoom, panX: payload.panX, panY: payload.panY });
+          if (role === "tutor") renderMinimapFnRef.current?.();
+          // Follow-me: only mirror the current leader's viewport, and only while
+          // actively following (not after opting out). Animated, not an instant snap.
+          if (followLeaderIdRef.current && payload.senderId === followLeaderIdRef.current) {
+            animateGoto(payload.zoom, payload.panX, payload.panY, 180);
           }
           return;
         }
-        if (payload.type === "goto") {
-          remoteViewportRef.current = { zoom: payload.zoom, panX: payload.panX, panY: payload.panY };
-          animateGoto(payload.zoom, payload.panX, payload.panY);
+        if (payload.type === "follow_state") {
+          if (role === "tutor") return; // only students ever follow; the tutor is always the leader
+          if (payload.active) {
+            followLeaderIdRef.current = payload.leaderId;
+            setFollowInfo({ leaderId: payload.leaderId, leaderName: payload.name });
+            animateGoto(payload.zoom, payload.panX, payload.panY, 500);
+          } else if (followLeaderIdRef.current === payload.leaderId) {
+            followLeaderIdRef.current = null;
+            setFollowInfo(null);
+          }
           return;
         }
         if (payload.type === "ruling")    { setRuling(payload.ruling); return; }
@@ -1765,9 +1790,15 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
           laserTimer.current = setTimeout(() => setLaserPos(null), 2500); return;
         }
         if (payload.type === "cursor") {
-          setRemoteCursor({ x: payload.x, y: payload.y });
-          if (remoteCursorTimer.current) clearTimeout(remoteCursorTimer.current);
-          remoteCursorTimer.current = setTimeout(() => setRemoteCursor(null), 3000); return;
+          const { senderId, x, y, name: senderName, color: senderColor } = payload;
+          setRemoteCursors(prev => { const m = new Map(prev); m.set(senderId, { x, y, name: senderName, color: senderColor }); return m; });
+          const existing = remoteCursorTimers.current.get(senderId);
+          if (existing) clearTimeout(existing);
+          remoteCursorTimers.current.set(senderId, setTimeout(() => {
+            setRemoteCursors(prev => { const m = new Map(prev); m.delete(senderId); return m; });
+            remoteCursorTimers.current.delete(senderId);
+          }, 3000));
+          return;
         }
         if (payload.type === "path-pt") {
           const { id, x, y, color, size, eraser, highlight } = payload;
@@ -1827,14 +1858,48 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
           return;
         }
       })
-      .subscribe(s => setConnected(s === "SUBSCRIBED"));
+      .on("presence", { event: "sync" }, () => {
+        const state = ch.presenceState<Participant>();
+        const map = new Map<string, Participant>();
+        for (const key in state) {
+          const entry = state[key][0];
+          if (entry) map.set(entry.id, entry);
+        }
+        setParticipants(map);
+      })
+      .subscribe(async s => {
+        setConnected(s === "SUBSCRIBED");
+        if (s === "SUBSCRIBED") {
+          const name = myName ?? (role === "tutor" ? "Репетитор" : "Ученик");
+          await ch.track({ id: mySenderIdRef.current, name, color: myColor, role } satisfies Participant);
+        }
+      });
     channelRef.current = ch;
     return () => { supabase.removeChannel(ch); };
   }, [roomId, render, applyView, loadPdfPage, animateGoto]);
 
   const send = (p: WsEvent) => channelRef.current?.send({ type: "broadcast", event: "draw", payload: p });
-  const bringToMe  = () => { const { zoom, panX, panY } = viewRef.current; send({ type: "goto", zoom, panX, panY }); };
-  const findStudent = () => { if (remoteViewportRef.current) { const { zoom, panX, panY } = remoteViewportRef.current; applyView(zoom, panX, panY); } };
+
+  // Tutor-only: toggle presenter mode. Turning it on flies every student to the
+  // tutor's current view, then keeps mirroring the tutor's pan/zoom live until
+  // toggled off (or a student opts out individually via "Отвязаться").
+  const togglePresent = () => {
+    const next = !presentingRef.current;
+    presentingRef.current = next;
+    setPresenting(next);
+    const { zoom, panX, panY } = viewRef.current;
+    const name = myName ?? "Репетитор";
+    send({ type: "follow_state", active: next, leaderId: mySenderIdRef.current, name, zoom, panX, panY });
+  };
+  // Student-side: stop following the current presenter, without affecting anyone else.
+  const unfollow = () => { followLeaderIdRef.current = null; setFollowInfo(null); };
+
+  // One-time smooth fly to a participant's last known viewport — not a leash,
+  // just a single flight, then I'm free to move on my own again.
+  const jumpToParticipant = (id: string) => {
+    const v = remoteViewportsRef.current.get(id);
+    if (v) animateGoto(v.zoom, v.panX, v.panY, 500);
+  };
 
   const lockAll = (locked: boolean) => {
     itemsRef.current = itemsRef.current.map(it => ({ ...it, locked })) as DrawItem[];
@@ -1845,7 +1910,9 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
   // cursor broadcast
   const broadcastCursor = (wx: number, wy: number) => {
     const now = Date.now(); if (now - cursorThrottle.current < 33) return;
-    cursorThrottle.current = now; send({ type: "cursor", x: wx, y: wy });
+    cursorThrottle.current = now;
+    const name = myName ?? (role === "tutor" ? "Репетитор" : "Ученик");
+    send({ type: "cursor", x: wx, y: wy, name, senderId: mySenderIdRef.current, color: myColor });
   };
 
   // ── history ───────────────────────────────────────────────────────────────────
@@ -3079,7 +3146,6 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
   // ── overlay positions ─────────────────────────────────────────────────────────
   const laserScr  = laserPos     ? w2s(laserPos.x,     laserPos.y)     : null;
   const ownLaserS = ownLaser     ? w2s(ownLaser.x,     ownLaser.y)     : null;
-  const remoteScr = remoteCursor ? w2s(remoteCursor.x, remoteCursor.y) : null;
   const textScr   = textInput    ? w2s(textInput.wx,   textInput.wy)   : null;
   const { zoom }  = viewRef.current;
 
@@ -3260,22 +3326,24 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
     mctx.lineWidth = Math.max(1.5, dpr);
     mctx.strokeRect(vpDstX, vpDstY, vpDstW, vpDstH);
 
-    // Student viewport indicator (green) — tutor only
-    const rv = remoteViewportRef.current;
-    if (role === "tutor" && rv) {
-      const rvx1 = -rv.panX / rv.zoom, rvy1 = -rv.panY / rv.zoom;
-      const rvx2 = (cw - rv.panX) / rv.zoom, rvy2 = (ch - rv.panY) / rv.zoom;
-      const rvX = mx(rvx1), rvY = my(rvy1), rvW = (rvx2 - rvx1) * scale, rvH = (rvy2 - rvy1) * scale;
-      mctx.fillStyle = "rgba(34,197,94,0.08)";
-      mctx.fillRect(rvX, rvY, rvW, rvH);
-      mctx.strokeStyle = "#22c55e";
-      mctx.lineWidth = Math.max(1.5, dpr);
-      mctx.setLineDash([4 * dpr, 3 * dpr]);
-      mctx.strokeRect(rvX, rvY, rvW, rvH);
-      mctx.setLineDash([]);
+    // Student viewport indicator — tutor only, tinted with the student's own color
+    if (role === "tutor") {
+      for (const [sid, rv] of remoteViewportsRef.current) {
+        const rvx1 = -rv.panX / rv.zoom, rvy1 = -rv.panY / rv.zoom;
+        const rvx2 = (cw - rv.panX) / rv.zoom, rvy2 = (ch - rv.panY) / rv.zoom;
+        const rvX = mx(rvx1), rvY = my(rvy1), rvW = (rvx2 - rvx1) * scale, rvH = (rvy2 - rvy1) * scale;
+        const col = participants.get(sid)?.color ?? "#22c55e";
+        mctx.fillStyle = col + "14";
+        mctx.fillRect(rvX, rvY, rvW, rvH);
+        mctx.strokeStyle = col;
+        mctx.lineWidth = Math.max(1.5, dpr);
+        mctx.setLineDash([4 * dpr, 3 * dpr]);
+        mctx.strokeRect(rvX, rvY, rvW, rvH);
+        mctx.setLineDash([]);
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showMinimap, role]);
+  }, [showMinimap, role, participants]);
 
   // keep fn ref in sync
   useEffect(() => { renderMinimapFnRef.current = renderMinimap; }, [renderMinimap]);
@@ -3704,18 +3772,57 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
               style={{ borderColor: snapGrid ? "var(--brown-dark)" : "var(--brown-pale)", background: snapGrid ? "var(--brown-pale)" : "white", color: "var(--brown-dark)" }}>
               <Magnet size={13}/>
             </button>
+            <div className="relative">
+              <button onClick={() => setShowParticipants(p => !p)}
+                title="Участники — кто онлайн, перейти к участнику"
+                className="p-1.5 rounded-lg border-2 transition-all"
+                style={{ borderColor: showParticipants ? "var(--brown-dark)" : "var(--brown-pale)", color:"var(--brown-dark)", background: showParticipants ? "var(--brown-pale)" : "white" }}>
+                <Users size={13}/>
+              </button>
+              {showParticipants && (
+                <><div className="fixed inset-0 z-10" onClick={() => setShowParticipants(false)}/>
+                <div className="absolute top-full right-0 mt-1 z-20 w-60 rounded-xl border shadow-xl overflow-hidden"
+                  style={{ background:"white", borderColor:"var(--brown-pale)" }}>
+                  <div className="px-3 py-2 border-b text-xs font-bold uppercase tracking-wide"
+                    style={{ borderColor:"var(--brown-pale)", color:"var(--brown-light)" }}>
+                    Участники
+                  </div>
+                  {participants.size === 0 ? (
+                    <div className="px-3 py-3 text-xs" style={{ color:"var(--brown-light)" }}>Никого нет онлайн</div>
+                  ) : (
+                    [...participants.values()].map(p => (
+                      <div key={p.id} className="flex items-center gap-2 px-3 py-2 border-b last:border-0"
+                        style={{ borderColor:"var(--brown-pale)" }}>
+                        <div className="w-6 h-6 rounded-full border-2 border-white shadow-sm flex items-center justify-center shrink-0"
+                          style={{ background: p.color }}>
+                          <span style={{ fontSize:9, color:"white", fontWeight:700 }}>{p.name.charAt(0).toUpperCase()}</span>
+                        </div>
+                        <span className="text-sm flex-1 truncate" style={{ color:"var(--brown-dark)" }}>
+                          {p.id === mySenderIdRef.current ? `${p.name} (я)` : p.name}
+                        </span>
+                        {p.id !== mySenderIdRef.current && (
+                          <button onClick={() => { jumpToParticipant(p.id); setShowParticipants(false); }}
+                            disabled={!remoteViewportsRef.current.has(p.id)}
+                            title="Перейти к участнику"
+                            className="p-1 rounded-lg border disabled:opacity-30 shrink-0"
+                            style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
+                            <LocateFixed size={12}/>
+                          </button>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div></>
+              )}
+            </div>
             <Sep/>
             {role==="tutor" && (
               <>
-                <button onClick={bringToMe} title="Перенести ученика ко мне" className="p-1.5 rounded-lg border-2"
-                  style={{ borderColor:"var(--brown-dark)", color:"var(--brown-dark)" }}>
-                  <Navigation size={13}/>
-                </button>
-                <button onClick={findStudent} disabled={!hasRemoteViewport}
-                  title="Найти ученика — перейти к его позиции на доске"
-                  className="p-1.5 rounded-lg border-2 disabled:opacity-30"
-                  style={{ borderColor:"var(--brown-dark)", color:"var(--brown-dark)" }}>
-                  <LocateFixed size={13}/>
+                <button onClick={togglePresent}
+                  title={presenting ? "Остановить показ — ученик снова свободен" : "Показать всем / Привести ко мне — ученик следует за вашим экраном"}
+                  className="p-1.5 rounded-lg border-2 transition-all"
+                  style={{ borderColor:"var(--brown-dark)", color: presenting ? "white" : "var(--brown-dark)", background: presenting ? "var(--brown-dark)" : "transparent" }}>
+                  <Cast size={13}/>
                 </button>
                 <button onClick={() => lockAll(true)} title="Заблокировать все элементы"
                   className="p-1.5 rounded-lg border"
@@ -3776,6 +3883,18 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
         }}>
 
         <canvas ref={canvasRef} className="absolute inset-0" style={{ touchAction:"none" }} onContextMenu={e => e.preventDefault()} />
+
+        {/* Follow-me banner — shown to a student while they're mirroring the tutor's view */}
+        {followInfo && (
+          <div className="absolute top-2 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-3 py-1.5 rounded-xl shadow-lg text-xs font-medium"
+            style={{ background:"var(--brown-dark)", color:"white" }}>
+            <Cast size={13}/> {followInfo.leaderName} ведёт
+            <button onClick={unfollow} className="px-2 py-0.5 rounded-lg font-semibold hover:opacity-80"
+              style={{ background:"rgba(255,255,255,0.2)" }}>
+              Отвязаться
+            </button>
+          </div>
+        )}
 
         {/* Video overlays */}
         {itemsRef.current.filter(it => it.type === "video").map(it => {
@@ -4059,17 +4178,20 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
             }}/>
         )}
 
-        {/* Remote cursor */}
-        {remoteScr && (
-          <div className="absolute pointer-events-none" style={{ left:remoteScr.x-6, top:remoteScr.y-6 }}>
-            <div className="w-3 h-3 rounded-full border-2 border-white shadow-md"
-              style={{ background:role==="tutor"?"#5555e0":"#e05020" }}/>
-            <div className="text-white text-center rounded px-1 mt-0.5 whitespace-nowrap"
-              style={{ fontSize:9, background:role==="tutor"?"#5555e0":"#e05020", lineHeight:"14px" }}>
-              {role==="tutor"?"Ученик":"Репетитор"}
+        {/* Remote cursor(s) */}
+        {[...remoteCursors.entries()].map(([sid, cur]) => {
+          const scr = w2s(cur.x, cur.y);
+          return (
+            <div key={sid} className="absolute pointer-events-none"
+              style={{ left:scr.x-6, top:scr.y-6, transition: "left 120ms linear, top 120ms linear" }}>
+              <div className="w-3 h-3 rounded-full border-2 border-white shadow-md" style={{ background:cur.color }}/>
+              <div className="text-white text-center rounded px-1 mt-0.5 whitespace-nowrap"
+                style={{ fontSize:9, background:cur.color, lineHeight:"14px" }}>
+                {cur.name}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })}
 
         {/* Pending symbol cursor preview */}
         {pendingSymbol && pendingSymbolPos && (
@@ -5267,19 +5389,50 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [] }, ref) {
           </ToolBtn>
           <div className="flex-1 shrink-0 min-w-2"/>
           {role==="tutor" && (
-            <>
-              <button onClick={bringToMe} className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg border-2 font-medium shrink-0"
-                style={{ borderColor:"var(--brown-dark)", color:"var(--brown-dark)" }}>
-                <Navigation size={12}/> Ко мне
-              </button>
-              <button onClick={findStudent} disabled={!hasRemoteViewport}
-                className="p-2 rounded-lg border disabled:opacity-30 shrink-0"
-                style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}
-                title="Найти ученика">
-                <LocateFixed size={14}/>
-              </button>
-            </>
+            <button onClick={togglePresent}
+              className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg border-2 font-medium shrink-0 transition-all"
+              style={{ borderColor:"var(--brown-dark)", color: presenting ? "white" : "var(--brown-dark)", background: presenting ? "var(--brown-dark)" : "transparent" }}>
+              <Cast size={12}/> {presenting ? "Стоп" : "Ко мне"}
+            </button>
           )}
+          <div className="relative shrink-0">
+            <button onClick={() => setShowParticipants(p => !p)}
+              className="p-2 rounded-lg border shrink-0"
+              style={{ borderColor: showParticipants ? "var(--brown-dark)" : "var(--brown-pale)", color:"var(--brown-dark)" }}
+              title="Участники">
+              <Users size={14}/>
+            </button>
+            {showParticipants && (
+              <><div className="fixed inset-0 z-10" onClick={() => setShowParticipants(false)}/>
+              <div className="absolute bottom-full right-0 mb-1 z-20 w-52 rounded-xl border shadow-xl overflow-hidden"
+                style={{ background:"white", borderColor:"var(--brown-pale)" }}>
+                {participants.size === 0 ? (
+                  <div className="px-3 py-3 text-xs" style={{ color:"var(--brown-light)" }}>Никого нет онлайн</div>
+                ) : (
+                  [...participants.values()].map(p => (
+                    <div key={p.id} className="flex items-center gap-2 px-2.5 py-2 border-b last:border-0"
+                      style={{ borderColor:"var(--brown-pale)" }}>
+                      <div className="w-5 h-5 rounded-full border-2 border-white shadow-sm flex items-center justify-center shrink-0"
+                        style={{ background: p.color }}>
+                        <span style={{ fontSize:8, color:"white", fontWeight:700 }}>{p.name.charAt(0).toUpperCase()}</span>
+                      </div>
+                      <span className="text-xs flex-1 truncate" style={{ color:"var(--brown-dark)" }}>
+                        {p.id === mySenderIdRef.current ? `${p.name} (я)` : p.name}
+                      </span>
+                      {p.id !== mySenderIdRef.current && (
+                        <button onClick={() => { jumpToParticipant(p.id); setShowParticipants(false); }}
+                          disabled={!remoteViewportsRef.current.has(p.id)}
+                          className="p-1 rounded-lg border disabled:opacity-30 shrink-0"
+                          style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
+                          <LocateFixed size={11}/>
+                        </button>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div></>
+            )}
+          </div>
           <button onClick={undo} disabled={!canUndo} className="p-2 rounded-lg border disabled:opacity-25 shrink-0" style={{ borderColor:"var(--brown-pale)" }}><Undo2 size={16} style={{ color:"var(--brown-dark)" }}/></button>
           <button onClick={redo} disabled={!canRedo} className="p-2 rounded-lg border disabled:opacity-25 shrink-0" style={{ borderColor:"var(--brown-pale)" }}><Redo2 size={16} style={{ color:"var(--brown-dark)" }}/></button>
           <button onClick={() => applyView(1,0,0)} className="p-2 rounded-lg border shrink-0" style={{ borderColor:"var(--brown-pale)" }}><Maximize2 size={16} style={{ color:"var(--brown-dark)" }}/></button>

@@ -26,12 +26,14 @@ export default function BoardTab({
   role = "student",
   boardUrl = null,
   materials = [],
+  myName,
 }: {
   studentId: string;
   snapshots?: Snapshot[];
   role?: "tutor" | "student";
   boardUrl?: string | null;
   materials?: BoardMaterial[];
+  myName?: string;
 }) {
   const canvasRef = useRef<WhiteboardRef>(null);
 
@@ -156,7 +158,7 @@ export default function BoardTab({
         {/* Canvas + Audio/Video */}
         <div className="flex flex-col flex-1 overflow-hidden min-h-0">
           <div className="flex flex-col flex-1 overflow-hidden min-h-0">
-            <WhiteboardCanvas ref={canvasRef} roomId={studentId} role={role} materials={materials} />
+            <WhiteboardCanvas ref={canvasRef} roomId={studentId} role={role} materials={materials} myName={myName} />
           </div>
         </div>
 
