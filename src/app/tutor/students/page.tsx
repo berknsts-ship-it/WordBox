@@ -18,7 +18,7 @@ export default async function StudentsPage() {
       .select("student_id, payment_status, price_rub, status, subscription_id")
       .eq("tutor_id", tutorId)
       .neq("status", "cancelled"),
-    supabase.from("subscriptions").select("student_id, balance, total_amount, name, status").eq("tutor_id", tutorId),
+    supabase.from("student_subscriptions").select("student_id, balance, total_amount, name, status").eq("tutor_id", tutorId),
   ]);
 
   // Долг по поурочным урокам (без абонемента)

@@ -4,11 +4,30 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 
+// Списывает урок с абонемента при проведении/сгорании — один раз (guarded by
+// deducted_amount), т.к. на статус completed/missed заводят несколько разных
+// action'ов (updateLessonStatus, updateLessonStatusForm, updateLessonForm,
+// markLessonCompleted).
+async function deductIfNeeded(lessonId: string) {
+  const db = createAdminClient();
+  const { data: lesson } = await db.from("lessons")
+    .select("subscription_id, price_rub, deducted_amount")
+    .eq("id", lessonId)
+    .single();
+
+  if (lesson?.subscription_id && lesson?.price_rub && !lesson?.deducted_amount) {
+    await db.from("lessons").update({ deducted_amount: lesson.price_rub }).eq("id", lessonId);
+    await db.rpc("subscription_deduct", { p_id: lesson.subscription_id, p_amount: lesson.price_rub });
+    revalidatePath("/tutor/students");
+  }
+}
+
 export async function updateLessonStatus(id: string, status: string) {
   const supabase = await createClient();
   const { error } = await supabase.from("lessons").update({ status }).eq("id", id);
   if (error) return { error: error.message };
 
+  if (status === "completed" || status === "missed") await deductIfNeeded(id);
   revalidatePath("/tutor/schedule");
 }
 
@@ -59,6 +78,7 @@ export async function addLesson(formData: FormData) {
     notes:        (formData.get("notes") as string) || null,
     status:       (formData.get("status") as string) || "scheduled",
     price_rub:    priceRaw ? Number(priceRaw) : null,
+    subscription_id: (formData.get("subscription_id") as string) || null,
   });
   revalidatePath(`/tutor/students/${student_id}`);
   revalidatePath("/tutor/schedule");
@@ -70,6 +90,7 @@ export async function updateLessonStatusForm(formData: FormData) {
   const status    = formData.get("status") as string;
   const studentId = formData.get("studentId") as string;
   await supabase.from("lessons").update({ status }).eq("id", id);
+  if (status === "completed" || status === "missed") await deductIfNeeded(id);
   if (studentId) revalidatePath(`/tutor/students/${studentId}`);
   revalidatePath("/tutor/schedule");
 }
@@ -86,6 +107,8 @@ export async function updateLessonForm(formData: FormData) {
     payment_status: formData.get("payment_status") as string,
     status:         formData.get("status") as string,
   }).eq("id", id);
+  const newStatus = formData.get("status") as string;
+  if (newStatus === "completed" || newStatus === "missed") await deductIfNeeded(id);
   if (studentId) revalidatePath(`/tutor/students/${studentId}`);
   revalidatePath("/tutor/schedule");
   revalidatePath("/tutor/dashboard");
@@ -94,6 +117,7 @@ export async function updateLessonForm(formData: FormData) {
 export async function markLessonCompleted(id: string, studentId: string) {
   const supabase = await createClient();
   await supabase.from("lessons").update({ status: "completed" }).eq("id", id);
+  await deductIfNeeded(id);
   revalidatePath(`/tutor/students/${studentId}`);
   revalidatePath("/tutor/schedule");
 }

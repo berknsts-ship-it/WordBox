@@ -42,6 +42,7 @@ export default function NewLessonForm({ students, subscriptions = [] }: { studen
       date:    `${date}T${time}:00`,
       price_rub:       price ? parseInt(price) : null,
       notes:           notes || null,
+      subscription_id: activeSub?.id ?? null,
     });
     setLoading(false);
     if (err) { setError(err.message); return; }

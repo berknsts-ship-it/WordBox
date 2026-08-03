@@ -6,7 +6,7 @@ import LessonCard from "@/components/tutor/LessonCard";
 export default async function TutorLessonsTab({ studentId }: { studentId: string }) {
   const supabase = await createClient();
 
-  const [{ data: lessons }, { data: studentData }] = await Promise.all([
+  const [{ data: lessons }, { data: studentData }, { data: activeSub }] = await Promise.all([
     supabase
       .from("lessons")
       .select("id, date, topic, notes, duration_minutes, status, payment_status, price_rub")
@@ -17,6 +17,12 @@ export default async function TutorLessonsTab({ studentId }: { studentId: string
       .select("default_price_rub")
       .eq("id", studentId)
       .single(),
+    supabase
+      .from("student_subscriptions")
+      .select("id")
+      .eq("student_id", studentId)
+      .eq("status", "active")
+      .maybeSingle(),
   ]);
 
   const defaultPrice = studentData?.default_price_rub ?? null;
@@ -34,6 +40,7 @@ export default async function TutorLessonsTab({ studentId }: { studentId: string
         </div>
         <form action={addLesson} className="space-y-4">
           <input type="hidden" name="student_id" value={studentId} />
+          {activeSub && <input type="hidden" name="subscription_id" value={activeSub.id} />}
 
           <div className="grid grid-cols-2 gap-3">
             <div>

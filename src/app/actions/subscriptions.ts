@@ -3,7 +3,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 
 export async function createSubscription(studentId: string, formData: FormData) {
   const supabase = await createClient();
@@ -15,7 +14,7 @@ export async function createSubscription(studentId: string, formData: FormData) 
   if (!totalAmount || totalAmount <= 0) return { error: "Введите сумму абонемента" };
 
   const db = createAdminClient();
-  const { error } = await db.from("subscriptions").insert({
+  const { error } = await db.from("student_subscriptions").insert({
     tutor_id:     user.id,
     student_id:   studentId,
     name,
@@ -26,7 +25,6 @@ export async function createSubscription(studentId: string, formData: FormData) 
 
   if (error) return { error: error.message };
   revalidatePath(`/tutor/students/${studentId}`);
-  redirect(`/tutor/students/${studentId}`);
 }
 
 export async function renewSubscription(subscriptionId: string, studentId: string, formData: FormData) {
@@ -38,17 +36,16 @@ export async function renewSubscription(subscriptionId: string, studentId: strin
   if (!addAmount || addAmount <= 0) return { error: "Введите сумму пополнения" };
 
   const db = createAdminClient();
-  const { data: sub } = await db.from("subscriptions").select("total_amount, balance").eq("id", subscriptionId).single();
+  const { data: sub } = await db.from("student_subscriptions").select("total_amount, balance").eq("id", subscriptionId).single();
   if (!sub) return { error: "Абонемент не найден" };
 
-  const { error } = await db.from("subscriptions").update({
+  const { error } = await db.from("student_subscriptions").update({
     total_amount: sub.total_amount + addAmount,
     balance:      sub.balance + addAmount,
   }).eq("id", subscriptionId);
 
   if (error) return { error: error.message };
   revalidatePath(`/tutor/students/${studentId}`);
-  redirect(`/tutor/students/${studentId}`);
 }
 
 export async function cancelSubscription(subscriptionId: string, studentId: string) {
@@ -57,12 +54,11 @@ export async function cancelSubscription(subscriptionId: string, studentId: stri
   if (!user) return { error: "Не авторизован" };
 
   const db = createAdminClient();
-  const { error } = await db.from("subscriptions")
+  const { error } = await db.from("student_subscriptions")
     .update({ status: "cancelled" })
     .eq("id", subscriptionId)
     .eq("tutor_id", user.id);
 
   if (error) return { error: error.message };
   revalidatePath(`/tutor/students/${studentId}`);
-  redirect(`/tutor/students/${studentId}`);
 }
