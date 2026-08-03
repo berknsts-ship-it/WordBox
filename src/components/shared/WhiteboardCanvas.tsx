@@ -1102,6 +1102,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   const viewRef       = useRef({ zoom: 1, panX: 0, panY: 0 });
   const remoteViewportsRef     = useRef<Map<string, { zoom: number; panX: number; panY: number }>>(new Map());
   const viewportThrottleRef    = useRef(0);
+  const overlayRerenderThrottleRef = useRef(0);
   const skipViewportBroadcast  = useRef(false);
   const gotoAnimRef            = useRef<{ rafId: number } | null>(null);
   const mySenderIdRef  = useRef(Math.random().toString(36).slice(2));
@@ -1534,7 +1535,19 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   // ── view helpers ─────────────────────────────────────────────────────────────
   const applyView = useCallback((zoom: number, panX: number, panY: number) => {
     viewRef.current = { zoom, panX, panY };
-    setVpZoom(Math.round(zoom * 100)); scheduleRender();
+    // setVpZoom alone doesn't reliably force a re-render during a pure pan
+    // (zoom% unchanged ⇒ React bails out on the identical primitive), which
+    // left DOM overlays (table/video/audio/grammar) stuck at their old
+    // screen position while the canvas underneath correctly redrew on pan.
+    // Throttled (not every mousemove) to avoid re-rendering this whole
+    // component at full pointer framerate during a drag-pan.
+    setVpZoom(Math.round(zoom * 100));
+    const now = Date.now();
+    if (now - overlayRerenderThrottleRef.current > 50) {
+      overlayRerenderThrottleRef.current = now;
+      setPanVer(v => v + 1);
+    }
+    scheduleRender();
     // Student always broadcasts viewport (so the tutor can see their position);
     // the tutor only broadcasts while presenting (follow-me mode), so followers
     // can mirror the tutor's pan/zoom live.
@@ -2245,6 +2258,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     eraserActiveRef.current = false;
     if (e.button === 1 || panning.current) {
       panning.current = false;
+      setPanVer(v => v + 1); // final overlay-position sync — throttled updates during the pan may be a beat stale
       // launch inertia from last two recorded pan points
       const last = lastPanPt.current;
       const { cx, cy } = clientXY(e);
@@ -2534,6 +2548,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     touchDrawPending.current = null;
     if (e.touches.length < 2 && panning.current) {
       panning.current = false;
+      setPanVer(v => v + 1); // final overlay-position sync, matches onMouseUp
       const last = lastPanPt.current;
       if (last && e.changedTouches.length > 0) {
         const r = containerRef.current!.getBoundingClientRect();
