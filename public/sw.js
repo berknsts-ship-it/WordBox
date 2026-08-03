@@ -1,4 +1,4 @@
-const CACHE_NAME = "wordbox-v1";
+const CACHE_NAME = "wordbox-v2";
 const OFFLINE_URL = "/offline";
 
 const PRECACHE_URLS = [
