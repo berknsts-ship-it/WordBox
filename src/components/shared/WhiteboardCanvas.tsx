@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHand
 import { flushSync } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 import { saveBoardState, loadBoardState } from "@/app/actions/board";
+import { checkGrammarBoardItems, type ExerciseType } from "@/app/actions/grammar";
+import { ItemInput, TYPE_LABELS, type GrammarItem } from "@/components/shared/GrammarItemInput";
 import {
   Pencil, Eraser, Trash2, Type, Highlighter, MousePointer2,
   BookOpen, ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut,
@@ -11,6 +13,7 @@ import {
   Shapes, LayoutTemplate, Map as MapIcon, Minimize2, Magnet, Smile, Sparkles,
   ChevronsUp, ChevronsDown, ChevronUp, ChevronDown,
   LocateFixed, LockKeyhole, LockKeyholeOpen, Users, Cast,
+  CheckCircle2, XCircle,
 } from "lucide-react";
 
 // ── types ─────────────────────────────────────────────────────────────────────
@@ -115,7 +118,19 @@ type AudioItem = {
   url: string; title: string;
   locked?: boolean; pdfPage?: number;
 };
-type DrawItem = PathItem | TextItem | ImageItem | ShapeItem | FrameItem | VideoItem | DiceItem | WheelItem | TableItem | FunctionItem | CardItem | AudioItem;
+type GrammarBoardResult = { correct: boolean; correct_answer: string; explanation: string | null };
+type GrammarBoardItemRow = { id: string; question: string | null; options: string[] | null; points: number };
+type GrammarExerciseBoardItem = {
+  type: "grammar_exercise"; id: string;
+  x: number; y: number; w: number; h: number;
+  setTitle: string; exerciseType: ExerciseType; instruction: string | null;
+  items: GrammarBoardItemRow[];
+  answers: Record<string, string>;
+  checked: boolean;
+  results?: Record<string, GrammarBoardResult>;
+  locked?: boolean; pdfPage?: number;
+};
+type DrawItem = PathItem | TextItem | ImageItem | ShapeItem | FrameItem | VideoItem | DiceItem | WheelItem | TableItem | FunctionItem | CardItem | AudioItem | GrammarExerciseBoardItem;
 
 type WsEvent =
   | { type: "path-pt"; id: string; x: number; y: number; color: string; size: number; eraser: boolean; highlight: boolean }
@@ -181,6 +196,14 @@ const RULING_OPTIONS: { v: Ruling; title: string }[] = [
 ];
 function isPdf(n: string | null) { return n?.split(".").pop()?.toLowerCase() === "pdf"; }
 function uid() { return Math.random().toString(36).slice(2, 10); }
+function shuffleWords(arr: string[]): string[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 
 const SHAPE_KINDS: { v: ShapeKind; label: string; icon: string }[] = [
   { v: "line",          label: "Линия",            icon: "╱"  },
@@ -411,6 +434,7 @@ function itemBounds(item: DrawItem) {
   if (item.type === "function") return { x0: item.x, y0: item.y, x1: item.x + item.w, y1: item.y + item.h };
   if (item.type === "card")    return { x0: item.x, y0: item.y, x1: item.x + item.w, y1: item.y + item.h };
   if (item.type === "audio")   return { x0: item.x, y0: item.y, x1: item.x + item.w, y1: item.y + item.h };
+  if (item.type === "grammar_exercise") return { x0: item.x, y0: item.y, x1: item.x + item.w, y1: item.y + item.h };
   return item.type === "path" ? pathBounds(item) : textBounds(item as TextItem);
 }
 const pathBboxCache = new WeakMap<PathItem, ReturnType<typeof pathBounds>>();
@@ -451,6 +475,7 @@ function shiftItem(item: DrawItem, dx: number, dy: number): DrawItem {
   if (item.type === "function") return { ...item, x: item.x + dx, y: item.y + dy };
   if (item.type === "card")    return { ...item, x: item.x + dx, y: item.y + dy };
   if (item.type === "audio")   return { ...item, x: item.x + dx, y: item.y + dy };
+  if (item.type === "grammar_exercise") return { ...item, x: item.x + dx, y: item.y + dy };
   const ti = item as TextItem;
   return { ...ti, x: ti.x + dx, y: ti.y + dy };
 }
@@ -970,6 +995,11 @@ function renderItem(ctx: CanvasRenderingContext2D, item: DrawItem, zoom: number,
     ctx.strokeStyle = "#4a80f055"; ctx.lineWidth = 1;
     ctx.strokeRect(item.x, item.y, item.w, item.h);
     ctx.restore();
+  } else if (item.type === "grammar_exercise") {
+    ctx.save();
+    ctx.strokeStyle = "#4a80f055"; ctx.lineWidth = 1;
+    ctx.strokeRect(item.x, item.y, item.w, item.h);
+    ctx.restore();
   } else {
     renderText(ctx, item as TextItem);
   }
@@ -1016,6 +1046,7 @@ function getItemBounds(item: DrawItem): { x: number; y: number; w: number; h: nu
     case "dice":
     case "wheel":
     case "table":
+    case "grammar_exercise":
     case "card": return { x: item.x, y: item.y, w: item.w, h: item.h };
     default: return null;
   }
@@ -1289,6 +1320,16 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   const [vocabSelWords,   setVocabSelWords]   = useState<Set<string>>(new Set());
   const [vocabFaceDown,   setVocabFaceDown]   = useState(true);
   const [vocabLoading,    setVocabLoading]    = useState(false);
+
+  // grammar exercise panel
+  type GrammarSetBlockForBoard = { id: string; type: ExerciseType; instruction: string | null; items: (GrammarBoardItemRow & { correct_answer: string })[] };
+  type GrammarSetForBoard = { id: string; title: string; exercises: GrammarSetBlockForBoard[] };
+  const [showGrammarPanel,     setShowGrammarPanel]     = useState(false);
+  const [grammarSets,          setGrammarSets]          = useState<GrammarSetForBoard[]>([]);
+  const [grammarSetId,         setGrammarSetId]         = useState("");
+  const [grammarSelExercises,  setGrammarSelExercises]  = useState<Set<string>>(new Set());
+  const [grammarLoading,       setGrammarLoading]       = useState(false);
+
   // flip animation overlay
   type FlipOverlay = { id: string; sx: number; sy: number; sw: number; sh: number; rotation: number; word: string; translation: string; fromHidden: boolean; instanceId: number };
   const [flipOverlay, setFlipOverlay] = useState<FlipOverlay | null>(null);
@@ -1409,6 +1450,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
       if (cancelled || !items.length) return;
       itemsRef.current = items as DrawItem[];
       render();
+      setPanVer(v => v + 1);
     });
     return () => {
       cancelled = true;
@@ -1821,12 +1863,12 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           if (payload.item.type === "image") console.log("[board] received image item", payload.item.id, "url-len:", (payload.item as {url:string}).url?.length ?? 0);
           remoteDraftsRef.current.delete(payload.item.id);
           remotePathsRef.current.delete(payload.item.id);
-          itemsRef.current.push(payload.item); render(); return;
+          itemsRef.current.push(payload.item); render(); setPanVer(v => v + 1); return;
         }
         if (payload.type === "update") {
           remoteDraftsRef.current.delete(payload.item.id);
           const idx = itemsRef.current.findIndex(it => it.id === payload.item.id);
-          if (idx >= 0) { itemsRef.current[idx] = payload.item; render(); }
+          if (idx >= 0) { itemsRef.current[idx] = payload.item; render(); setPanVer(v => v + 1); }
           return;
         }
         if (payload.type === "lock_all") {
@@ -3048,6 +3090,73 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     setVocabSelWords(new Set());
   }, [vocabTopics, vocabTopicId, vocabSelWords, vocabFaceDown, render, send, pushHistory]);
 
+  const loadGrammarSetsForBoard = useCallback(async () => {
+    setGrammarLoading(true);
+    try {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("grammar_assignments")
+        .select("grammar_sets!inner(id, title, grammar_exercises(id, order_index, type, instruction, grammar_exercise_items(id, order_index, question, correct_answer, options, points)))")
+        .eq("student_id", roomId);
+      type ItemRow = { id: string; order_index: number; question: string; correct_answer: string; options: string[] | null; points: number };
+      type ExRow = { id: string; order_index: number; type: ExerciseType; instruction: string | null; grammar_exercise_items: ItemRow[] };
+      type SetRow = { id: string; title: string; grammar_exercises: ExRow[] };
+      const bySetId = new Map<string, GrammarSetForBoard>();
+      for (const row of (data ?? []) as unknown as { grammar_sets: SetRow | SetRow[] }[]) {
+        const sets = Array.isArray(row.grammar_sets) ? row.grammar_sets : [row.grammar_sets];
+        for (const s of sets) {
+          if (bySetId.has(s.id)) continue;
+          bySetId.set(s.id, {
+            id: s.id, title: s.title,
+            exercises: [...s.grammar_exercises].sort((a, b) => a.order_index - b.order_index).map(ex => ({
+              id: ex.id, type: ex.type, instruction: ex.instruction,
+              items: [...ex.grammar_exercise_items].sort((a, b) => a.order_index - b.order_index)
+                .map(it => ({ id: it.id, question: it.question, correct_answer: it.correct_answer, options: it.options, points: it.points })),
+            })),
+          });
+        }
+      }
+      const mapped = [...bySetId.values()];
+      setGrammarSets(mapped);
+      if (mapped[0]) setGrammarSetId(mapped[0].id);
+    } finally { setGrammarLoading(false); }
+  }, [roomId]);
+
+  const addGrammarExercisesToBoard = useCallback(() => {
+    const set = grammarSets.find(s => s.id === grammarSetId);
+    if (!set) return;
+    const blocks = set.exercises.filter(ex => grammarSelExercises.has(ex.id));
+    if (!blocks.length) return;
+    const { panX, panY, zoom } = viewRef.current;
+    const W = 340, GAP = 24;
+    blocks.forEach((block, i) => {
+      const H = Math.max(160, 70 + block.items.length * 56);
+      const cx = (-panX / zoom) + GAP + (W / 2);
+      const cy = (-panY / zoom) + GAP + i * (H + GAP) + H / 2;
+      const gItem: GrammarExerciseBoardItem = {
+        type: "grammar_exercise", id: uid(),
+        x: cx - W / 2, y: cy - H / 2, w: W, h: H,
+        setTitle: set.title, exerciseType: block.type, instruction: block.instruction,
+        items: block.items.map(it => ({
+          id: it.id,
+          points: it.points,
+          question: block.type === "word_order" ? null : it.question,
+          options: block.type === "word_order"
+            ? shuffleWords(it.correct_answer.split("|")[0].trim().split(/\s+/))
+            : block.type === "mcq" ? it.options : null,
+        })),
+        answers: {},
+        checked: false,
+      };
+      itemsRef.current.push(gItem);
+      send({ type: "path", item: gItem });
+      pushHistory({ type: "add", item: gItem });
+    });
+    render();
+    setShowGrammarPanel(false);
+    setGrammarSelExercises(new Set());
+  }, [grammarSets, grammarSetId, grammarSelExercises, render, send, pushHistory]);
+
   const updateBoardItem = (next: DrawItem) => {
     const idx = itemsRef.current.findIndex(i => i.id === next.id);
     if (idx < 0) return;
@@ -3056,6 +3165,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     send({ type:"update", item: next });
     pushHistory({ type:"update", idx, prev, next });
     render();
+    setPanVer(v => v + 1);
   };
 
   const saveWheelEdit = () => {
@@ -3552,6 +3662,14 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                       className="flex flex-col items-center gap-1 p-2 rounded-xl border hover:opacity-70"
                       style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
                       <span className="text-xl">⊞</span><span className="text-xs">Таблица</span>
+                    </button>
+                  )}
+                  {role==="tutor" && (
+                    <button onClick={()=>{setShowGrammarPanel(v=>!v);loadGrammarSetsForBoard();setShowMoreTools(false);}}
+                      onTouchEnd={e=>{e.preventDefault();e.stopPropagation();(e.currentTarget as HTMLButtonElement).click();}}
+                      className="flex flex-col items-center gap-1 p-2 rounded-xl border hover:opacity-70"
+                      style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
+                      <span className="text-xl">✏️</span><span className="text-xs">Упражнение</span>
                     </button>
                   )}
                   {role==="tutor" && (
@@ -4175,6 +4293,29 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                 const newData = ti.data.map(row => [...row]);
                 newData[r][c] = text;
                 updateBoardItem({ ...ti, data: newData });
+              }} />
+          );
+        })}
+
+        {/* Grammar exercise overlays */}
+        {itemsRef.current.filter(it => it.type === "grammar_exercise").map(it => {
+          const gi = it as GrammarExerciseBoardItem;
+          const sp = w2s(gi.x, gi.y);
+          const ep = w2s(gi.x + gi.w, gi.y + gi.h);
+          const sw = ep.x - sp.x, sh = ep.y - sp.y;
+          const sel = selectedId === gi.id || selectedIds.has(gi.id);
+          return (
+            <GrammarExerciseOverlay key={gi.id} item={gi} sp={sp} sw={sw} sh={sh} selected={sel}
+              onAnswer={(itemId, value) => {
+                updateBoardItem({ ...gi, answers: { ...gi.answers, [itemId]: value }, checked: false, results: undefined });
+              }}
+              onCheck={async () => {
+                const itemIds = gi.items.map(r => r.id);
+                const res = await checkGrammarBoardItems(itemIds, gi.answers);
+                if ("error" in res) return;
+                const idx = itemsRef.current.findIndex(x => x.id === gi.id);
+                const current = idx >= 0 ? (itemsRef.current[idx] as GrammarExerciseBoardItem) : gi;
+                updateBoardItem({ ...current, checked: true, results: res.results });
               }} />
           );
         })}
@@ -5246,6 +5387,73 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           </div>
         )}
 
+        {/* Grammar exercise panel */}
+        {showGrammarPanel && (
+          <div className="fixed inset-0 z-[250] flex items-start justify-center pt-16 px-4"
+            data-no-prevent style={{ background:"rgba(0,0,0,0.25)" }}
+            onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()}
+            onClick={e=>{ if(e.target===e.currentTarget) setShowGrammarPanel(false); }}>
+            <div className="rounded-2xl shadow-xl p-5 w-full max-w-sm"
+              style={{ background:"white", borderColor:"var(--brown-pale)", border:"1px solid" }}>
+              <div className="flex items-center justify-between mb-4">
+                <span className="font-semibold text-base" style={{ color:"var(--brown-dark)" }}>Упражнение на доску</span>
+                <button onClick={()=>setShowGrammarPanel(false)} style={{ color:"var(--brown-mid)" }}><X size={18}/></button>
+              </div>
+              {grammarLoading ? (
+                <div className="text-center py-6 text-sm" style={{ color:"var(--brown-mid)" }}>Загрузка...</div>
+              ) : grammarSets.length === 0 ? (
+                <div className="text-center py-6 text-sm" style={{ color:"var(--brown-mid)" }}>У ученика нет назначенных наборов упражнений</div>
+              ) : (
+                <>
+                  <div className="mb-3">
+                    <label className="text-xs font-medium block mb-1" style={{ color:"var(--brown-mid)" }}>Набор</label>
+                    <select value={grammarSetId} onChange={e=>{ setGrammarSetId(e.target.value); setGrammarSelExercises(new Set()); }}
+                      className="w-full border rounded-lg px-3 py-2 text-sm"
+                      style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
+                      {grammarSets.map(s=><option key={s.id} value={s.id}>{s.title}</option>)}
+                    </select>
+                  </div>
+                  {(() => {
+                    const set = grammarSets.find(s=>s.id===grammarSetId);
+                    if (!set) return null;
+                    if (set.exercises.length === 0) return <div className="text-sm py-4 text-center" style={{ color:"var(--brown-mid)" }}>В наборе нет упражнений</div>;
+                    return (
+                      <>
+                        <div className="mb-1 flex items-center justify-between">
+                          <span className="text-xs font-medium" style={{ color:"var(--brown-mid)" }}>Упражнения ({set.exercises.length})</span>
+                          <button className="text-xs underline" style={{ color:"var(--brown-mid)" }}
+                            onClick={()=>setGrammarSelExercises(grammarSelExercises.size===set.exercises.length ? new Set() : new Set(set.exercises.map(ex=>ex.id)))}>
+                            {grammarSelExercises.size===set.exercises.length ? "Снять все" : "Выбрать все"}
+                          </button>
+                        </div>
+                        <div className="overflow-y-auto max-h-56 flex flex-col gap-1 mb-4 pr-1">
+                          {set.exercises.map((ex, i) => (
+                            <label key={ex.id} className="flex items-start gap-2 text-sm cursor-pointer px-2 py-1.5 rounded-lg hover:bg-[var(--brown-pale)]">
+                              <input type="checkbox" checked={grammarSelExercises.has(ex.id)}
+                                onChange={e=>{ const s=new Set(grammarSelExercises); e.target.checked?s.add(ex.id):s.delete(ex.id); setGrammarSelExercises(s); }}
+                                className="accent-[var(--brown-dark)] mt-0.5"/>
+                              <span style={{ color:"var(--brown-dark)" }}>
+                                {i+1}. {TYPE_LABELS[ex.type]}
+                                <span className="block text-xs" style={{ color:"var(--brown-mid)" }}>{ex.items.length} пункт(ов){ex.instruction ? " · " + ex.instruction : ""}</span>
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                        <button onClick={addGrammarExercisesToBoard}
+                          disabled={grammarSelExercises.size===0}
+                          className="w-full py-2 rounded-xl text-sm font-semibold disabled:opacity-40"
+                          style={{ background:"var(--gradient-primary)", color:"white" }}>
+                          Добавить на доску ({grammarSelExercises.size})
+                        </button>
+                      </>
+                    );
+                  })()}
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Wheel panel */}
         {showWheel && (
           <div className="fixed inset-0 z-[250] flex items-start justify-center pt-16 px-4"
@@ -5481,6 +5689,14 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                 className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl border shrink-0"
                 style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
                 <span className="text-lg">⊞</span><span className="text-xs">Таблица</span>
+              </button>
+            )}
+            {role==="tutor" && (
+              <button onClick={()=>{setShowGrammarPanel(v=>!v);loadGrammarSetsForBoard();setShowMoreTools(false);}}
+                onTouchEnd={e=>{e.preventDefault();e.stopPropagation();(e.currentTarget as HTMLButtonElement).click();}}
+                className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl border shrink-0"
+                style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
+                <span className="text-lg">✏️</span><span className="text-xs">Упражнение</span>
               </button>
             )}
             {role==="tutor" && (
@@ -6017,6 +6233,65 @@ function TableOverlay({ item, sp, sw, sh, selected, zoom, onCellChange }:
           })}
         </div>
       ))}
+    </div>
+  );
+}
+
+function GrammarExerciseOverlay({ item, sp, sw, sh, selected, onAnswer, onCheck }:
+  { item: GrammarExerciseBoardItem; sp:{x:number;y:number}; sw:number; sh:number; selected:boolean;
+    onAnswer:(itemId:string, value:string)=>void; onCheck:()=>Promise<void> }) {
+  const locked = item.locked;
+  const [checking, setChecking] = useState(false);
+  const stop = (e: React.SyntheticEvent) => e.stopPropagation();
+
+  return (
+    <div className="absolute overflow-hidden flex flex-col select-none"
+      style={{ left:sp.x, top:sp.y, width:sw, height:sh, zIndex:20,
+        outline: selected ? "2px solid #4a80f0" : "1px solid #c0b8b0",
+        borderRadius:10, background:"white", boxShadow:"0 1px 6px rgba(0,0,0,0.08)" }}>
+      {/* Header — drag handle (no stopPropagation, bubbles to board's generic select/move) */}
+      <div className="flex items-center justify-between gap-2 px-3 py-2 shrink-0"
+        style={{ background:"#f8f4ee", borderBottom:"1px solid #e8ddd0", cursor: locked ? "default" : "move" }}>
+        <span className="text-xs font-semibold truncate" style={{ color:"var(--brown-dark)" }}>
+          {item.setTitle} · {TYPE_LABELS[item.exerciseType]}
+        </span>
+        <button
+          onMouseDown={stop} onTouchStart={stop}
+          onTouchEnd={e=>{e.preventDefault();e.stopPropagation();(e.currentTarget as HTMLButtonElement).click();}}
+          onClick={async () => { setChecking(true); await onCheck(); setChecking(false); }}
+          disabled={checking}
+          className="px-2.5 py-1 rounded-lg text-xs font-semibold text-white shrink-0 disabled:opacity-50"
+          style={{ background:"var(--gradient-primary)" }}>
+          {checking ? "…" : "Проверить"}
+        </button>
+      </div>
+      {/* Body — all interactive controls; stops propagation so typing/tapping never starts a board drag */}
+      <div className="flex-1 overflow-y-auto px-3 py-2.5 space-y-3"
+        onMouseDown={stop} onTouchStart={stop}>
+        {item.instruction && <p className="text-xs italic" style={{ color:"var(--brown-mid)" }}>{item.instruction}</p>}
+        {item.items.map((row, i) => {
+          const r = item.results?.[row.id];
+          return (
+            <div key={row.id}>
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-xs font-semibold" style={{ color:"var(--brown-light)" }}>{i + 1} · {row.points} б.</span>
+                {item.checked && r && (r.correct
+                  ? <CheckCircle2 size={13} style={{ color:"#2a7a3a" }}/>
+                  : <XCircle size={13} style={{ color:"#c04020" }}/>)}
+              </div>
+              {row.question && <p className="text-sm mb-1" style={{ color:"var(--brown-dark)" }}>{row.question}</p>}
+              <ItemInput item={row as GrammarItem} type={item.exerciseType} answer={item.answers?.[row.id] ?? ""}
+                onAnswer={v => onAnswer(row.id, v)} />
+              {item.checked && r && !r.correct && (
+                <div className="text-xs mt-1.5 px-2 py-1.5 rounded-lg" style={{ background:"#fff3f0", color:"var(--brown-mid)" }}>
+                  Верно: <span className="font-medium">{r.correct_answer}</span>
+                  {r.explanation && <div className="italic mt-0.5">{r.explanation}</div>}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

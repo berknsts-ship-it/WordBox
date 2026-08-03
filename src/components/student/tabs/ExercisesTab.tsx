@@ -55,7 +55,7 @@ export default async function ExercisesTab({
     // проверка происходит только внутри submitGrammarAttempt, чтобы ответы не
     // утекали через Network до конца прохождения. Если уже пройдено — можно
     // сразу посчитать результат и показать разбор (spoiler тут ожидаем).
-    const { isGrammarAnswerCorrect } = await import("@/lib/grammarCheck");
+    const { isGrammarAnswerCorrect } = await import("@/lib/grammar/checkAnswer");
     const answers = (assignment.answers as Record<string, string>) ?? {};
     let score = 0;
     let maxScore = 0;

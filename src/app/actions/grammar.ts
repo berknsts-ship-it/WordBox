@@ -186,7 +186,7 @@ export async function submitGrammarAttempt(assignmentId: string, answers: Record
     .select("type, grammar_exercise_items(id, correct_answer, points, explanation)")
     .eq("set_id", assignment.set_id);
 
-  const { isGrammarAnswerCorrect } = await import("@/lib/grammarCheck");
+  const { isGrammarAnswerCorrect } = await import("@/lib/grammar/checkAnswer");
 
   let score = 0;
   let maxScore = 0;
@@ -207,6 +207,35 @@ export async function submitGrammarAttempt(assignmentId: string, answers: Record
   if (error) return { error: error.message };
 
   return { score, maxScore, results };
+}
+
+export type GrammarBoardCheckResult = { correct: boolean; correct_answer: string; explanation: string | null };
+
+// Проверка упражнения, вынесенного на доску. Как и submitGrammarAttempt —
+// correct_answer/explanation вычисляются и возвращаются только по явному
+// запросу проверки, никогда не хранятся в самом элементе доски (boards.data
+// видят оба участника комнаты, включая ученика без сессии).
+export async function checkGrammarBoardItems(itemIds: string[], answers: Record<string, string>) {
+  if (itemIds.length === 0) return { results: {} as Record<string, GrammarBoardCheckResult> };
+  const db = createAdminClient();
+  const { data: items, error } = await db
+    .from("grammar_exercise_items")
+    .select("id, correct_answer, explanation, grammar_exercises!inner(type)")
+    .in("id", itemIds);
+  if (error || !items) return { error: "Не удалось проверить" };
+
+  const { isGrammarAnswerCorrect } = await import("@/lib/grammar/checkAnswer");
+  type Row = { id: string; correct_answer: string; explanation: string | null; grammar_exercises: { type: ExerciseType } | { type: ExerciseType }[] };
+  const results: Record<string, GrammarBoardCheckResult> = {};
+  for (const it of items as unknown as Row[]) {
+    const type = Array.isArray(it.grammar_exercises) ? it.grammar_exercises[0].type : it.grammar_exercises.type;
+    results[it.id] = {
+      correct: isGrammarAnswerCorrect(type, answers[it.id], it.correct_answer),
+      correct_answer: it.correct_answer,
+      explanation: it.explanation,
+    };
+  }
+  return { results };
 }
 
 export async function duplicateGrammarSet(setId: string) {

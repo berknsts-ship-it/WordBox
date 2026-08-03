@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, CheckCircle2, XCircle } from "lucide-react";
-import { isGrammarAnswerCorrect } from "@/lib/grammarCheck";
+import { isGrammarAnswerCorrect } from "@/lib/grammar/checkAnswer";
 import type { ExerciseType } from "@/app/actions/grammar";
 
 type ItemRow = { id: string; question: string; correct_answer: string; points: number; explanation: string | null };
