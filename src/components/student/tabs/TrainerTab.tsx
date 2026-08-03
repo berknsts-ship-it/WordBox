@@ -2,16 +2,30 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import Link from "next/link";
 import WordTrainer from "@/components/student/WordTrainer";
+import TrainerSubNav from "@/components/student/tabs/TrainerSubNav";
+import ExercisesTab from "@/components/student/tabs/ExercisesTab";
 
 export default async function TrainerTab({
   studentId,
   code,
   activeSetId,
+  activeSub = "lexicon",
 }: {
   studentId: string;
   code: string;
   activeSetId?: string;
+  activeSub?: "lexicon" | "exercises";
 }) {
+  // ── Упражнения (Грамматика) — новый раздел, пока пустой (этап 1) ──
+  if (activeSub === "exercises") {
+    return (
+      <div>
+        <TrainerSubNav code={code} active="exercises" />
+        <ExercisesTab />
+      </div>
+    );
+  }
+
   const supabase = await createClient();
 
   // ── Session mode: show the trainer for a specific set ──
@@ -84,14 +98,17 @@ export default async function TrainerTab({
 
   if (sets.length === 0) {
     return (
-      <div className="text-center py-16">
-        <p className="text-5xl mb-3">📚</p>
-        <p className="font-semibold" style={{ color: "var(--brown-dark)" }}>
-          Наборов слов пока нет
-        </p>
-        <p className="text-sm mt-1" style={{ color: "var(--brown-light)" }}>
-          Репетитор добавит слова — и здесь появятся карточки для тренировки
-        </p>
+      <div>
+        <TrainerSubNav code={code} active="lexicon" />
+        <div className="text-center py-16">
+          <p className="text-5xl mb-3">📚</p>
+          <p className="font-semibold" style={{ color: "var(--brown-dark)" }}>
+            Наборов слов пока нет
+          </p>
+          <p className="text-sm mt-1" style={{ color: "var(--brown-light)" }}>
+            Репетитор добавит слова — и здесь появятся карточки для тренировки
+          </p>
+        </div>
       </div>
     );
   }
@@ -136,7 +153,9 @@ export default async function TrainerTab({
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <div>
+      <TrainerSubNav code={code} active="lexicon" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
       {sets.map((set) => {
         const total = totalBySet.get(set.id) ?? 0;
         const mastered = masteredBySet.get(set.id) ?? 0;
@@ -194,6 +213,7 @@ export default async function TrainerTab({
           </Link>
         );
       })}
+      </div>
     </div>
   );
 }
