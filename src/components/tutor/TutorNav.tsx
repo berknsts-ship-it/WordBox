@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import {
   LayoutDashboard, Users, CalendarDays, ClipboardList,
   BookOpen, LogOut, X, Menu, PenLine, Bell, FolderOpen, GraduationCap, Settings,
-  ChevronDown,
+  ChevronDown, PenSquare,
 } from "lucide-react";
 import WBLogo from "@/components/WBLogo";
 
@@ -24,6 +24,7 @@ const SECONDARY_NAV = [
   { label: "Уведомления",      href: "/tutor/notifications", icon: Bell },
   { label: "Материалы",        href: "/tutor/materials",     icon: FolderOpen },
   { label: "Словари",          href: "/tutor/vocabulary",    icon: BookOpen },
+  { label: "Грамматика",       href: "/tutor/grammar",       icon: PenSquare },
   { label: "Настройки",        href: "/tutor/settings",      icon: Settings },
 ];
 
