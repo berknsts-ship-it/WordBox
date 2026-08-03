@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import Link from "next/link";
-import { Plus, Pencil, Copy, Trash2 } from "lucide-react";
+import { Plus, Pencil, Copy, Trash2, Upload } from "lucide-react";
 import { deleteGrammarSet, duplicateGrammarSet } from "@/app/actions/grammar";
 
 export default async function GrammarLibraryPage() {
@@ -42,26 +42,44 @@ export default async function GrammarLibraryPage() {
             {allSets.length} {allSets.length === 1 ? "набор" : allSets.length < 5 ? "набора" : "наборов"}
           </p>
         </div>
-        <Link
-          href="/tutor/grammar/new"
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white hover:opacity-80 transition-all"
-          style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-button)" }}
-        >
-          <Plus size={16} /> Создать набор
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/tutor/grammar/import"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold hover:opacity-80 transition-all border-2"
+            style={{ borderColor: "var(--brown-mid)", color: "var(--brown-mid)" }}
+          >
+            <Upload size={16} /> Импортировать набор
+          </Link>
+          <Link
+            href="/tutor/grammar/new"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white hover:opacity-80 transition-all"
+            style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-button)" }}
+          >
+            <Plus size={16} /> Создать набор
+          </Link>
+        </div>
       </div>
 
       {allSets.length === 0 ? (
         <div className="text-center py-16">
           <p className="text-5xl mb-3">📐</p>
           <p className="font-semibold mb-2" style={{ color: "var(--brown-dark)" }}>Пока нет ни одного набора</p>
-          <Link
-            href="/tutor/grammar/new"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white hover:opacity-80 transition-all"
-            style={{ background: "var(--gradient-primary)" }}
-          >
-            <Plus size={14} /> Создать первый набор
-          </Link>
+          <div className="flex items-center justify-center gap-2">
+            <Link
+              href="/tutor/grammar/import"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold hover:opacity-80 transition-all border-2"
+              style={{ borderColor: "var(--brown-mid)", color: "var(--brown-mid)" }}
+            >
+              <Upload size={14} /> Импортировать
+            </Link>
+            <Link
+              href="/tutor/grammar/new"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white hover:opacity-80 transition-all"
+              style={{ background: "var(--gradient-primary)" }}
+            >
+              <Plus size={14} /> Создать первый набор
+            </Link>
+          </div>
         </div>
       ) : (
         <div className="space-y-2 mt-5">
