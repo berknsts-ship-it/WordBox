@@ -15,7 +15,7 @@ type Lesson = {
   students?: { name: string } | null;
 };
 type Student     = { id: string; name: string; default_price_rub?: number | null };
-type Subscription = { id: string; student_id: string; balance: number; name: string };
+type Subscription = { id: string; student_id: string; balance: number; name: string; paid?: boolean };
 
 const STATUS_BG: Record<string, string> = {
   scheduled:   "#dbeafe",
@@ -138,6 +138,8 @@ export default function CalendarView({
         student_id:      studentId,
         date:    `${naiveDate}T${time}:00`,
         price_rub:       price ? parseInt(price) : null,
+        subscription_id: activeSub?.id ?? null,
+        ...(activeSub?.paid ? { payment_status: "paid" } : {}),
       };
     });
 

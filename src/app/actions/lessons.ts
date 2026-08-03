@@ -66,7 +66,14 @@ export async function setLessonSubscription(id: string, subscriptionId: string |
     .single();
   if (fetchErr || !lesson) return { error: "Урок не найден" };
 
-  const { error } = await supabase.from("lessons").update({ subscription_id: subscriptionId }).eq("id", id);
+  const update: { subscription_id: string | null; payment_status?: string } = { subscription_id: subscriptionId };
+  if (subscriptionId) {
+    // Абонемент оплачивается целиком — если он уже оплачен, привязанный урок
+    // тоже фактически оплачен.
+    const { data: sub } = await supabase.from("student_subscriptions").select("paid").eq("id", subscriptionId).single();
+    if (sub?.paid) update.payment_status = "paid";
+  }
+  const { error } = await supabase.from("lessons").update(update).eq("id", id);
   if (error) return { error: error.message };
 
   if (subscriptionId && (lesson.status === "completed" || lesson.status === "missed") && !lesson.deducted_amount) {
@@ -95,6 +102,14 @@ export async function addLesson(formData: FormData) {
   if (!user) return;
   const student_id = formData.get("student_id") as string;
   const priceRaw   = formData.get("price_rub");
+  const subscriptionId = (formData.get("subscription_id") as string) || null;
+
+  let paymentStatus: string | undefined;
+  if (subscriptionId) {
+    const { data: sub } = await supabase.from("student_subscriptions").select("paid").eq("id", subscriptionId).single();
+    if (sub?.paid) paymentStatus = "paid";
+  }
+
   await supabase.from("lessons").insert({
     student_id,
     tutor_id:     user.id,
@@ -102,7 +117,8 @@ export async function addLesson(formData: FormData) {
     notes:        (formData.get("notes") as string) || null,
     status:       (formData.get("status") as string) || "scheduled",
     price_rub:    priceRaw ? Number(priceRaw) : null,
-    subscription_id: (formData.get("subscription_id") as string) || null,
+    subscription_id: subscriptionId,
+    ...(paymentStatus ? { payment_status: paymentStatus } : {}),
   });
   revalidatePath(`/tutor/students/${student_id}`);
   revalidatePath("/tutor/schedule");

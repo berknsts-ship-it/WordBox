@@ -23,7 +23,7 @@ export default async function SchedulePage({
       .eq("tutor_id", tutorId)
       .order("date"),
     supabase.from("students").select("id, name, default_price_rub").eq("tutor_id", tutorId).order("name"),
-    supabase.from("student_subscriptions").select("id, student_id, balance, name").eq("tutor_id", tutorId).eq("status", "active"),
+    supabase.from("student_subscriptions").select("id, student_id, balance, name, paid").eq("tutor_id", tutorId).eq("status", "active"),
   ]);
 
   const all      = lessons ?? [];
