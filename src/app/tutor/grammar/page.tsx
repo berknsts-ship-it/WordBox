@@ -19,10 +19,15 @@ export default async function GrammarLibraryPage() {
   const setIds = allSets.map(s => s.id);
 
   const exerciseCountBySet: Record<string, number> = {};
+  const itemCountBySet: Record<string, number> = {};
   if (setIds.length > 0) {
-    const { data: exercises } = await db.from("grammar_exercises").select("id, set_id").in("set_id", setIds);
-    for (const ex of exercises ?? []) {
+    const { data: exercises } = await db
+      .from("grammar_exercises")
+      .select("id, set_id, grammar_exercise_items(id)")
+      .in("set_id", setIds);
+    for (const ex of (exercises ?? []) as unknown as { id: string; set_id: string; grammar_exercise_items: { id: string }[] }[]) {
       exerciseCountBySet[ex.set_id] = (exerciseCountBySet[ex.set_id] ?? 0) + 1;
+      itemCountBySet[ex.set_id] = (itemCountBySet[ex.set_id] ?? 0) + (ex.grammar_exercise_items?.length ?? 0);
     }
   }
 
@@ -62,6 +67,7 @@ export default async function GrammarLibraryPage() {
         <div className="space-y-2 mt-5">
           {allSets.map(set => {
             const count = exerciseCountBySet[set.id] ?? 0;
+            const itemCount = itemCountBySet[set.id] ?? 0;
             return (
               <div key={set.id} className="rounded-2xl border p-3.5 flex items-center gap-3" style={card}>
                 <div className="flex-1 min-w-0">
@@ -70,7 +76,7 @@ export default async function GrammarLibraryPage() {
                   </Link>
                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                     <span className="text-xs" style={{ color: "var(--brown-light)" }}>
-                      {count} {count === 1 ? "упражнение" : count < 5 ? "упражнения" : "упражнений"}
+                      {count} {count === 1 ? "упражнение" : count < 5 ? "упражнения" : "упражнений"} · {itemCount} {itemCount === 1 ? "пункт" : itemCount < 5 ? "пункта" : "пунктов"}
                     </span>
                     {set.description && (
                       <span className="text-xs truncate" style={{ color: "var(--brown-mid)" }}>· {set.description}</span>

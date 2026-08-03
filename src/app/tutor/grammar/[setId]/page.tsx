@@ -6,6 +6,15 @@ import { ChevronLeft } from "lucide-react";
 import GrammarSetEditor from "../GrammarSetEditor";
 import type { ExerciseType } from "@/app/actions/grammar";
 
+type ItemRow = {
+  id: string; order_index: number; question: string; correct_answer: string;
+  options: string[] | null; points: number; explanation: string | null;
+};
+type ExerciseRow = {
+  id: string; order_index: number; type: ExerciseType; instruction: string | null;
+  grammar_exercise_items: ItemRow[];
+};
+
 export default async function EditGrammarSetPage({ params }: { params: Promise<{ setId: string }> }) {
   const { setId } = await params;
   const supabase = await createClient();
@@ -24,22 +33,30 @@ export default async function EditGrammarSetPage({ params }: { params: Promise<{
 
   const { data: exercises } = await db
     .from("grammar_exercises")
-    .select("id, order_index, type, question, correct_answer, options, points, explanation")
+    .select("id, order_index, type, instruction, grammar_exercise_items(id, order_index, question, correct_answer, options, points, explanation)")
     .eq("set_id", setId)
     .order("order_index");
 
   const initial = {
     title: set.title,
     description: set.description ?? "",
-    exercises: (exercises ?? []).map(ex => ({
-      _id: ex.id as string,
-      type: ex.type as ExerciseType,
-      question: ex.question as string,
-      correct_answer: ex.correct_answer as string,
-      options: (ex.options as string[] | null) ?? null,
-      points: ex.points as number,
-      explanation: ex.explanation as string | null,
-    })),
+    exercises: ((exercises ?? []) as unknown as ExerciseRow[])
+      .sort((a, b) => a.order_index - b.order_index)
+      .map(ex => ({
+        _id: ex.id,
+        type: ex.type,
+        instruction: ex.instruction ?? "",
+        items: [...(ex.grammar_exercise_items ?? [])]
+          .sort((a, b) => a.order_index - b.order_index)
+          .map(it => ({
+            _id: it.id,
+            question: it.question,
+            correct_answer: it.correct_answer,
+            options: it.options ?? null,
+            points: it.points,
+            explanation: it.explanation,
+          })),
+      })),
   };
 
   return (
