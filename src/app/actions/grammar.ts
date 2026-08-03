@@ -130,6 +130,85 @@ export async function deleteGrammarSet(setId: string) {
   revalidatePath("/tutor/grammar");
 }
 
+// Назначение набора ученикам. Не удаляет назначения, по которым уже есть
+// прогресс (in_progress/completed) даже если галочку сняли — иначе можно
+// случайно стереть работу ученика. Убрать можно только не начатое.
+export async function setGrammarAssignments(setId: string, studentIds: string[]) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Не авторизован" };
+
+  const db = createAdminClient();
+  const { data: existing } = await db.from("grammar_assignments").select("student_id, status").eq("set_id", setId);
+  const existingIds = new Set((existing ?? []).map(a => a.student_id));
+
+  const toAdd = studentIds.filter(id => !existingIds.has(id));
+  const toRemove = (existing ?? []).filter(a => !studentIds.includes(a.student_id) && a.status === "not_started").map(a => a.student_id);
+
+  if (toAdd.length > 0) {
+    const { error } = await db.from("grammar_assignments").insert(
+      toAdd.map(student_id => ({ set_id: setId, student_id }))
+    );
+    if (error) return { error: error.message };
+  }
+  if (toRemove.length > 0) {
+    const { error } = await db.from("grammar_assignments").delete().eq("set_id", setId).in("student_id", toRemove);
+    if (error) return { error: error.message };
+  }
+
+  revalidatePath("/tutor/grammar");
+  return {};
+}
+
+// ── Ученик: прохождение (нет Supabase Auth сессии — как везде у студентов,
+// доверяем studentId/assignmentId, переданным со страницы по коду доступа) ──
+
+export async function saveGrammarProgress(assignmentId: string, answers: Record<string, string>) {
+  const db = createAdminClient();
+  const { error } = await db.from("grammar_assignments")
+    .update({ answers, status: "in_progress", updated_at: new Date().toISOString() })
+    .eq("id", assignmentId)
+    .neq("status", "completed"); // не перезаписываем уже сданную работу
+  if (error) return { error: error.message };
+  return {};
+}
+
+export type GrammarItemResult = { correct: boolean; correct_answer: string; explanation: string | null; points: number };
+
+// Проверка целиком на сервере — правильные ответы/разбор не должны попадать
+// клиенту до сдачи работы (иначе видно в Network до окончания прохождения).
+export async function submitGrammarAttempt(assignmentId: string, answers: Record<string, string>) {
+  const db = createAdminClient();
+  const { data: assignment } = await db.from("grammar_assignments").select("set_id").eq("id", assignmentId).single();
+  if (!assignment) return { error: "Назначение не найдено" };
+
+  const { data: exercises } = await db.from("grammar_exercises")
+    .select("type, grammar_exercise_items(id, correct_answer, points, explanation)")
+    .eq("set_id", assignment.set_id);
+
+  const { isGrammarAnswerCorrect } = await import("@/lib/grammarCheck");
+
+  let score = 0;
+  let maxScore = 0;
+  const results: Record<string, GrammarItemResult> = {};
+  type Row = { type: ExerciseType; grammar_exercise_items: { id: string; correct_answer: string; points: number; explanation: string | null }[] };
+  for (const ex of (exercises ?? []) as unknown as Row[]) {
+    for (const item of ex.grammar_exercise_items) {
+      maxScore += item.points;
+      const correct = isGrammarAnswerCorrect(ex.type, answers[item.id], item.correct_answer);
+      if (correct) score += item.points;
+      results[item.id] = { correct, correct_answer: item.correct_answer, explanation: item.explanation, points: item.points };
+    }
+  }
+
+  const { error } = await db.from("grammar_assignments")
+    .update({ answers, status: "completed", updated_at: new Date().toISOString() })
+    .eq("id", assignmentId);
+  if (error) return { error: error.message };
+
+  return { score, maxScore, results };
+}
+
 export async function duplicateGrammarSet(setId: string) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

@@ -10,18 +10,24 @@ export default async function TrainerTab({
   code,
   activeSetId,
   activeSub = "lexicon",
+  activeAssignmentId,
 }: {
   studentId: string;
   code: string;
   activeSetId?: string;
   activeSub?: "lexicon" | "exercises";
+  activeAssignmentId?: string;
 }) {
-  // ── Упражнения (Грамматика) — новый раздел, пока пустой (этап 1) ──
+  // ── Упражнения (Грамматика) ──
   if (activeSub === "exercises") {
+    if (activeAssignmentId) {
+      // Прохождение конкретного набора — без под-навигации, как и у сессии Лексики.
+      return <ExercisesTab studentId={studentId} code={code} activeAssignmentId={activeAssignmentId} />;
+    }
     return (
       <div>
         <TrainerSubNav code={code} active="exercises" />
-        <ExercisesTab />
+        <ExercisesTab studentId={studentId} code={code} />
       </div>
     );
   }

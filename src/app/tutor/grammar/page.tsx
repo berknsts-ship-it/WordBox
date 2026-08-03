@@ -1,21 +1,22 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import Link from "next/link";
-import { Plus, Pencil, Copy, Trash2, Upload } from "lucide-react";
+import { Plus, Pencil, Copy, Trash2, Upload, BarChart2 } from "lucide-react";
 import { deleteGrammarSet, duplicateGrammarSet } from "@/app/actions/grammar";
+import GrammarAssignPanel from "@/components/tutor/GrammarAssignPanel";
 
 export default async function GrammarLibraryPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const db = createAdminClient();
 
-  const { data: sets } = await db
-    .from("grammar_sets")
-    .select("id, title, description, created_at")
-    .eq("tutor_id", user!.id)
-    .order("created_at", { ascending: false });
+  const [{ data: sets }, { data: students }] = await Promise.all([
+    db.from("grammar_sets").select("id, title, description, created_at").eq("tutor_id", user!.id).order("created_at", { ascending: false }),
+    supabase.from("students").select("id, name").eq("tutor_id", user!.id).order("name"),
+  ]);
 
   const allSets = sets ?? [];
+  const allStudents = students ?? [];
   const setIds = allSets.map(s => s.id);
 
   const exerciseCountBySet: Record<string, number> = {};
@@ -28,6 +29,14 @@ export default async function GrammarLibraryPage() {
     for (const ex of (exercises ?? []) as unknown as { id: string; set_id: string; grammar_exercise_items: { id: string }[] }[]) {
       exerciseCountBySet[ex.set_id] = (exerciseCountBySet[ex.set_id] ?? 0) + 1;
       itemCountBySet[ex.set_id] = (itemCountBySet[ex.set_id] ?? 0) + (ex.grammar_exercise_items?.length ?? 0);
+    }
+  }
+
+  const assignmentsBySet: Record<string, { student_id: string; status: "not_started" | "in_progress" | "completed" }[]> = {};
+  if (setIds.length > 0) {
+    const { data: assignments } = await db.from("grammar_assignments").select("set_id, student_id, status").in("set_id", setIds);
+    for (const a of assignments ?? []) {
+      (assignmentsBySet[a.set_id] ??= []).push({ student_id: a.student_id, status: a.status });
     }
   }
 
@@ -86,6 +95,7 @@ export default async function GrammarLibraryPage() {
           {allSets.map(set => {
             const count = exerciseCountBySet[set.id] ?? 0;
             const itemCount = itemCountBySet[set.id] ?? 0;
+            const assigned = assignmentsBySet[set.id] ?? [];
             return (
               <div key={set.id} className="rounded-2xl border p-3.5 flex items-center gap-3" style={card}>
                 <div className="flex-1 min-w-0">
@@ -102,6 +112,17 @@ export default async function GrammarLibraryPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
+                  <GrammarAssignPanel setId={set.id} allStudents={allStudents} assigned={assigned} />
+                  {assigned.length > 0 && (
+                    <Link
+                      href={`/tutor/grammar/${set.id}/results`}
+                      className="p-2 rounded-xl hover:opacity-70 transition-all"
+                      style={{ color: "var(--brown-mid)" }}
+                      title="Результаты"
+                    >
+                      <BarChart2 size={15} />
+                    </Link>
+                  )}
                   <Link
                     href={`/tutor/grammar/${set.id}`}
                     className="p-2 rounded-xl hover:opacity-70 transition-all"
