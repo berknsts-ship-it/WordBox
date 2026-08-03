@@ -3128,11 +3128,18 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     const blocks = set.exercises.filter(ex => grammarSelExercises.has(ex.id));
     if (!blocks.length) return;
     const { panX, panY, zoom } = viewRef.current;
-    const W = 340, GAP = 24;
-    blocks.forEach((block, i) => {
-      const H = Math.max(160, 70 + block.items.length * 56);
+    const W = 360, GAP = 24;
+    // Per-item height estimate varies a lot by type (mcq stacks 4 option
+    // buttons, bracket/gap_fill/fix_error are one text line) — generous on
+    // purpose since the box is resizable but a too-short box hides content
+    // below the fold on first placement.
+    const perItemHeight = (type: ExerciseType) =>
+      type === "mcq" ? 200 : type === "true_false" ? 90 : type === "word_order" ? 110 : 66;
+    let cursorY = (-panY / zoom) + GAP;
+    blocks.forEach(block => {
+      const H = Math.max(180, 90 + block.items.length * perItemHeight(block.type));
       const cx = (-panX / zoom) + GAP + (W / 2);
-      const cy = (-panY / zoom) + GAP + i * (H + GAP) + H / 2;
+      const cy = cursorY + H / 2;
       const gItem: GrammarExerciseBoardItem = {
         type: "grammar_exercise", id: uid(),
         x: cx - W / 2, y: cy - H / 2, w: W, h: H,
@@ -3151,6 +3158,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
       itemsRef.current.push(gItem);
       send({ type: "path", item: gItem });
       pushHistory({ type: "add", item: gItem });
+      cursorY += H + GAP;
     });
     render();
     setShowGrammarPanel(false);
@@ -4316,6 +4324,12 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                 const idx = itemsRef.current.findIndex(x => x.id === gi.id);
                 const current = idx >= 0 ? (itemsRef.current[idx] as GrammarExerciseBoardItem) : gi;
                 updateBoardItem({ ...current, checked: true, results: res.results });
+              }}
+              onResizeStart={(corner, clientX, clientY) => {
+                const rect = containerRef.current!.getBoundingClientRect();
+                const ww = (clientX - rect.left - viewRef.current.panX) / viewRef.current.zoom;
+                const wh = (clientY - rect.top  - viewRef.current.panY) / viewRef.current.zoom;
+                selDragRef.current = { mode:"resize-img", id: gi.id, corner, wx0: ww, wy0: wh, origItem: { ...gi } };
               }} />
           );
         })}
@@ -6237,61 +6251,78 @@ function TableOverlay({ item, sp, sw, sh, selected, zoom, onCellChange }:
   );
 }
 
-function GrammarExerciseOverlay({ item, sp, sw, sh, selected, onAnswer, onCheck }:
+function GrammarExerciseOverlay({ item, sp, sw, sh, selected, onAnswer, onCheck, onResizeStart }:
   { item: GrammarExerciseBoardItem; sp:{x:number;y:number}; sw:number; sh:number; selected:boolean;
-    onAnswer:(itemId:string, value:string)=>void; onCheck:()=>Promise<void> }) {
+    onAnswer:(itemId:string, value:string)=>void; onCheck:()=>Promise<void>;
+    onResizeStart:(corner:"se"|"sw"|"ne"|"nw", clientX:number, clientY:number)=>void }) {
   const locked = item.locked;
   const [checking, setChecking] = useState(false);
   const stop = (e: React.SyntheticEvent) => e.stopPropagation();
 
   return (
-    <div className="absolute overflow-hidden flex flex-col select-none"
-      style={{ left:sp.x, top:sp.y, width:sw, height:sh, zIndex:20,
-        outline: selected ? "2px solid #4a80f0" : "1px solid #c0b8b0",
-        borderRadius:10, background:"white", boxShadow:"0 1px 6px rgba(0,0,0,0.08)" }}>
-      {/* Header — drag handle (no stopPropagation, bubbles to board's generic select/move) */}
-      <div className="flex items-center justify-between gap-2 px-3 py-2 shrink-0"
-        style={{ background:"#f8f4ee", borderBottom:"1px solid #e8ddd0", cursor: locked ? "default" : "move" }}>
-        <span className="text-xs font-semibold truncate" style={{ color:"var(--brown-dark)" }}>
-          {item.setTitle} · {TYPE_LABELS[item.exerciseType]}
-        </span>
-        <button
-          onMouseDown={stop} onTouchStart={stop}
-          onTouchEnd={e=>{e.preventDefault();e.stopPropagation();(e.currentTarget as HTMLButtonElement).click();}}
-          onClick={async () => { setChecking(true); await onCheck(); setChecking(false); }}
-          disabled={checking}
-          className="px-2.5 py-1 rounded-lg text-xs font-semibold text-white shrink-0 disabled:opacity-50"
-          style={{ background:"var(--gradient-primary)" }}>
-          {checking ? "…" : "Проверить"}
-        </button>
-      </div>
-      {/* Body — all interactive controls; stops propagation so typing/tapping never starts a board drag */}
-      <div className="flex-1 overflow-y-auto px-3 py-2.5 space-y-3"
-        onMouseDown={stop} onTouchStart={stop}>
-        {item.instruction && <p className="text-xs italic" style={{ color:"var(--brown-mid)" }}>{item.instruction}</p>}
-        {item.items.map((row, i) => {
-          const r = item.results?.[row.id];
-          return (
-            <div key={row.id}>
-              <div className="flex items-center gap-1.5 mb-1">
-                <span className="text-xs font-semibold" style={{ color:"var(--brown-light)" }}>{i + 1} · {row.points} б.</span>
-                {item.checked && r && (r.correct
-                  ? <CheckCircle2 size={13} style={{ color:"#2a7a3a" }}/>
-                  : <XCircle size={13} style={{ color:"#c04020" }}/>)}
-              </div>
-              {row.question && <p className="text-sm mb-1" style={{ color:"var(--brown-dark)" }}>{row.question}</p>}
-              <ItemInput item={row as GrammarItem} type={item.exerciseType} answer={item.answers?.[row.id] ?? ""}
-                onAnswer={v => onAnswer(row.id, v)} />
-              {item.checked && r && !r.correct && (
-                <div className="text-xs mt-1.5 px-2 py-1.5 rounded-lg" style={{ background:"#fff3f0", color:"var(--brown-mid)" }}>
-                  Верно: <span className="font-medium">{r.correct_answer}</span>
-                  {r.explanation && <div className="italic mt-0.5">{r.explanation}</div>}
+    <div className="absolute select-none" style={{ left:sp.x, top:sp.y, width:sw, height:sh, zIndex:20 }}>
+      <div className="w-full h-full overflow-hidden flex flex-col"
+        style={{ outline: selected ? "2px solid #4a80f0" : "1px solid #c0b8b0",
+          borderRadius:10, background:"white", boxShadow:"0 1px 6px rgba(0,0,0,0.08)" }}>
+        {/* Header — drag handle (no stopPropagation, bubbles to board's generic select/move) */}
+        <div className="flex items-center justify-between gap-2 px-3 py-2 shrink-0"
+          style={{ background:"#f8f4ee", borderBottom:"1px solid #e8ddd0", cursor: locked ? "default" : "move" }}>
+          <span className="text-xs font-semibold truncate" style={{ color:"var(--brown-dark)" }}>
+            {item.setTitle} · {TYPE_LABELS[item.exerciseType]}
+          </span>
+          <button
+            onMouseDown={stop} onTouchStart={stop}
+            onTouchEnd={e=>{e.preventDefault();e.stopPropagation();(e.currentTarget as HTMLButtonElement).click();}}
+            onClick={async () => { setChecking(true); await onCheck(); setChecking(false); }}
+            disabled={checking}
+            className="px-2.5 py-1 rounded-lg text-xs font-semibold text-white shrink-0 disabled:opacity-50"
+            style={{ background:"var(--gradient-primary)" }}>
+            {checking ? "…" : "Проверить"}
+          </button>
+        </div>
+        {/* Body — all interactive controls; stops propagation so typing/tapping never starts a board drag */}
+        <div className="flex-1 overflow-y-auto px-3 py-2.5 space-y-3"
+          onMouseDown={stop} onTouchStart={stop}>
+          {item.instruction && <p className="text-xs italic" style={{ color:"var(--brown-mid)" }}>{item.instruction}</p>}
+          {item.items.map((row, i) => {
+            const r = item.results?.[row.id];
+            return (
+              <div key={row.id}>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <span className="text-xs font-semibold" style={{ color:"var(--brown-light)" }}>{i + 1} · {row.points} б.</span>
+                  {item.checked && r && (r.correct
+                    ? <CheckCircle2 size={13} style={{ color:"#2a7a3a" }}/>
+                    : <XCircle size={13} style={{ color:"#c04020" }}/>)}
                 </div>
-              )}
-            </div>
-          );
-        })}
+                {row.question && <p className="text-sm mb-1" style={{ color:"var(--brown-dark)" }}>{row.question}</p>}
+                <ItemInput item={row as GrammarItem} type={item.exerciseType} answer={item.answers?.[row.id] ?? ""}
+                  onAnswer={v => onAnswer(row.id, v)} />
+                {item.checked && r && !r.correct && (
+                  <div className="text-xs mt-1.5 px-2 py-1.5 rounded-lg" style={{ background:"#fff3f0", color:"var(--brown-mid)" }}>
+                    Верно: <span className="font-medium">{r.correct_answer}</span>
+                    {r.explanation && <div className="italic mt-0.5">{r.explanation}</div>}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
+      {/* Resize handles */}
+      {selected && !locked && (["nw","ne","sw","se"] as const).map(corner => {
+        const isRight = corner.endsWith("e"), isBottom = corner.startsWith("s");
+        return (
+          <div key={corner} className="absolute pointer-events-auto"
+            style={{
+              [isRight?"right":"left"]: -7, [isBottom?"bottom":"top"]: -7,
+              width:18, height:18, cursor:`${corner}-resize`, zIndex:32,
+              background:"white", border:"2px solid #4a80f0", borderRadius:3,
+            }}
+            onMouseDown={e => { e.stopPropagation(); onResizeStart(corner, e.clientX, e.clientY); }}
+            onTouchStart={e => { e.stopPropagation(); e.preventDefault(); onResizeStart(corner, e.touches[0].clientX, e.touches[0].clientY); }}
+          />
+        );
+      })}
     </div>
   );
 }
