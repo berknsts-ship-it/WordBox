@@ -1755,7 +1755,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   // ── Realtime ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     const supabase = createClient();
-    const ch = supabase
+    let ch = supabase
       .channel(`board-${roomId}`, { config: { broadcast: { self: false }, presence: { key: mySenderIdRef.current } } })
       .on("broadcast", { event: "draw" }, ({ payload }: { payload: WsEvent }) => {
         if (payload.type === "clear")     { itemsRef.current = []; remotePathsRef.current.clear(); render(); return; }
@@ -1857,8 +1857,17 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           }
           return;
         }
-      })
-      .on("presence", { event: "sync" }, () => {
+      });
+
+    // TutorBoardHub mounts a desktop AND a mobile BoardTab at once (only one
+    // visible via CSS) — both open a channel for the same room, and Supabase
+    // dedupes channels by topic, so whichever subscribes second is handed the
+    // SAME already-subscribed channel object. Registering presence callbacks
+    // on it then throws synchronously. Not fatal — the first instance's
+    // presence handler already drives the shared state — just don't let it
+    // take the whole page down.
+    try {
+      ch = ch.on("presence", { event: "sync" }, () => {
         const state = ch.presenceState<Participant>();
         const map = new Map<string, Participant>();
         for (const key in state) {
@@ -1866,14 +1875,22 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           if (entry) map.set(entry.id, entry);
         }
         setParticipants(map);
-      })
-      .subscribe(async s => {
-        setConnected(s === "SUBSCRIBED");
-        if (s === "SUBSCRIBED") {
+      });
+    } catch (e) {
+      console.warn("[board] presence already registered on this channel", e);
+    }
+
+    ch.subscribe(async s => {
+      setConnected(s === "SUBSCRIBED");
+      if (s === "SUBSCRIBED") {
+        try {
           const name = myName ?? (role === "tutor" ? "Репетитор" : "Ученик");
           await ch.track({ id: mySenderIdRef.current, name, color: myColor, role } satisfies Participant);
+        } catch (e) {
+          console.warn("[board] presence track failed", e);
         }
-      });
+      }
+    });
     channelRef.current = ch;
     return () => { supabase.removeChannel(ch); };
   }, [roomId, render, applyView, loadPdfPage, animateGoto]);
