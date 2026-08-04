@@ -64,9 +64,9 @@ export default function TutorBoardHub({
         ))}
       </div>
 
-      {/* Desktop: классический сайдбар */}
-      <div className="hidden sm:flex flex-1 overflow-hidden min-h-0">
-        <div className="flex flex-col shrink-0 border-r overflow-hidden"
+      <div className="flex flex-1 overflow-hidden min-h-0">
+        {/* Desktop: классический сайдбар (скрыт на мобильном — там список выше) */}
+        <div className="hidden sm:flex flex-col shrink-0 border-r overflow-hidden"
           style={{ width: 192, borderColor: "var(--brown-pale)", background: "white" }}>
           <div className="px-4 py-3 border-b shrink-0" style={{ borderColor: "var(--brown-pale)" }}>
             <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--brown-light)" }}>Ученики</p>
@@ -96,8 +96,11 @@ export default function TutorBoardHub({
           </div>
         </div>
 
-        {/* Доска (desktop) */}
-        <div className="flex-1 overflow-hidden flex flex-col min-w-0">
+        {/* Доска — один экземпляр на оба брейкпоинта. WhiteboardCanvas уже сам
+            адаптивен (свои mobile/desktop панели инструментов внутри), два
+            отдельных монтирования здесь только дублировали загрузку/автосохранение
+            для одного и того же ученика одновременно. */}
+        <div className="flex-1 overflow-hidden flex flex-col min-w-0 min-h-0">
           {selectedId ? (
             <BoardTab
               studentId={selectedId}
@@ -111,30 +114,11 @@ export default function TutorBoardHub({
               <div>
                 <p className="text-4xl mb-3">🖊</p>
                 <p className="font-semibold" style={{ color: "var(--brown-dark)" }}>Выбери ученика</p>
-                <p className="text-sm mt-1" style={{ color: "var(--brown-light)" }}>Кликни на имя в боковой панели</p>
+                <p className="text-sm mt-1 hidden sm:block" style={{ color: "var(--brown-light)" }}>Кликни на имя в боковой панели</p>
               </div>
             </div>
           )}
         </div>
-      </div>
-
-      {/* Доска (mobile) */}
-      <div className="sm:hidden flex-1 overflow-hidden flex flex-col min-w-0 min-h-0">
-        {selectedId ? (
-          <BoardTab
-            studentId={selectedId}
-            role="tutor"
-            boardUrl={student?.canvas_url ?? null}
-            snapshots={snapshots}
-          />
-        ) : (
-          <div className="flex-1 flex items-center justify-center text-center p-8">
-            <div>
-              <p className="text-4xl mb-3">🖊</p>
-              <p className="font-semibold" style={{ color: "var(--brown-dark)" }}>Выбери ученика</p>
-            </div>
-          </div>
-        )}
       </div>
 
     </div>

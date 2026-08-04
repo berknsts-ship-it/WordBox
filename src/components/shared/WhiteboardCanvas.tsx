@@ -1091,6 +1091,16 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   const channelRef      = useRef<ReturnType<ReturnType<typeof createClient>["channel"]> | null>(null);
   const saveTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipSaveRef     = useRef(false);
+  // Autosave must never arm before the initial loadBoardState() resolves —
+  // otherwise the empty itemsRef a fresh mount starts with can get persisted
+  // over real data if the load is slow. Also gates re-arming after a load
+  // failure, since in that case we don't actually know the real board state.
+  const isLoadedRef     = useRef(false);
+  // One-shot: set right before an explicit user action empties the board
+  // (clear button, delete-all-selected, eraser wiping the last item) so that
+  // specific save is allowed to persist an empty board. Consumed (reset) by
+  // the very next save scheduled in render() — never stays "on" implicitly.
+  const allowEmptySaveRef = useRef(false);
   const roomIdRef       = useRef(roomId);
 
   const itemsRef      = useRef<DrawItem[]>([]);
@@ -1300,6 +1310,8 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   const [editWheelText, setEditWheelText] = useState("");
   const [showMoreTools, setShowMoreTools] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0);
   const shapeMenuAnchorRef  = useRef<HTMLDivElement>(null);
   const frameMenuAnchorRef  = useRef<HTMLDivElement>(null);
   const moreToolsAnchorRef  = useRef<HTMLDivElement>(null);
@@ -1412,10 +1424,13 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     }
     ctx.restore();
     renderMinimapFnRef.current();
-    if (role === "tutor" && !skipSaveRef.current) {
+    if (role === "tutor" && !skipSaveRef.current && isLoadedRef.current) {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      const allowClear = allowEmptySaveRef.current;
+      allowEmptySaveRef.current = false; // one-shot — consumed by this scheduled save
+      const items = itemsRef.current;
       saveTimerRef.current = setTimeout(() => {
-        saveBoardState(roomIdRef.current, itemsRef.current);
+        saveBoardState(roomIdRef.current, items, { allowClear });
       }, 1500);
     }
     if (!livePathRef.current && !liveShapeRef.current && !liveFrameRef.current) {
@@ -1445,20 +1460,38 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   useEffect(() => {
     itemsRef.current = [];
     remotePathsRef.current.clear();
+    isLoadedRef.current = false; // autosave stays off until this load resolves successfully
+    setLoadFailed(false);
     render();
     let cancelled = false;
-    loadBoardState(roomId).then(items => {
-      if (cancelled || !items.length) return;
-      itemsRef.current = items as DrawItem[];
+    loadBoardState(roomId).then(({ items, error }) => {
+      if (cancelled) return;
+      if (error) {
+        // Don't guess — a failed load must never be treated as "confirmed
+        // empty". Leave autosave disabled and tell the tutor, instead of
+        // silently risking an empty save clobbering real data.
+        setLoadFailed(true);
+        return;
+      }
+      if (items.length) {
+        itemsRef.current = items as DrawItem[];
+      }
+      isLoadedRef.current = true;
       render();
       setPanVer(v => v + 1);
+    }).catch(() => {
+      // The request itself failed (offline, DNS, server unreachable) rather
+      // than loadBoardState returning a handled {error:true} — same
+      // response: don't pretend we know the board is empty.
+      if (cancelled) return;
+      setLoadFailed(true);
     });
     return () => {
       cancelled = true;
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roomId]);
+  }, [roomId, reloadTick]);
 
   // ── touch: block passive scroll/zoom on the canvas container ────────────────
   // React 17+ registers synthetic onTouch* as passive, so e.preventDefault() inside
@@ -1688,6 +1721,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           pushHistory({ type: "clear", saved: [...itemsRef.current] });
           const toRemove = ids;
           itemsRef.current = itemsRef.current.filter(i => !toRemove.has(i.id));
+          allowEmptySaveRef.current = true; // explicit user deletion — ok if this empties the board
           render();
           // Broadcast: clear + re-send remaining
           send({ type: "clear" });
@@ -2964,6 +2998,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
       return true;
     });
     if (itemsRef.current.length !== before) {
+      allowEmptySaveRef.current = true; // explicit user eraser action — ok if this empties the board
       render();
       // Broadcast clear+reload approach: just send an update for each removed item
       send({ type: "clear" });
@@ -2973,8 +3008,12 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
 
   const handleClear = () => {
     if (itemsRef.current.length === 0) return;
+    // Confirmation lives here (not just behind the desktop button's
+    // double-click) so it protects every entry point, including the mobile
+    // toolbar's single-tap trash icon, which had none before.
+    if (!confirm("Точно очистить всю доску? Это действие нельзя отменить после перезагрузки страницы.")) return;
     pushHistory({ type:"clear", saved: [...itemsRef.current] });
-    itemsRef.current = []; render(); send({ type:"clear" });
+    itemsRef.current = []; allowEmptySaveRef.current = true; render(); send({ type:"clear" });
   };
 
   // ── lock toggle ───────────────────────────────────────────────────────────────
@@ -4041,6 +4080,19 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
         }}>
 
         <canvas ref={canvasRef} className="absolute inset-0" style={{ touchAction:"none" }} onContextMenu={e => e.preventDefault()} />
+
+        {/* Load-failed banner — autosave is deliberately OFF until a retry succeeds,
+            so nothing here can silently overwrite whatever's actually saved */}
+        {loadFailed && (
+          <div className="absolute top-2 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-3 py-1.5 rounded-xl shadow-lg text-xs font-medium"
+            style={{ background:"#c0392b", color:"white" }}>
+            Не удалось загрузить доску — показанное может быть неактуально, автосохранение отключено
+            <button onClick={() => setReloadTick(t => t + 1)} className="px-2 py-0.5 rounded-lg font-semibold hover:opacity-80"
+              style={{ background:"rgba(255,255,255,0.25)" }}>
+              Повторить
+            </button>
+          </div>
+        )}
 
         {/* Follow-me banner — shown to a student while they're mirroring the tutor's view */}
         {followInfo && (

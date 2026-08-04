@@ -66,22 +66,44 @@ export async function renameSnapshot(id: string, title: string) {
   await supabase.from("board_snapshots").update({ title }).eq("id", id).eq("tutor_id", user.id);
 }
 
-export async function saveBoardState(studentId: string, items: unknown[]) {
+// Defense in depth against the load/save race that wiped real board content:
+// an empty save is only allowed through if the caller explicitly confirms it
+// (the tutor pressed "clear board"). Anything else that would overwrite a
+// non-empty board with an empty one — a bug, a slow/failed load, a stray
+// timer — gets refused instead of silently destroying real work.
+export async function saveBoardState(studentId: string, items: unknown[], opts?: { allowClear?: boolean }) {
   const db = createAdminClient();
+  if (items.length === 0 && !opts?.allowClear) {
+    const { data: existing } = await db.from("boards").select("data").eq("student_id", studentId).maybeSingle();
+    const existingItems = (existing?.data as { items?: unknown[] } | null)?.items ?? [];
+    if (existingItems.length > 0) {
+      console.warn(`[board] refused to overwrite non-empty board (student ${studentId}) with an empty save`);
+      return { skipped: true };
+    }
+  }
   await db.from("boards").upsert(
     { student_id: studentId, data: { items }, updated_at: new Date().toISOString() },
     { onConflict: "student_id" }
   );
+  return { skipped: false };
 }
 
-export async function loadBoardState(studentId: string): Promise<unknown[]> {
+export async function loadBoardState(studentId: string): Promise<{ items: unknown[]; error: boolean }> {
   const db = createAdminClient();
-  const { data } = await db
+  const { data, error } = await db
     .from("boards")
     .select("data")
     .eq("student_id", studentId)
     .single();
-  return (data?.data as { items: unknown[] } | null)?.items ?? [];
+  // PGRST116 = no row yet (brand-new student, board never saved) — a
+  // legitimate empty state, not a failure. Any other error means we don't
+  // actually know the real board state, so the caller must not treat it as
+  // "confirmed empty" (that's exactly what let a slow/failed load arm an
+  // autosave that overwrote real content).
+  if (error && error.code !== "PGRST116") {
+    return { items: [], error: true };
+  }
+  return { items: (data?.data as { items: unknown[] } | null)?.items ?? [], error: false };
 }
 
 export interface BoardMaterial { id: string; title: string; file_url: string | null; file_name: string | null; }
