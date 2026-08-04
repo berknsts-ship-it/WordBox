@@ -2027,23 +2027,63 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     setCanUndo(true); setCanRedo(false);
   };
 
+  // Undo/redo results are deliberate reversions, so an empty outcome (e.g.
+  // undoing the very first item ever added) is legitimate, not a bug —
+  // allow it through the empty-save guard. Also broadcast the result so the
+  // other person in the room (tutor/student) sees the same rollback instead
+  // of silently drifting out of sync with a shared board.
   const undo = () => {
     const a = undoStack.current.pop(); if (!a) return;
     redoStack.current.push(a);
-    if (a.type === "add")    { itemsRef.current = itemsRef.current.filter(i => i.id !== a.item.id); }
-    if (a.type === "remove") { itemsRef.current.splice(a.idx, 0, a.item); }
-    if (a.type === "update") { itemsRef.current[a.idx] = a.prev; setSelectedId(a.prev.id); }
-    if (a.type === "clear")  { itemsRef.current = a.saved; }
-    render(); setCanUndo(undoStack.current.length > 0); setCanRedo(true);
+    allowEmptySaveRef.current = true;
+    if (a.type === "add") {
+      itemsRef.current = itemsRef.current.filter(i => i.id !== a.item.id);
+      send({ type: "clear" });
+      itemsRef.current.forEach(item => send({ type: "path", item }));
+    }
+    if (a.type === "remove") {
+      itemsRef.current.splice(a.idx, 0, a.item);
+      send({ type: "path", item: a.item });
+    }
+    if (a.type === "update") {
+      // Look up by id, not the stored idx — the array may have shifted
+      // (items added/removed) since this history entry was pushed.
+      const idx = itemsRef.current.findIndex(i => i.id === a.prev.id);
+      if (idx >= 0) itemsRef.current[idx] = a.prev;
+      setSelectedId(a.prev.id);
+      send({ type: "update", item: a.prev });
+    }
+    if (a.type === "clear") {
+      itemsRef.current = a.saved;
+      send({ type: "clear" });
+      itemsRef.current.forEach(item => send({ type: "path", item }));
+    }
+    render(); setPanVer(v => v + 1); setCanUndo(undoStack.current.length > 0); setCanRedo(true);
   };
   const redo = () => {
     const a = redoStack.current.pop(); if (!a) return;
     undoStack.current.push(a);
-    if (a.type === "add")    { itemsRef.current.push(a.item); }
-    if (a.type === "remove") { itemsRef.current = itemsRef.current.filter(i => i.id !== a.item.id); }
-    if (a.type === "update") { itemsRef.current[a.idx] = a.next; setSelectedId(a.next.id); }
-    if (a.type === "clear")  { itemsRef.current = []; }
-    render(); setCanUndo(true); setCanRedo(redoStack.current.length > 0);
+    allowEmptySaveRef.current = true;
+    if (a.type === "add") {
+      itemsRef.current.push(a.item);
+      send({ type: "path", item: a.item });
+    }
+    if (a.type === "remove") {
+      itemsRef.current = itemsRef.current.filter(i => i.id !== a.item.id);
+      send({ type: "clear" });
+      itemsRef.current.forEach(item => send({ type: "path", item }));
+    }
+    if (a.type === "update") {
+      const idx = itemsRef.current.findIndex(i => i.id === a.next.id);
+      if (idx >= 0) itemsRef.current[idx] = a.next;
+      setSelectedId(a.next.id);
+      send({ type: "update", item: a.next });
+    }
+    if (a.type === "clear") {
+      itemsRef.current = [];
+      send({ type: "clear" });
+    }
+    render(); setPanVer(v => v + 1); setCanUndo(true); setCanRedo(redoStack.current.length > 0);
   };
 
   // ── inertia helpers ──────────────────────────────────────────────────────────
