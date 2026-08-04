@@ -61,7 +61,10 @@ export function ItemInput({ item, type, answer, onAnswer }: { item: GrammarItem;
           const letter = ["A", "B", "C", "D"][i];
           const selected = answer === letter;
           return (
-            <button key={letter} type="button" onClick={() => onAnswer(letter)}
+            // Clicking an already-selected option clears it — an accidental
+            // click (e.g. while dragging the exercise box around) needs a
+            // way back to "no answer", not just a choice between options.
+            <button key={letter} type="button" onClick={() => onAnswer(selected ? "" : letter)}
               className="w-full text-left px-4 py-3 rounded-xl border-2 transition-all text-sm"
               style={{
                 borderColor: selected ? "var(--brown-dark)" : "var(--brown-pale)",
@@ -82,7 +85,8 @@ export function ItemInput({ item, type, answer, onAnswer }: { item: GrammarItem;
     return (
       <div className="flex gap-3">
         {(["true", "false"] as const).map(v => (
-          <button key={v} type="button" onClick={() => onAnswer(v)}
+          // Same toggle-to-clear behavior as mcq above.
+          <button key={v} type="button" onClick={() => onAnswer(answer === v ? "" : v)}
             className="flex-1 py-3 rounded-xl border-2 text-sm font-semibold transition-all"
             style={{
               borderColor: answer === v ? "var(--brown-dark)" : "var(--brown-pale)",
