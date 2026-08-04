@@ -479,6 +479,15 @@ function shiftItem(item: DrawItem, dx: number, dy: number): DrawItem {
   const ti = item as TextItem;
   return { ...ti, x: ti.x + dx, y: ti.y + dy };
 }
+// World-space distance a card moved between drag-start and drag-end. Touch
+// taps almost never land at the exact same coordinate on lift as on touch
+// (finger jitter), unlike mouse clicks — so "did it move at all" (exact
+// equality) treats nearly every touch tap on a card as a drag and the flip
+// never fires. Used to give taps a tolerance instead.
+function cardMoveDistance(a: DrawItem, b: DrawItem): number {
+  if (a.type !== "card" || b.type !== "card") return Infinity;
+  return Math.hypot(b.x - a.x, b.y - a.y);
+}
 
 // ── canvas drawing ────────────────────────────────────────────────────────────
 function drawGrid(ctx: CanvasRenderingContext2D, w: number, h: number, panX: number, panY: number, zoom: number) {
@@ -2386,14 +2395,17 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
       const idx = itemsRef.current.findIndex(i => i.id === drag.id);
       if (idx >= 0) {
         const next = itemsRef.current[idx];
-        if (JSON.stringify(drag.origItem) !== JSON.stringify(next)) {
-          pushHistory({ type:"update", idx, prev: drag.origItem, next: { ...next } });
-          send({ type:"update", item: next });
-        } else if (drag.origItem.type === "card") {
+        const isCardTap = drag.origItem.type === "card"
+          && cardMoveDistance(drag.origItem, next) * viewRef.current.zoom < 6;
+        if (isCardTap) {
+          itemsRef.current[idx] = drag.origItem; // discard sub-tap jitter, keep exact original position
           const { cx, cy } = clientXY(e);
           const wp = s2w(cx, cy);
           if (isCardSpeakerHit(drag.origItem as CardItem, wp.x, wp.y)) speakWord((drag.origItem as CardItem).word);
           else flipCard(drag.origItem.id);
+        } else if (JSON.stringify(drag.origItem) !== JSON.stringify(next)) {
+          pushHistory({ type:"update", idx, prev: drag.origItem, next: { ...next } });
+          send({ type:"update", item: next });
         }
       }
       selDragRef.current = null; return;
@@ -2642,15 +2654,18 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
       const idx = itemsRef.current.findIndex(i => i.id === drag.id);
       if (idx >= 0) {
         const next = itemsRef.current[idx];
-        if (JSON.stringify(drag.origItem) !== JSON.stringify(next)) {
-          pushHistory({ type:"update", idx, prev: drag.origItem, next: { ...next } });
-          send({ type:"update", item: next });
-        } else if (drag.origItem.type === "card") {
+        const isCardTap = drag.origItem.type === "card"
+          && cardMoveDistance(drag.origItem, next) * viewRef.current.zoom < 6;
+        if (isCardTap) {
+          itemsRef.current[idx] = drag.origItem; // discard sub-tap jitter, keep exact original position
           const t = e.changedTouches[0];
           const r = containerRef.current!.getBoundingClientRect();
           const wp = s2w(t.clientX - r.left, t.clientY - r.top);
           if (isCardSpeakerHit(drag.origItem as CardItem, wp.x, wp.y)) speakWord((drag.origItem as CardItem).word);
           else flipCard(drag.origItem.id);
+        } else if (JSON.stringify(drag.origItem) !== JSON.stringify(next)) {
+          pushHistory({ type:"update", idx, prev: drag.origItem, next: { ...next } });
+          send({ type:"update", item: next });
         }
       }
     }
