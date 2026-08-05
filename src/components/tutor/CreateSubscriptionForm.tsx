@@ -10,6 +10,19 @@ import { CreditCard } from "lucide-react";
 // ученика, которую этот пресет не знает и знать не может.
 const AMOUNT_PRESETS = [4000, 8000, 12000];
 
+// Дни недели, а не «раз в неделю от даты первого занятия» — у части учеников
+// занятия дважды в неделю (напр. Пн+Чт), у части один раз, порядок JS
+// getDay(): Вс=0 ... Сб=6, но в интерфейсе показываем в привычном Пн-Вс.
+const WEEKDAYS = [
+  { v: 1, label: "Пн" },
+  { v: 2, label: "Вт" },
+  { v: 3, label: "Ср" },
+  { v: 4, label: "Чт" },
+  { v: 5, label: "Пт" },
+  { v: 6, label: "Сб" },
+  { v: 0, label: "Вс" },
+];
+
 export default function CreateSubscriptionForm({ studentId, studentName }: { studentId: string; studentName: string }) {
   const router = useRouter();
   const [name, setName]       = useState("");
@@ -23,10 +36,24 @@ export default function CreateSubscriptionForm({ studentId, studentName }: { stu
   const [firstDate,   setFirstDate]   = useState("");
   const [time,        setTime]        = useState("");
   const [duration,    setDuration]    = useState("60");
+  const [weekdays,    setWeekdays]    = useState<number[]>([]);
 
   const countNum = parseInt(lessonCount) || 0;
   const amountNum = parseInt(amount) || 0;
   const perLesson = scheduleNow && countNum > 0 && amountNum > 0 ? Math.round(amountNum / countNum) : null;
+
+  function handleFirstDateChange(v: string) {
+    setFirstDate(v);
+    // Первая дата задаёт день недели по умолчанию, если тьютор ещё не
+    // выбирал дни вручную — дальше можно добавить второй/третий день.
+    if (weekdays.length === 0 && v) {
+      setWeekdays([new Date(`${v}T00:00:00`).getDay()]);
+    }
+  }
+
+  function toggleWeekday(v: number) {
+    setWeekdays(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v].sort());
+  }
 
   async function handleSubmit(e: { preventDefault(): void }) {
     e.preventDefault();
@@ -41,6 +68,7 @@ export default function CreateSubscriptionForm({ studentId, studentName }: { stu
         fd.set("first_date", firstDate);
         fd.set("time", time);
         fd.set("duration_min", duration);
+        fd.set("weekdays", weekdays.join(","));
       }
       const result = await createSubscription(studentId, fd);
       if (result?.error) setError(result.error);
@@ -121,7 +149,7 @@ export default function CreateSubscriptionForm({ studentId, studentName }: { stu
             </div>
             <div className="col-span-2 sm:col-span-1">
               <label className="text-xs mb-1 block" style={{ color: "var(--brown-mid)" }}>Дата первого занятия</label>
-              <input type="date" value={firstDate} onChange={e => setFirstDate(e.target.value)}
+              <input type="date" value={firstDate} onChange={e => handleFirstDateChange(e.target.value)}
                 required={scheduleNow}
                 className="w-full px-3 py-2 rounded-xl border outline-none text-sm"
                 style={{ borderColor: "var(--brown-pale)", background: "white" }} />
@@ -145,8 +173,28 @@ export default function CreateSubscriptionForm({ studentId, studentName }: { stu
                 <option value="120">2 часа</option>
               </select>
             </div>
+            <div className="col-span-2">
+              <label className="text-xs mb-1 block" style={{ color: "var(--brown-mid)" }}>
+                Дни недели {weekdays.length > 1 && `(${weekdays.length} раза в неделю)`}
+              </label>
+              <div className="flex gap-1.5 flex-wrap">
+                {WEEKDAYS.map(w => (
+                  <button key={w.v} type="button" onClick={() => toggleWeekday(w.v)}
+                    className="w-9 h-9 rounded-lg border text-xs font-medium transition-all"
+                    style={{
+                      borderColor: weekdays.includes(w.v) ? "var(--brown-dark)" : "var(--brown-pale)",
+                      background:  weekdays.includes(w.v) ? "var(--brown-pale)" : "white",
+                      color: "var(--brown-dark)",
+                    }}>
+                    {w.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <p className="col-span-2 text-xs" style={{ color: "var(--brown-mid)" }}>
-              Занятия встанут еженедельно, начиная с выбранной даты.
+              {weekdays.length === 0
+                ? "Выберите хотя бы один день недели."
+                : "Занятия встанут по выбранным дням, начиная с указанной даты."}
               {perLesson !== null && ` Цена одного занятия: ${perLesson.toLocaleString("ru")} ₽ (${amountNum.toLocaleString("ru")} ÷ ${countNum}).`}
             </p>
           </div>
@@ -154,7 +202,7 @@ export default function CreateSubscriptionForm({ studentId, studentName }: { stu
 
         {error && <p className="text-sm text-red-600">{error}</p>}
         <div className="flex gap-2 pt-1">
-          <button type="submit" disabled={loading || !amount}
+          <button type="submit" disabled={loading || !amount || (scheduleNow && weekdays.length === 0)}
             className="flex-1 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-40"
             style={{ background: "var(--gradient-primary)" }}>
             {loading ? "Создаём..." : "Создать абонемент"}
