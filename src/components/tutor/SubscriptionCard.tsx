@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { renewSubscription, cancelSubscription, toggleSubscriptionPaid } from "@/app/actions/subscriptions";
+import { renewSubscription, cancelSubscription, toggleSubscriptionPaid, updateSubscriptionAmount } from "@/app/actions/subscriptions";
+import { Pencil } from "lucide-react";
 
 interface Lesson {
   id: string;
@@ -42,6 +43,10 @@ export default function SubscriptionCard({
   const router = useRouter();
   const [renewMode, setRenewMode] = useState(false);
   const [addAmount, setAddAmount] = useState("");
+  const [editMode, setEditMode] = useState(false);
+  const [editAmount, setEditAmount] = useState(String(sub.total_amount));
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,6 +76,20 @@ export default function SubscriptionCard({
       setError("Не удалось пополнить");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleEditAmount(fd: FormData) {
+    setEditLoading(true);
+    setEditError(null);
+    try {
+      const result = await updateSubscriptionAmount(sub.id, studentId, fd);
+      if (result?.error) setEditError(result.error);
+      else { setEditMode(false); router.refresh(); }
+    } catch {
+      setEditError("Не удалось изменить сумму");
+    } finally {
+      setEditLoading(false);
     }
   }
 
@@ -160,11 +179,37 @@ export default function SubscriptionCard({
           <div className="h-full rounded-full transition-all"
             style={{ width: `${pct}%`, background: pct >= 90 ? "#e05030" : "#4caf7a" }} />
         </div>
-        <p className="text-sm mt-1.5" style={{ color: "var(--brown-mid)" }}>
+        {editMode ? (
+          <form action={handleEditAmount} className="flex items-center gap-2 mt-2">
+            <span className="text-sm shrink-0" style={{ color: "var(--brown-mid)" }}>Сумма абонемента, ₽</span>
+            <input
+              name="total_amount" type="number" min="100" step="100" required
+              value={editAmount} onChange={e => setEditAmount(e.target.value)}
+              className="flex-1 px-3 py-1.5 rounded-xl border outline-none text-sm"
+              style={{ borderColor: "var(--brown-pale)", background: "#fdf8f0" }} />
+            <button type="submit" disabled={editLoading}
+              className="px-3 py-1.5 rounded-xl text-sm font-semibold text-white shrink-0"
+              style={{ background: "var(--gradient-primary)", opacity: editLoading ? 0.7 : 1 }}>
+              Сохранить
+            </button>
+            <button type="button" onClick={() => { setEditMode(false); setEditAmount(String(sub.total_amount)); setEditError(null); }}
+              className="px-3 py-1.5 rounded-xl text-sm border shrink-0"
+              style={{ borderColor: "var(--brown-pale)", color: "var(--brown-mid)" }}>
+              Отмена
+            </button>
+          </form>
+        ) : (
+        <p className="text-sm mt-1.5 flex items-center gap-1.5" style={{ color: "var(--brown-mid)" }}>
           Списано {spent.toLocaleString("ru")} ₽ из {sub.total_amount.toLocaleString("ru")} ₽
+          <button onClick={() => setEditMode(true)} title="Изменить сумму абонемента"
+            className="p-0.5 rounded hover:opacity-70 transition-opacity" style={{ color: "var(--brown-light)" }}>
+            <Pencil size={12} />
+          </button>
           {doneCount > 0 && ` за ${doneCount} ${doneCount === 1 ? "занятие" : doneCount < 5 ? "занятия" : "занятий"}`}
           {doneCount !== ls.length && ls.length > 0 && ` (всего уроков по абонементу: ${ls.length})`}
         </p>
+        )}
+        {editError && <p className="text-sm text-red-600 mt-1">{editError}</p>}
       </div>
 
       {/* Список уроков */}

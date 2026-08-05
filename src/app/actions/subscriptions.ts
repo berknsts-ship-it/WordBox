@@ -36,13 +36,42 @@ export async function renewSubscription(subscriptionId: string, studentId: strin
   if (!addAmount || addAmount <= 0) return { error: "Введите сумму пополнения" };
 
   const db = createAdminClient();
-  const { data: sub } = await db.from("student_subscriptions").select("total_amount, balance").eq("id", subscriptionId).single();
+  const { data: sub } = await db.from("student_subscriptions").select("total_amount, balance").eq("id", subscriptionId).eq("tutor_id", user.id).single();
   if (!sub) return { error: "Абонемент не найден" };
 
   const { error } = await db.from("student_subscriptions").update({
     total_amount: sub.total_amount + addAmount,
     balance:      sub.balance + addAmount,
-  }).eq("id", subscriptionId);
+  }).eq("id", subscriptionId).eq("tutor_id", user.id);
+
+  if (error) return { error: error.message };
+  revalidatePath(`/tutor/students/${studentId}`);
+}
+
+// Прямая правка суммы уже существующего абонемента (не пополнение, а
+// исправление изначально введённой цифры). Сдвигаем total_amount и balance
+// на одну и ту же дельту — то, что уже списано за проведённые уроки
+// (total_amount - balance = spent), остаётся как было: задним числом
+// прошлые списания не пересчитываются, меняется только сумма контракта
+// вперёд. Если новая сумма окажется меньше уже списанного — баланс уйдёт в
+// минус, это ожидаемо и уже поддерживается в UI (красным).
+export async function updateSubscriptionAmount(subscriptionId: string, studentId: string, formData: FormData) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Не авторизован" };
+
+  const newTotal = parseInt(formData.get("total_amount") as string);
+  if (!newTotal || newTotal <= 0) return { error: "Введите сумму абонемента" };
+
+  const db = createAdminClient();
+  const { data: sub } = await db.from("student_subscriptions").select("total_amount, balance").eq("id", subscriptionId).eq("tutor_id", user.id).single();
+  if (!sub) return { error: "Абонемент не найден" };
+
+  const delta = newTotal - sub.total_amount;
+  const { error } = await db.from("student_subscriptions").update({
+    total_amount: newTotal,
+    balance:      sub.balance + delta,
+  }).eq("id", subscriptionId).eq("tutor_id", user.id);
 
   if (error) return { error: error.message };
   revalidatePath(`/tutor/students/${studentId}`);
