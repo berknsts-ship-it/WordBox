@@ -5,11 +5,10 @@ import { useRouter } from "next/navigation";
 import { createSubscription } from "@/app/actions/subscriptions";
 import { CreditCard } from "lucide-react";
 
-const PRESETS = [
-  { label: "4 занятия", amount: 4000 },
-  { label: "8 занятий", amount: 8000 },
-  { label: "12 занятий", amount: 12000 },
-];
+// Только быстрый ввод суммы — без предположений о количестве занятий:
+// сколько уроков войдёт в абонемент зависит от цены урока конкретного
+// ученика, которую этот пресет не знает и знать не может.
+const AMOUNT_PRESETS = [4000, 8000, 12000];
 
 export default function CreateSubscriptionForm({ studentId, studentName }: { studentId: string; studentName: string }) {
   const router = useRouter();
@@ -63,23 +62,23 @@ export default function CreateSubscriptionForm({ studentId, studentName }: { stu
         <div>
           <label className="text-sm mb-1 block" style={{ color: "var(--brown-mid)" }}>Название</label>
           <input type="text" value={name} onChange={e => setName(e.target.value)}
-            placeholder="Например: 8 занятий"
+            placeholder="Например: Август"
             className="w-full px-3 py-2 rounded-xl border outline-none text-sm"
             style={{ borderColor: "var(--brown-pale)", background: "#fdf8f0" }} />
         </div>
         <div>
           <label className="text-sm mb-1 block" style={{ color: "var(--brown-mid)" }}>Сумма абонемента, ₽</label>
           <div className="flex gap-2 mb-2 flex-wrap">
-            {PRESETS.map(p => (
-              <button key={p.label} type="button"
-                onClick={() => { setAmount(String(p.amount)); setName(prev => prev || p.label); }}
+            {AMOUNT_PRESETS.map(a => (
+              <button key={a} type="button"
+                onClick={() => setAmount(String(a))}
                 className="text-xs px-3 py-1.5 rounded-lg border hover:opacity-80 transition-all"
                 style={{
-                  borderColor: amount === String(p.amount) ? "var(--brown-dark)" : "var(--brown-pale)",
-                  background:  amount === String(p.amount) ? "var(--brown-pale)" : "white",
+                  borderColor: amount === String(a) ? "var(--brown-dark)" : "var(--brown-pale)",
+                  background:  amount === String(a) ? "var(--brown-pale)" : "white",
                   color: "var(--brown-dark)",
                 }}>
-                {p.label} · {p.amount.toLocaleString("ru")} ₽
+                {a.toLocaleString("ru")} ₽
               </button>
             ))}
           </div>
