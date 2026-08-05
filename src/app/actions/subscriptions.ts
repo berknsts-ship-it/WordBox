@@ -13,17 +13,55 @@ export async function createSubscription(studentId: string, formData: FormData) 
   const totalAmount  = parseInt(formData.get("total_amount") as string);
   if (!totalAmount || totalAmount <= 0) return { error: "Введите сумму абонемента" };
 
+  // Опционально: сразу расставить занятия по календарю (еженедельно, та же
+  // механика — старт-дата + время + N повторов, — что уже используется на
+  // странице «Расписание»). Цена одного занятия — total_amount, делённая на
+  // их количество, а не какое-то предположение о стоимости урока.
+  const lessonCount = parseInt(formData.get("lesson_count") as string) || 0;
+  const firstDate    = formData.get("first_date") as string | null;
+  const time          = formData.get("time") as string | null;
+  const durationMin  = parseInt(formData.get("duration_min") as string) || 60;
+  const scheduleNow  = lessonCount > 0 && !!firstDate && !!time;
+
   const db = createAdminClient();
-  const { error } = await db.from("student_subscriptions").insert({
+  const { data: sub, error } = await db.from("student_subscriptions").insert({
     tutor_id:     user.id,
     student_id:   studentId,
     name,
     total_amount: totalAmount,
     balance:      totalAmount,
     status:       "active",
-  });
+  }).select("id").single();
 
   if (error) return { error: error.message };
+
+  if (scheduleNow) {
+    const priceRub = Math.round(totalAmount / lessonCount);
+    const rows = Array.from({ length: lessonCount }, (_, i) => {
+      const d = new Date(`${firstDate}T${time}:00`);
+      d.setDate(d.getDate() + i * 7);
+      const p2 = (n: number) => String(n).padStart(2, "0");
+      const naiveDate = `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+      return {
+        tutor_id:        user.id,
+        student_id:      studentId,
+        date:            `${naiveDate}T${time}:00`,
+        duration_min:    durationMin,
+        price_rub:       priceRub,
+        subscription_id: sub.id,
+      };
+    });
+    const { error: lessonsError } = await db.from("lessons").insert(rows);
+    // Абонемент уже создан и это самое важное — если расстановка занятий не
+    // удалась, не откатываем его, просто сообщаем и она добавит дни вручную
+    // через «Расписание» (там уже подхватится этот же активный абонемент).
+    if (lessonsError) {
+      revalidatePath(`/tutor/students/${studentId}`);
+      return { error: `Абонемент создан, но не удалось расставить занятия: ${lessonsError.message}` };
+    }
+    revalidatePath("/tutor/schedule");
+  }
+
   revalidatePath(`/tutor/students/${studentId}`);
 }
 

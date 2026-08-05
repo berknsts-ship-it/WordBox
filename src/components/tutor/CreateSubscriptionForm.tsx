@@ -18,6 +18,16 @@ export default function CreateSubscriptionForm({ studentId, studentName }: { stu
   const [open, setOpen]       = useState(false);
   const [error, setError]     = useState<string | null>(null);
 
+  const [scheduleNow, setScheduleNow] = useState(false);
+  const [lessonCount, setLessonCount] = useState("8");
+  const [firstDate,   setFirstDate]   = useState("");
+  const [time,        setTime]        = useState("");
+  const [duration,    setDuration]    = useState("60");
+
+  const countNum = parseInt(lessonCount) || 0;
+  const amountNum = parseInt(amount) || 0;
+  const perLesson = scheduleNow && countNum > 0 && amountNum > 0 ? Math.round(amountNum / countNum) : null;
+
   async function handleSubmit(e: { preventDefault(): void }) {
     e.preventDefault();
     setLoading(true);
@@ -26,6 +36,12 @@ export default function CreateSubscriptionForm({ studentId, studentName }: { stu
       const fd = new FormData();
       fd.set("name", name || "Абонемент");
       fd.set("total_amount", amount);
+      if (scheduleNow) {
+        fd.set("lesson_count", lessonCount);
+        fd.set("first_date", firstDate);
+        fd.set("time", time);
+        fd.set("duration_min", duration);
+      }
       const result = await createSubscription(studentId, fd);
       if (result?.error) setError(result.error);
       else router.refresh();
@@ -87,6 +103,55 @@ export default function CreateSubscriptionForm({ studentId, studentName }: { stu
             className="w-full px-3 py-2 rounded-xl border outline-none text-sm"
             style={{ borderColor: "var(--brown-pale)", background: "#fdf8f0" }} />
         </div>
+
+        <label className="flex items-center gap-2 cursor-pointer text-sm" style={{ color: "var(--brown-dark)" }}>
+          <input type="checkbox" checked={scheduleNow} onChange={e => setScheduleNow(e.target.checked)}
+            className="w-4 h-4 accent-amber-700" />
+          Сразу назначить дни занятий
+        </label>
+
+        {scheduleNow && (
+          <div className="grid grid-cols-2 gap-2 p-3 rounded-xl" style={{ background: "#fdf8f0", border: "1px solid var(--brown-pale)" }}>
+            <div className="col-span-2 sm:col-span-1">
+              <label className="text-xs mb-1 block" style={{ color: "var(--brown-mid)" }}>Количество занятий</label>
+              <input type="number" value={lessonCount} onChange={e => setLessonCount(e.target.value)}
+                min="1" max="52" required={scheduleNow}
+                className="w-full px-3 py-2 rounded-xl border outline-none text-sm"
+                style={{ borderColor: "var(--brown-pale)", background: "white" }} />
+            </div>
+            <div className="col-span-2 sm:col-span-1">
+              <label className="text-xs mb-1 block" style={{ color: "var(--brown-mid)" }}>Дата первого занятия</label>
+              <input type="date" value={firstDate} onChange={e => setFirstDate(e.target.value)}
+                required={scheduleNow}
+                className="w-full px-3 py-2 rounded-xl border outline-none text-sm"
+                style={{ borderColor: "var(--brown-pale)", background: "white" }} />
+            </div>
+            <div>
+              <label className="text-xs mb-1 block" style={{ color: "var(--brown-mid)" }}>Время</label>
+              <input type="time" value={time} onChange={e => setTime(e.target.value)}
+                required={scheduleNow}
+                className="w-full px-3 py-2 rounded-xl border outline-none text-sm"
+                style={{ borderColor: "var(--brown-pale)", background: "white" }} />
+            </div>
+            <div>
+              <label className="text-xs mb-1 block" style={{ color: "var(--brown-mid)" }}>Длительность</label>
+              <select value={duration} onChange={e => setDuration(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border outline-none text-sm"
+                style={{ borderColor: "var(--brown-pale)", background: "white" }}>
+                <option value="30">30 мин</option>
+                <option value="45">45 мин</option>
+                <option value="60">1 час</option>
+                <option value="90">1.5 часа</option>
+                <option value="120">2 часа</option>
+              </select>
+            </div>
+            <p className="col-span-2 text-xs" style={{ color: "var(--brown-mid)" }}>
+              Занятия встанут еженедельно, начиная с выбранной даты.
+              {perLesson !== null && ` Цена одного занятия: ${perLesson.toLocaleString("ru")} ₽ (${amountNum.toLocaleString("ru")} ÷ ${countNum}).`}
+            </p>
+          </div>
+        )}
+
         {error && <p className="text-sm text-red-600">{error}</p>}
         <div className="flex gap-2 pt-1">
           <button type="submit" disabled={loading || !amount}
