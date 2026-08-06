@@ -244,6 +244,13 @@ html[data-theme] {
   --cream:       var(--theme-card-bg);
 }
 
+/* Craft's accent color is the same khaki as its card background — text
+   colored via --brown-mid (e.g. word translations) would be invisible.
+   Use the (darker, already-distinct) secondary text color instead. */
+html[data-theme="craft"] {
+  --brown-mid: var(--theme-text-secondary);
+}
+
 /* Apply theme font and base colors to all body text in student cabinet */
 html[data-theme] body {
   background-color: var(--theme-bg);

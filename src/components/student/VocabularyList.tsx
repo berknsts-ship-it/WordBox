@@ -113,7 +113,7 @@ function WordRow({
             type="button"
             onClick={() => speak(word.english)}
             className="opacity-50 hover:opacity-90 transition-all"
-            style={{ color: "var(--theme-accent)" }}
+            style={{ color: "var(--brown-mid)" }}
             aria-label="Озвучить"
           >
             <Volume2 size={13} />
