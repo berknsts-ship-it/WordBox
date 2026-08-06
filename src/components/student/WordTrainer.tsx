@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition, useMemo } from "react";
+import { useState, useEffect, useRef, useTransition, useMemo } from "react";
 import Link from "next/link";
 import { upsertWordProgress } from "@/app/actions/trainer";
 
@@ -697,7 +697,7 @@ function MatchingBatch({
   onComplete,
 }: {
   batch: QueueItem[];
-  onComplete: () => void;
+  onComplete: (mistakenIds: Set<string>) => void;
 }) {
   const [leftItems] = useState(() => shuffle(batch.map((qi) => qi.word)));
   const [rightItems] = useState(() => shuffle(batch.map((qi) => qi.word)));
@@ -705,6 +705,10 @@ function MatchingBatch({
   const [selRight, setSelRight] = useState<string | null>(null);
   const [matched, setMatched] = useState<Set<string>>(new Set());
   const [flash, setFlash] = useState<"wrong" | null>(null);
+  // Слово, которое хоть раз промахнулось при подборе пары, не считается
+  // «знаю» в этом заходе, даже если в итоге его всё же сопоставили —
+  // угадывание методом исключения не должно выглядеть как настоящее знание.
+  const mistakesRef = useRef<Set<string>>(new Set());
 
   function tryMatch(leftId: string, rightId: string) {
     if (leftId === rightId) {
@@ -713,9 +717,11 @@ function MatchingBatch({
       setSelLeft(null);
       setSelRight(null);
       if (next.size === batch.length) {
-        setTimeout(onComplete, 400);
+        setTimeout(() => onComplete(mistakesRef.current), 400);
       }
     } else {
+      mistakesRef.current.add(leftId);
+      mistakesRef.current.add(rightId);
       setFlash("wrong");
       setTimeout(() => {
         setSelLeft(null);
@@ -874,14 +880,19 @@ export default function WordTrainer({
     });
   }
 
-  function processMatchingBatch(size: number) {
+  function processMatchingBatch(size: number, mistakenIds: Set<string>) {
     setQueue((prev) => {
       const batch = prev.slice(0, size);
       const rest = prev.slice(size);
       const toEnd: QueueItem[] = [];
 
       for (const qi of batch) {
-        if (qi.pass === 1) {
+        if (mistakenIds.has(qi.word.id)) {
+          // Промахнулся хотя бы раз при подборе пары — не считаем «знаю»,
+          // возвращаем на первый проход, как и при «не знаю» в карточках.
+          saveProgress(qi.word.id, "queue");
+          toEnd.push({ word: qi.word, pass: 1 as const });
+        } else if (qi.pass === 1) {
           saveProgress(qi.word.id, "learning");
           toEnd.push({ word: qi.word, pass: 2 as const });
         } else {
@@ -938,7 +949,7 @@ export default function WordTrainer({
           <MatchingBatch
             key={batch.map((qi) => qi.word.id + qi.pass).join("|")}
             batch={batch}
-            onComplete={() => processMatchingBatch(batchSize)}
+            onComplete={(mistakenIds) => processMatchingBatch(batchSize, mistakenIds)}
           />
         </div>
       );
