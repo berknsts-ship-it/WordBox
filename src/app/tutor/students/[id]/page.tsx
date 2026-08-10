@@ -6,6 +6,7 @@ import { ChevronLeft } from "lucide-react";
 import SubscriptionCard from "@/components/tutor/SubscriptionCard";
 import CreateSubscriptionForm from "@/components/tutor/CreateSubscriptionForm";
 import { TextbookForm } from "@/components/tutor/TextbookForm";
+import { CanvasUrlForm } from "@/components/tutor/CanvasUrlForm";
 
 export default async function StudentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -72,6 +73,14 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
         <p className="text-xs font-semibold uppercase tracking-wider mb-3"
           style={{ color: "var(--brown-light)" }}>Учебник</p>
         <TextbookForm studentId={id} current={student.textbook ?? null} />
+      </div>
+
+      {/* Внешняя доска (Miro и т.п.) — ссылка появится кнопкой «Внешняя» на доске ученика */}
+      <div className="mt-6 rounded-2xl border p-4"
+        style={{ background: "white", borderColor: "var(--brown-pale)" }}>
+        <p className="text-xs font-semibold uppercase tracking-wider mb-3"
+          style={{ color: "var(--brown-light)" }}>Внешняя доска</p>
+        <CanvasUrlForm studentId={id} current={student.canvas_url ?? null} />
       </div>
 
       {/* Архив отменённых абонементов */}
