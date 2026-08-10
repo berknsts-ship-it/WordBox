@@ -441,11 +441,70 @@ function SolutionsElementary({ o, toggle }: { o: (id: string) => boolean; toggle
   );
 }
 
+// ─── Go Getter 1 ───────────────────────────────────────────────────────────
+// Темы подобраны по общему знанию уровня, без точной сверки со страницами
+// конкретного издания — те же 4 темы, что и в назначаемых упражнениях
+// по грамматике (раздел «Грамматика»), для согласованности.
+
+function GoGetter1({ o, toggle }: { o: (id: string) => boolean; toggle: (id: string) => void }) {
+  return (
+    <>
+      <Section emoji="🙂" title="Глагол to be" unit="Go Getter 1" open={o("gg1_tobe")} onToggle={() => toggle("gg1_tobe")}>
+        <Tip>I → am, he/she/it → is, you/we/they → are.</Tip>
+        <div className="space-y-1.5 mt-2">
+          <Ex en="I am (I'm) a pupil." ru="Я ученик." />
+          <Ex en="You are (you're) my friend." ru="Ты мой друг." />
+          <Ex en="He is (he's) seven." ru="Ему семь лет." />
+          <Ex en="She is (she's) my sister." ru="Она моя сестра." />
+          <Ex en="They are (they're) students." ru="Они ученики." />
+          <Ex en="I am not (I'm not) tired." ru="Я не устал." />
+        </div>
+      </Section>
+
+      <Section emoji="🎒" title="have got / has got" unit="Go Getter 1" open={o("gg1_havegot")} onToggle={() => toggle("gg1_havegot")}>
+        <Tip>I/you/we/they → have got, he/she/it → has got.</Tip>
+        <div className="space-y-1.5 mt-2">
+          <Ex en="I've got a red bag." ru="У меня есть красная сумка." />
+          <Ex en="She's got a cat." ru="У неё есть кошка." />
+          <Ex en="We've got two dogs." ru="У нас есть две собаки." />
+          <Ex en="He hasn't got a sister." ru="У него нет сестры." />
+          <Ex en="Have you got a pen?" ru="У тебя есть ручка?" />
+        </div>
+      </Section>
+
+      <Section emoji="🔢" title="Множественное число" unit="Go Getter 1" open={o("gg1_plural")} onToggle={() => toggle("gg1_plural")}>
+        <Tip>Обычно просто добавляем -s. После -s, -x, -ch, -sh — добавляем -es.</Tip>
+        <Table2
+          headers={["Один", "Много", "По-русски"]}
+          rows={[
+            ["cat", "cats", "кошки"],
+            ["dog", "dogs", "собаки"],
+            ["box", "boxes", "коробки"],
+            ["bus", "buses", "автобусы"],
+          ]}
+        />
+      </Section>
+
+      <Section emoji="🏃" title="Can (умение)" unit="Go Getter 1" open={o("gg1_can")} onToggle={() => toggle("gg1_can")}>
+        <Tip>Can не меняется по лицам: I can, he can, they can — всегда одинаково.</Tip>
+        <div className="space-y-1.5 mt-2">
+          <Ex en="I can swim." ru="Я умею плавать." />
+          <Ex en="She can ride a bike." ru="Она умеет кататься на велосипеде." />
+          <Ex en="I can't fly." ru="Я не умею летать." />
+          <Ex en="Can you run fast?" ru="Ты умеешь быстро бегать?" />
+          <Ex en="Yes, I can. / No, I can't." ru="Да, умею. / Нет, не умею." />
+        </div>
+      </Section>
+    </>
+  );
+}
+
 // ─── главный компонент ────────────────────────────────────────────────────────
 
 const TEXTBOOK_LABELS: Record<string, string> = {
   english_file_elementary: "English File Elementary",
   solutions_elementary:    "Solutions 3rd Ed. Elementary",
+  go_getter_1:             "Go Getter 1",
 };
 
 export default function GrammarTab({ textbook }: { textbook: string | null }) {
@@ -470,6 +529,7 @@ export default function GrammarTab({ textbook }: { textbook: string | null }) {
       </p>
       {textbook === "english_file_elementary" && <EnglishFileElementary o={o} toggle={toggle} />}
       {textbook === "solutions_elementary"    && <SolutionsElementary   o={o} toggle={toggle} />}
+      {textbook === "go_getter_1"             && <GoGetter1            o={o} toggle={toggle} />}
     </div>
   );
 }
