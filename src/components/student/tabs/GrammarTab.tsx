@@ -441,11 +441,117 @@ function SolutionsElementary({ o, toggle }: { o: (id: string) => boolean; toggle
   );
 }
 
+// ─── Go Getter 1 ───────────────────────────────────────────────────────────
+// По реальному оглавлению Student's Book (8 юнитов), сверено по тексту PDF.
+
+function GoGetter1({ o, toggle }: { o: (id: string) => boolean; toggle: (id: string) => void }) {
+  return (
+    <>
+      <Section emoji="🙂" title="to be, притяжательный 's" unit="Unit 1 — Family and friends" open={o("gg1_u1")} onToggle={() => toggle("gg1_u1")}>
+        <Tip>I → am, he/she/it → is, you/we/they → are.</Tip>
+        <div className="space-y-1.5 mt-2">
+          <Ex en="I am (I'm) ten." ru="Мне десять лет." />
+          <Ex en="He is (he's) my brother." ru="Он мой брат." />
+          <Ex en="They are (they're) my parents." ru="Это мои родители." />
+          <Ex en="I am not (I'm not) Spanish." ru="Я не испанец." />
+          <Ex en="He isn't French. He's British." ru="Он не француз. Он британец." />
+        </div>
+        <Tip>Притяжательный падеж 's показывает, кому что принадлежит.</Tip>
+        <Ex en="It's Luke's cake." ru="Это торт Люка." />
+      </Section>
+
+      <Section emoji="👕" title="this/that/these/those, to be — вопросы" unit="Unit 2 — My things" open={o("gg1_u2")} onToggle={() => toggle("gg1_u2")}>
+        <Table2
+          headers={["Слово", "Когда"]}
+          rows={[
+            ["this", "1 предмет, рядом"],
+            ["these", "неск. предметов, рядом"],
+            ["that", "1 предмет, далеко"],
+            ["those", "неск. предметов, далеко"],
+          ]}
+        />
+        <Tip>Вопросы с to be: Am I…? Is he/she/it…? Are you/we/they…?</Tip>
+        <div className="space-y-1.5 mt-2">
+          <Ex en="Are you OK? Yes, I am. / No, I'm not." ru="Ты в порядке? Да. / Нет." />
+          <Ex en="Is this suit cool? Yes, it is." ru="Этот костюм крутой? Да." />
+        </div>
+      </Section>
+
+      <Section emoji="🏠" title="there is / there are" unit="Unit 3 — In the house" open={o("gg1_u3")} onToggle={() => toggle("gg1_u3")}>
+        <div className="space-y-1.5 mt-2">
+          <Ex en="There's a phone on the sofa." ru="На диване телефон." />
+          <Ex en="There are two DVDs behind the sofa." ru="За диваном два DVD." />
+          <Ex en="There isn't a window here." ru="Здесь нет окна." />
+          <Ex en="There aren't any people in the garden." ru="В саду никого нет." />
+          <Ex en="Is there a red car? Yes, there is." ru="Есть красная машина? Да." />
+          <Ex en="Are there any people? No, there aren't." ru="Есть люди? Нет." />
+        </div>
+      </Section>
+
+      <Section emoji="🙋" title="have got / has got, its/our/your/their" unit="Unit 4 — About me" open={o("gg1_u4")} onToggle={() => toggle("gg1_u4")}>
+        <Tip>I/you/we/they → 've got, he/she/it → 's got.</Tip>
+        <div className="space-y-1.5 mt-2">
+          <Ex en="I've got long arms." ru="У меня длинные руки." />
+          <Ex en="Jen's got a big head." ru="У Джен большая голова." />
+          <Ex en="I haven't got a hat." ru="У меня нет шляпы." />
+          <Ex en="Superdug hasn't got a super car." ru="У Супердага нет супермашины." />
+          <Ex en="Have you got a friend? Yes, I have." ru="У тебя есть друг? Да." />
+          <Ex en="Has Kit got super eyes? No, she hasn't." ru="У Кит супер-зрение? Нет." />
+        </div>
+        <Tip>Притяжательные: it → its, we → our, you → your, they → their.</Tip>
+      </Section>
+
+      <Section emoji="🏃" title="Can (умение)" unit="Unit 5 — Things I can do" open={o("gg1_u5")} onToggle={() => toggle("gg1_u5")}>
+        <Tip>Can не меняется по лицам: I can, he can, they can — всегда одинаково.</Tip>
+        <div className="space-y-1.5 mt-2">
+          <Ex en="I can jump." ru="Я умею прыгать." />
+          <Ex en="Lucas can't sing very well." ru="Лукас не очень умеет петь." />
+          <Ex en="Can Superdug fly? Yes, he can." ru="Супердаг умеет летать? Да." />
+        </div>
+      </Section>
+
+      <Section emoji="⏰" title="Present Simple, наречия частотности" unit="Unit 6 — My day" open={o("gg1_u6")} onToggle={() => toggle("gg1_u6")}>
+        <Tip>He/she/it добавляет -s (или -es, -ies): get→gets, watch→watches, tidy→tidies, have→has, go→goes.</Tip>
+        <div className="space-y-1.5 mt-2">
+          <Ex en="I get up early. Alex gets up late." ru="Я встаю рано. Алекс встаёт поздно." />
+          <Ex en="We walk to school." ru="Мы идём в школу пешком." />
+        </div>
+        <Tip>Наречия частотности (перед основным глаголом): always, usually, often, sometimes, never.</Tip>
+        <Ex en="He always has breakfast at home. They never get up late." ru="Он всегда завтракает дома. Они никогда не встают поздно." />
+      </Section>
+
+      <Section emoji="🐾" title="Present Simple — отрицание и вопросы" unit="Unit 7 — Animals" open={o("gg1_u7")} onToggle={() => toggle("gg1_u7")}>
+        <Tip>Отрицание: I/you/we/they → don't, he/she/it → doesn't.</Tip>
+        <div className="space-y-1.5 mt-2">
+          <Ex en="I don't like cats." ru="Мне не нравятся кошки." />
+          <Ex en="It doesn't eat a lot." ru="Он немного ест." />
+        </div>
+        <Tip>Вопросы: Do I/you/we/they…? Does he/she/it…?</Tip>
+        <Ex en="Do you know Superman? No, I don't." ru="Ты знаешь Супермена? Нет." />
+        <Ex en="Does Max watch DVDs? Yes, he does." ru="Макс смотрит DVD? Да." />
+      </Section>
+
+      <Section emoji="⚽" title="love/like/hate + -ing, местоимения, вопросительные слова" unit="Unit 8 — I like that!" open={o("gg1_u8")} onToggle={() => toggle("gg1_u8")}>
+        <Tip>После love/like/don't like/hate глагол ставится в форме -ing.</Tip>
+        <div className="space-y-1.5 mt-2">
+          <Ex en="I love eating. I hate cooking." ru="Я обожаю есть. Я ненавижу готовить." />
+          <Ex en="Do you like cycling?" ru="Тебе нравится велоспорт?" />
+        </div>
+        <Tip>Местоимения-дополнения: me, you, him, her, it, us, you, them.</Tip>
+        <Ex en="She is a good friend. I like her." ru="Она хорошая подруга. Она мне нравится." />
+        <Tip>Вопросительные слова: What (что), Who (кто), Where (где), When (когда), Whose (чей).</Tip>
+        <Ex en="What is your favourite sport? Who is your favourite sportsperson?" ru="Какой твой любимый спорт? Кто твой любимый спортсмен?" />
+      </Section>
+    </>
+  );
+}
+
 // ─── главный компонент ────────────────────────────────────────────────────────
 
 const TEXTBOOK_LABELS: Record<string, string> = {
   english_file_elementary: "English File Elementary",
   solutions_elementary:    "Solutions 3rd Ed. Elementary",
+  go_getter_1:             "Go Getter 1",
 };
 
 export default function GrammarTab({ textbook }: { textbook: string | null }) {
@@ -470,6 +576,7 @@ export default function GrammarTab({ textbook }: { textbook: string | null }) {
       </p>
       {textbook === "english_file_elementary" && <EnglishFileElementary o={o} toggle={toggle} />}
       {textbook === "solutions_elementary"    && <SolutionsElementary   o={o} toggle={toggle} />}
+      {textbook === "go_getter_1"             && <GoGetter1            o={o} toggle={toggle} />}
     </div>
   );
 }

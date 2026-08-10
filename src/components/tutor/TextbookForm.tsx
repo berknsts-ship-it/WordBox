@@ -7,6 +7,7 @@ import { showToast } from "@/components/ui/toaster";
 const TEXTBOOKS = [
   { value: "english_file_elementary", label: "English File Elementary" },
   { value: "solutions_elementary",    label: "Solutions 3rd Ed. Elementary" },
+  { value: "go_getter_1",             label: "Go Getter 1" },
 ];
 
 export function TextbookForm({ studentId, current }: { studentId: string; current: string | null }) {
