@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 import {
   LayoutDashboard, Users, CalendarDays, ClipboardList,
@@ -86,12 +87,31 @@ function NavLink({ item, pathname, dense }: { item: (typeof NAV)[number]; pathna
 
 function MoreMenu({ items, pathname }: { items: typeof SECONDARY_NAV; pathname: string }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ top: 0, right: 0 });
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const anyActive = items.some(item => pathname.startsWith(item.href));
+
+  // Rendered via portal (below) so it's a fixed, viewport-positioned overlay
+  // instead of an absolutely-positioned child of the sticky nav bar — the
+  // board's own floating toolbars/panels use very high z-indexes (up to
+  // 10000) and, being outside the nav's stacking context, would otherwise
+  // always render on top of a menu nested inside it, however high its own
+  // z-index was set.
+  function toggle() {
+    if (!open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setPos({ top: r.bottom + 8, right: window.innerWidth - r.right });
+    }
+    setOpen(o => !o);
+  }
 
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (btnRef.current?.contains(t)) return;
+      if (menuRef.current?.contains(t)) return;
+      setOpen(false);
     }
     document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);
@@ -100,19 +120,21 @@ function MoreMenu({ items, pathname }: { items: typeof SECONDARY_NAV; pathname: 
   useEffect(() => setOpen(false), [pathname]);
 
   return (
-    <div className="relative" ref={ref}>
+    <div className="relative">
       <button
-        onClick={() => setOpen(o => !o)}
+        ref={btnRef}
+        onClick={toggle}
         className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-sm font-semibold transition-all whitespace-nowrap"
         style={anyActive ? { background: "var(--gradient-primary)", color: "#fff", boxShadow: "var(--shadow-button)" } : { color: "var(--brown-light)" }}
       >
         Ещё
         <ChevronDown size={14} style={{ transform: open ? "rotate(180deg)" : undefined, transition: "transform 0.15s" }} />
       </button>
-      {open && (
+      {open && createPortal(
         <div
-          className="absolute right-0 top-full mt-2 py-1.5 rounded-2xl min-w-[180px] z-30"
-          style={{ background: "#fff", boxShadow: "var(--shadow-nav), 0 8px 24px rgba(28,10,11,0.15)", border: "1px solid var(--brown-pale)" }}
+          ref={menuRef}
+          className="fixed py-1.5 rounded-2xl min-w-[180px] z-[10001]"
+          style={{ top: pos.top, right: pos.right, background: "#fff", boxShadow: "var(--shadow-nav), 0 8px 24px rgba(28,10,11,0.15)", border: "1px solid var(--brown-pale)" }}
         >
           {items.map(item => {
             const Icon = item.icon;
@@ -129,7 +151,8 @@ function MoreMenu({ items, pathname }: { items: typeof SECONDARY_NAV; pathname: 
               </Link>
             );
           })}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
