@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: "300mb",
     },
+    // Separate from the Server Actions limit above — this one governs plain
+    // Route Handlers (e.g. /api/upload/file-put), previously left at the
+    // 10MB default and silently truncating anything larger.
+    proxyClientMaxBodySize: "300mb",
   },
   async headers() {
     return [
