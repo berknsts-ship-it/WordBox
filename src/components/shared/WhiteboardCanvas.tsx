@@ -1122,6 +1122,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   const viewRef       = useRef({ zoom: 1, panX: 0, panY: 0 });
   const remoteViewportsRef     = useRef<Map<string, { zoom: number; panX: number; panY: number }>>(new Map());
   const viewportThrottleRef    = useRef(0);
+  const viewSaveTimerRef       = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Set whenever a pan/zoom changes the view; consumed by the same rAF tick
   // that redraws the canvas so DOM overlays (video/audio/text/table/…)
   // reposition in lockstep with it instead of on a separate schedule.
@@ -1505,13 +1506,23 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
       if (ruling) { rulingRef.current = ruling as Ruling; setRulingUI(ruling as Ruling); }
       if (rulingSize) { rulingSizeRef.current = rulingSize as RulingSize; setRulingSize(rulingSize as RulingSize); }
       isLoadedRef.current = true;
-      // Students land on whatever pan/zoom the component happens to
-      // initialize at (screen-size independent of where the tutor left
-      // off), so content placed off in a corner — e.g. several videos
-      // side by side, wider than a phone screen — can silently sit
-      // outside the visible area. Auto-fit only for students; the tutor's
-      // own view on their own reload is left exactly as it was.
-      if (role === "student") fitAll(); else render();
+      // Where to land: this device's remembered position on this board,
+      // else fit-to-content (handles the empty-board case itself, via
+      // fitAll's own fallback to the zoom=1/pan=0 default), matching the
+      // priority the tutor asked for — never just the fixed default while
+      // real content sits off in a corner.
+      let restoredView = false;
+      try {
+        const raw = localStorage.getItem(`wb-view-${roomId}`);
+        if (raw) {
+          const v = JSON.parse(raw) as { zoom?: unknown; panX?: unknown; panY?: unknown };
+          if (typeof v.zoom === "number" && typeof v.panX === "number" && typeof v.panY === "number") {
+            applyView(v.zoom, v.panX, v.panY);
+            restoredView = true;
+          }
+        }
+      } catch { /* corrupt/inaccessible storage — fall through to fit-content */ }
+      if (restoredView) render(); else fitAll();
       setPanVer(v => v + 1);
     }).catch(() => {
       // The request itself failed (offline, DNS, server unreachable) rather
@@ -1624,6 +1635,16 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
         channelRef.current?.send({ type: "broadcast", event: "draw", payload: { type: "viewport", zoom, panX, panY, senderId: mySenderIdRef.current } });
       }
     }
+    // Remember where this device left off on this board, so the next time
+    // it's opened it picks up from there instead of a fixed default.
+    // Per-device (localStorage), not per-board-for-everyone — the tutor's
+    // desktop and phone can reasonably be looking at different things.
+    if (viewSaveTimerRef.current) clearTimeout(viewSaveTimerRef.current);
+    viewSaveTimerRef.current = setTimeout(() => {
+      try {
+        localStorage.setItem(`wb-view-${roomIdRef.current}`, JSON.stringify({ zoom, panX, panY }));
+      } catch { /* storage full/disabled — losing the remembered view isn't worth surfacing an error for */ }
+    }, 500);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scheduleRender]);
 
@@ -3284,31 +3305,43 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     // below the fold on first placement.
     const perItemHeight = (type: ExerciseType) =>
       type === "mcq" ? 200 : type === "true_false" ? 90 : type === "word_order" ? 110 : 66;
-    let cursorY = (-panY / zoom) + GAP;
-    blocks.forEach(block => {
-      const H = Math.max(180, 90 + block.items.length * perItemHeight(block.type));
-      const cx = (-panX / zoom) + GAP + (W / 2);
-      const cy = cursorY + H / 2;
-      const gItem: GrammarExerciseBoardItem = {
-        type: "grammar_exercise", id: uid(),
-        x: cx - W / 2, y: cy - H / 2, w: W, h: H,
-        setTitle: set.title, exerciseType: block.type, instruction: block.instruction,
-        items: block.items.map(it => ({
-          id: it.id,
-          points: it.points,
-          question: block.type === "word_order" ? null : it.question,
-          options: block.type === "word_order"
-            ? shuffleWords(it.correct_answer.split("|")[0].trim().split(/\s+/))
-            : block.type === "mcq" ? it.options : null,
-        })),
-        answers: {},
-        checked: false,
-      };
-      itemsRef.current.push(gItem);
-      send({ type: "path", item: gItem });
-      pushHistory({ type: "add", item: gItem });
-      cursorY += H + GAP;
-    });
+    const heights = blocks.map(block => Math.max(180, 90 + block.items.length * perItemHeight(block.type)));
+    // A grid instead of one long column — several cards used to stack into
+    // a shape so tall and narrow that "fit to content" had to zoom out to
+    // almost nothing to show it all, with empty space on both sides.
+    // Roughly square (capped at 3 wide) keeps the overall shape sane.
+    const cols = Math.min(3, Math.max(1, Math.ceil(Math.sqrt(blocks.length))));
+    const originX = (-panX / zoom) + GAP;
+    let rowY = (-panY / zoom) + GAP;
+    for (let row = 0; row * cols < blocks.length; row++) {
+      const rowBlocks  = blocks.slice(row * cols, row * cols + cols);
+      const rowHeights = heights.slice(row * cols, row * cols + cols);
+      const rowH = Math.max(...rowHeights);
+      rowBlocks.forEach((block, col) => {
+        const H = rowHeights[col];
+        const x = originX + col * (W + GAP);
+        const y = rowY + (rowH - H) / 2; // center shorter cards within the row
+        const gItem: GrammarExerciseBoardItem = {
+          type: "grammar_exercise", id: uid(),
+          x, y, w: W, h: H,
+          setTitle: set.title, exerciseType: block.type, instruction: block.instruction,
+          items: block.items.map(it => ({
+            id: it.id,
+            points: it.points,
+            question: block.type === "word_order" ? null : it.question,
+            options: block.type === "word_order"
+              ? shuffleWords(it.correct_answer.split("|")[0].trim().split(/\s+/))
+              : block.type === "mcq" ? it.options : null,
+          })),
+          answers: {},
+          checked: false,
+        };
+        itemsRef.current.push(gItem);
+        send({ type: "path", item: gItem });
+        pushHistory({ type: "add", item: gItem });
+      });
+      rowY += rowH + GAP;
+    }
     render();
     setShowGrammarPanel(false);
     setGrammarSelExercises(new Set());
@@ -3648,7 +3681,12 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     const pad = 80;
     minX -= pad; minY -= pad; maxX += pad; maxY += pad;
     const cw = cont.clientWidth, ch = cont.clientHeight;
-    const newZoom = Math.min(cw / (maxX - minX), ch / (maxY - minY), 3);
+    // Floored — content shaped very tall-and-narrow or wide-and-short
+    // (e.g. several cards stacked in one column) could otherwise force a
+    // near-zero zoom to fit every last pixel, leaving mostly empty space
+    // either side. Below this floor it's more useful to see most of the
+    // content at a readable size than all of it unreadably small.
+    const newZoom = Math.max(0.15, Math.min(cw / (maxX - minX), ch / (maxY - minY), 3));
     applyView(newZoom, (cw - (maxX + minX) * newZoom) / 2, (ch - (maxY + minY) * newZoom) / 2);
     render();
   }, [applyView, render]);
