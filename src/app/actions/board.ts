@@ -88,11 +88,11 @@ export async function saveBoardState(studentId: string, items: unknown[], opts?:
   return { skipped: false };
 }
 
-export async function loadBoardState(studentId: string): Promise<{ items: unknown[]; error: boolean }> {
+export async function loadBoardState(studentId: string): Promise<{ items: unknown[]; ruling: string | null; rulingSize: string | null; error: boolean }> {
   const db = createAdminClient();
   const { data, error } = await db
     .from("boards")
-    .select("data")
+    .select("data, ruling, ruling_size")
     .eq("student_id", studentId)
     .single();
   // PGRST116 = no row yet (brand-new student, board never saved) — a
@@ -101,9 +101,33 @@ export async function loadBoardState(studentId: string): Promise<{ items: unknow
   // "confirmed empty" (that's exactly what let a slow/failed load arm an
   // autosave that overwrote real content).
   if (error && error.code !== "PGRST116") {
-    return { items: [], error: true };
+    return { items: [], ruling: null, rulingSize: null, error: true };
   }
-  return { items: (data?.data as { items: unknown[] } | null)?.items ?? [], error: false };
+  return {
+    items:      (data?.data as { items: unknown[] } | null)?.items ?? [],
+    ruling:     data?.ruling ?? null,
+    rulingSize: data?.ruling_size ?? null,
+    error:      false,
+  };
+}
+
+// Board background (ruling pattern / size) — lives in its own columns,
+// separate from the `data` column saveBoardState's items-only autosave
+// writes to. That keeps this update completely independent of the
+// autosave path (its careful empty-save protection, its debounce) —
+// a ruling change and an items autosave can never race or clobber
+// each other since they touch different columns of the same row.
+export async function saveBoardRuling(studentId: string, patch: { ruling?: string; rulingSize?: string }) {
+  const db = createAdminClient();
+  await db.from("boards").upsert(
+    {
+      student_id: studentId,
+      ...(patch.ruling     !== undefined ? { ruling: patch.ruling } : {}),
+      ...(patch.rulingSize !== undefined ? { ruling_size: patch.rulingSize } : {}),
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "student_id" }
+  );
 }
 
 export interface BoardMaterial { id: string; title: string; file_url: string | null; file_name: string | null; }

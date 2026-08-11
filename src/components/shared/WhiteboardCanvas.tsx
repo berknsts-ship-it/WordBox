@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHandle } from "react";
 import { flushSync } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
-import { saveBoardState, loadBoardState } from "@/app/actions/board";
+import { saveBoardState, loadBoardState, saveBoardRuling } from "@/app/actions/board";
 import { checkGrammarBoardItems, type ExerciseType } from "@/app/actions/grammar";
 import { ItemInput, TYPE_LABELS, type GrammarItem } from "@/components/shared/GrammarItemInput";
 import {
@@ -143,6 +143,7 @@ type WsEvent =
   | { type: "pdf_page"; pdfUrl: string; pdfPage: number }
   | { type: "pdf_clear" }
   | { type: "ruling";  ruling: Ruling }
+  | { type: "ruling_size"; size: RulingSize }
   | { type: "follow_state"; active: boolean; leaderId: string; name: string; zoom: number; panX: number; panY: number }
   | { type: "lock_all"; locked: boolean }
   | { type: "video_sync"; id: string; action: "play" | "pause" | "seek"; position: number; sentAt: number }
@@ -1486,7 +1487,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     setLoadFailed(false);
     render();
     let cancelled = false;
-    loadBoardState(roomId).then(({ items, error }) => {
+    loadBoardState(roomId).then(({ items, ruling, rulingSize, error }) => {
       if (cancelled) return;
       if (error) {
         // Don't guess — a failed load must never be treated as "confirmed
@@ -1498,6 +1499,11 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
       if (items.length) {
         itemsRef.current = items as DrawItem[];
       }
+      // Applied directly (not through setRuling/setSzRuling) — this is
+      // restoring the saved background, not a user action, so it shouldn't
+      // re-save or re-broadcast it.
+      if (ruling) { rulingRef.current = ruling as Ruling; setRulingUI(ruling as Ruling); }
+      if (rulingSize) { rulingSizeRef.current = rulingSize as RulingSize; setRulingSize(rulingSize as RulingSize); }
       isLoadedRef.current = true;
       render();
       setPanVer(v => v + 1);
@@ -1626,13 +1632,20 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     zoomAt(c.width / 2, c.height / 2, f);
   }, [zoomAt]);
 
+  // Board background is shared: whoever changes it (tutor or student — the
+  // picker isn't role-gated), everyone else's view updates live, and it's
+  // saved so the next person to open/reload the board sees the same thing
+  // instead of the "none" default.
   const setRuling = (r: Ruling) => {
     rulingRef.current = r; setRulingUI(r);
     render();
-    if (role === "tutor") send({ type: "ruling", ruling: r });
+    send({ type: "ruling", ruling: r });
+    saveBoardRuling(roomIdRef.current, { ruling: r });
   };
   const setSzRuling = (sz: RulingSize) => {
     rulingSizeRef.current = sz; setRulingSize(sz); render();
+    send({ type: "ruling_size", size: sz });
+    saveBoardRuling(roomIdRef.current, { rulingSize: sz });
   };
 
   // ── screen ↔ world ───────────────────────────────────────────────────────────
@@ -1893,7 +1906,16 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           }
           return;
         }
-        if (payload.type === "ruling")    { setRuling(payload.ruling); return; }
+        if (payload.type === "ruling")    {
+          // Apply directly, not via setRuling — that would re-broadcast and
+          // re-save what we just received right back out.
+          rulingRef.current = payload.ruling; setRulingUI(payload.ruling); render();
+          return;
+        }
+        if (payload.type === "ruling_size") {
+          rulingSizeRef.current = payload.size; setRulingSize(payload.size); render();
+          return;
+        }
         if (payload.type === "laser") {
           setLaserPos({ x: payload.x, y: payload.y });
           if (laserTimer.current) clearTimeout(laserTimer.current);
