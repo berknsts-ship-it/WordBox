@@ -1121,7 +1121,10 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   const viewRef       = useRef({ zoom: 1, panX: 0, panY: 0 });
   const remoteViewportsRef     = useRef<Map<string, { zoom: number; panX: number; panY: number }>>(new Map());
   const viewportThrottleRef    = useRef(0);
-  const overlayRerenderThrottleRef = useRef(0);
+  // Set whenever a pan/zoom changes the view; consumed by the same rAF tick
+  // that redraws the canvas so DOM overlays (video/audio/text/table/…)
+  // reposition in lockstep with it instead of on a separate schedule.
+  const overlayDirtyRef = useRef(false);
   const skipViewportBroadcast  = useRef(false);
   const gotoAnimRef            = useRef<{ rafId: number } | null>(null);
   const mySenderIdRef  = useRef(Math.random().toString(36).slice(2));
@@ -1452,7 +1455,17 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   const scheduleRender = useCallback(() => {
     if (rafPendingRef.current) return;
     rafPendingRef.current = true;
-    requestAnimationFrame(() => { rafPendingRef.current = false; render(); });
+    requestAnimationFrame(() => {
+      rafPendingRef.current = false;
+      render();
+      // Reposition DOM overlays in the exact same frame the canvas just
+      // painted in — no separate timer, so they can't drift out of sync
+      // with it, and no more than one extra re-render per frame either.
+      if (overlayDirtyRef.current) {
+        overlayDirtyRef.current = false;
+        setPanVer(v => v + 1);
+      }
+    });
   }, [render]);
 
   // ── board persistence: keep roomIdRef in sync ────────────────────────────────
@@ -1581,18 +1594,13 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     // (zoom% unchanged ⇒ React bails out on the identical primitive), which
     // left DOM overlays (table/video/audio/grammar) stuck at their old
     // screen position while the canvas underneath correctly redrew on pan.
-    // Throttled (not every mousemove) to avoid re-rendering this whole
-    // component at full pointer framerate during a drag-pan.
+    // Rather than re-rendering on every mousemove (full pointer framerate,
+    // sometimes 120Hz+) or on a separate wall-clock throttle (which drifts
+    // out of sync with the canvas and reads as ghosting), just flag it —
+    // scheduleRender()'s rAF callback below applies it in the same frame
+    // the canvas repaints in, capping it at the display's refresh rate.
     setVpZoom(Math.round(zoom * 100));
-    const now = Date.now();
-    // 50ms was visibly laggy — overlays noticeably trailed the canvas
-    // during a fast pan before snapping into place. ~60fps still throttles
-    // well below raw pointer-move rate (which can exceed 120Hz) but is
-    // fast enough that the lag isn't perceptible.
-    if (now - overlayRerenderThrottleRef.current > 16) {
-      overlayRerenderThrottleRef.current = now;
-      setPanVer(v => v + 1);
-    }
+    overlayDirtyRef.current = true;
     scheduleRender();
     // Student always broadcasts viewport (so the tutor can see their position);
     // the tutor only broadcasts while presenting (follow-me mode), so followers
