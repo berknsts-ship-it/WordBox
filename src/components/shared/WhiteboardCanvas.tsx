@@ -4347,7 +4347,11 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           const locked = ai.locked;
           const isDraggingThis = touchDragging && selectedId === ai.id;
           return (
-            <div key={ai.id} className="absolute"
+            // data-no-prevent: unlike <video>, native <audio> controls aren't
+            // exempted from the board's touchstart preventDefault by tag —
+            // without this, play/pause/scrub on the audio player never
+            // worked by touch.
+            <div key={ai.id} data-no-prevent className="absolute"
               style={{ left: sp.x, top: sp.y, width: sw, height: sh, zIndex: 20,
                 visibility: isDraggingThis ? "hidden" : undefined }}
               onMouseDown={e => {
@@ -4555,12 +4559,15 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
             }}/>
         )}
 
-        {/* Remote cursor(s) */}
+        {/* Remote cursor(s) — zIndex above content overlays (video/audio/
+            grammar_exercise all sit at 20, their resize handles up to 36)
+            so a cursor never disappears behind a card it's moving over.
+            pointer-events:none already, purely visual. */}
         {[...remoteCursors.entries()].map(([sid, cur]) => {
           const scr = w2s(cur.x, cur.y);
           return (
             <div key={sid} className="absolute pointer-events-none"
-              style={{ left:scr.x-6, top:scr.y-6, transition: "left 120ms linear, top 120ms linear" }}>
+              style={{ left:scr.x-6, top:scr.y-6, zIndex:45, transition: "left 120ms linear, top 120ms linear" }}>
               <div className="w-3 h-3 rounded-full border-2 border-white shadow-md" style={{ background:cur.color }}/>
               <div className="text-white text-center rounded px-1 mt-0.5 whitespace-nowrap"
                 style={{ fontSize:9, background:cur.color, lineHeight:"14px" }}>
@@ -6465,7 +6472,12 @@ function GrammarExerciseOverlay({ item, sp, sw, sh, selected, onAnswer, onCheck,
   const stop = (e: React.SyntheticEvent) => e.stopPropagation();
 
   return (
-    <div className="absolute select-none" style={{ left:sp.x, top:sp.y, width:sw, height:sh, zIndex:20 }}>
+    // data-no-prevent: exempts this from the board-wide touchstart/touchmove
+    // preventDefault() (added to stop accidental scroll/zoom while drawing)
+    // — without it, tapping the "Проверить" button or an answer field here
+    // got its default touch behavior cancelled before the tap ever reached
+    // them, i.e. the exercise was untappable on mobile.
+    <div data-no-prevent className="absolute select-none" style={{ left:sp.x, top:sp.y, width:sw, height:sh, zIndex:20 }}>
       <div className="w-full h-full overflow-hidden flex flex-col"
         style={{ outline: selected ? "2px solid #4a80f0" : "1px solid #c0b8b0",
           borderRadius:10, background:"white", boxShadow:"0 1px 6px rgba(0,0,0,0.08)" }}>
