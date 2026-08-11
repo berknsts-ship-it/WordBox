@@ -1505,7 +1505,13 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
       if (ruling) { rulingRef.current = ruling as Ruling; setRulingUI(ruling as Ruling); }
       if (rulingSize) { rulingSizeRef.current = rulingSize as RulingSize; setRulingSize(rulingSize as RulingSize); }
       isLoadedRef.current = true;
-      render();
+      // Students land on whatever pan/zoom the component happens to
+      // initialize at (screen-size independent of where the tutor left
+      // off), so content placed off in a corner — e.g. several videos
+      // side by side, wider than a phone screen — can silently sit
+      // outside the visible area. Auto-fit only for students; the tutor's
+      // own view on their own reload is left exactly as it was.
+      if (role === "student") fitAll(); else render();
       setPanVer(v => v + 1);
     }).catch(() => {
       // The request itself failed (offline, DNS, server unreachable) rather
