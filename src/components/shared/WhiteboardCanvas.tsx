@@ -1585,7 +1585,11 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     // component at full pointer framerate during a drag-pan.
     setVpZoom(Math.round(zoom * 100));
     const now = Date.now();
-    if (now - overlayRerenderThrottleRef.current > 50) {
+    // 50ms was visibly laggy — overlays noticeably trailed the canvas
+    // during a fast pan before snapping into place. ~60fps still throttles
+    // well below raw pointer-move rate (which can exceed 120Hz) but is
+    // fast enough that the lag isn't perceptible.
+    if (now - overlayRerenderThrottleRef.current > 16) {
       overlayRerenderThrottleRef.current = now;
       setPanVer(v => v + 1);
     }
