@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 
 // ── types ─────────────────────────────────────────────────────────────────────
-type Pt        = { x: number; y: number };
+type Pt        = { x: number; y: number; t?: number };
 type TextAlign = "left" | "center" | "right";
 type Ruling    = "none" | "lines" | "calligraphy" | "grid";
 type RulingSize = "S" | "M" | "L";
@@ -133,7 +133,7 @@ type GrammarExerciseBoardItem = {
 type DrawItem = PathItem | TextItem | ImageItem | ShapeItem | FrameItem | VideoItem | DiceItem | WheelItem | TableItem | FunctionItem | CardItem | AudioItem | GrammarExerciseBoardItem;
 
 type WsEvent =
-  | { type: "path-pt"; id: string; x: number; y: number; color: string; size: number; eraser: boolean; highlight: boolean }
+  | { type: "path-pt"; id: string; x: number; y: number; t?: number; color: string; size: number; eraser: boolean; highlight: boolean }
   | { type: "path";    item: DrawItem }
   | { type: "update";  item: DrawItem }
   | { type: "clear" }
@@ -551,6 +551,19 @@ function drawRuling(ctx: CanvasRenderingContext2D, type: Ruling, w: number, h: n
     for (let x = sL; x <= sR; x += STEP) { ctx.moveTo(x, sT); ctx.lineTo(x, sB); }
   ctx.stroke(); ctx.restore();
 }
+// Live pen smoothing/variable-width tuning — one place to adjust after
+// trying it out on real strokes. PEN_SMOOTH_ALPHA closer to 1 tracks the
+// cursor more tightly (less smoothing of input jitter); closer to 0 removes
+// more jitter but risks a visible lag/"rubber band" trail on fast strokes —
+// kept ≥0.4 for that reason. The WIDTH constants simulate pen pressure from
+// drawing speed (px/ms): PEN_SPEED_REF_PX_MS is the speed at which width
+// bottoms out at PEN_MIN_WIDTH_FACTOR; slower than that eases toward
+// PEN_MAX_WIDTH_FACTOR.
+const PEN_SMOOTH_ALPHA    = 0.55;
+const PEN_MIN_WIDTH_FACTOR = 0.6;
+const PEN_MAX_WIDTH_FACTOR = 1.3;
+const PEN_SPEED_REF_PX_MS  = 1.1;
+
 function renderPath(ctx: CanvasRenderingContext2D, item: PathItem) {
   const pts = item.points;
   if (pts.length === 0) return;
@@ -559,18 +572,54 @@ function renderPath(ctx: CanvasRenderingContext2D, item: PathItem) {
   else if (item.highlight) { ctx.globalAlpha = 0.38; }
   else if (item.opacity !== undefined && item.opacity < 100) { ctx.globalAlpha = item.opacity / 100; }
   ctx.strokeStyle = item.color;
-  ctx.lineWidth   = item.highlight ? Math.max(item.size, 20) : item.size;
   ctx.lineCap     = item.highlight ? "square" : "round";
   ctx.lineJoin    = "round";
-  ctx.beginPath();
+  const baseWidth = item.highlight ? Math.max(item.size, 20) : item.size;
+  // Only real pen strokes with recorded timestamps get variable width —
+  // old saved paths (no per-point time) and eraser/highlighter (should
+  // stay a uniform swath) fall back to the original single-stroke path.
+  const variableWidth = !item.eraser && !item.highlight && pts.length > 2 && pts[1].t !== undefined;
+
   if (pts.length === 1) {
+    ctx.lineWidth = baseWidth;
     ctx.fillStyle = item.eraser ? "#000" : item.color;
-    ctx.arc(pts[0].x, pts[0].y, ctx.lineWidth / 2, 0, Math.PI * 2); ctx.fill();
-  } else {
+    ctx.beginPath();
+    ctx.arc(pts[0].x, pts[0].y, baseWidth / 2, 0, Math.PI * 2); ctx.fill();
+  } else if (!variableWidth) {
+    ctx.lineWidth = baseWidth;
+    ctx.beginPath();
     ctx.moveTo(pts[0].x, pts[0].y);
     for (let i = 1; i < pts.length - 1; i++) {
       ctx.quadraticCurveTo(pts[i].x, pts[i].y, (pts[i].x + pts[i+1].x) / 2, (pts[i].y + pts[i+1].y) / 2);
     }
+    ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+    ctx.stroke();
+  } else {
+    // Same midpoint-smoothed curve as above, split into one stroke() per
+    // segment so each can carry its own width — adjacent round-capped
+    // segments blend into what reads as a single variable-width stroke.
+    // Width is itself eased across segments (not just raw per-segment
+    // speed) so it doesn't visibly jump between them.
+    let cur = pts[0];
+    let widthFactor = 1;
+    for (let i = 1; i < pts.length - 1; i++) {
+      const a = pts[i - 1], b = pts[i], c = pts[i + 1];
+      const end = { x: (b.x + c.x) / 2, y: (b.y + c.y) / 2 };
+      const dist = Math.hypot(b.x - a.x, b.y - a.y);
+      const dt = Math.max(1, (b.t ?? 0) - (a.t ?? 0));
+      const speed = dist / dt;
+      const target = PEN_MAX_WIDTH_FACTOR - Math.min(1, speed / PEN_SPEED_REF_PX_MS) * (PEN_MAX_WIDTH_FACTOR - PEN_MIN_WIDTH_FACTOR);
+      widthFactor += (target - widthFactor) * 0.4;
+      ctx.lineWidth = baseWidth * widthFactor;
+      ctx.beginPath();
+      ctx.moveTo(cur.x, cur.y);
+      ctx.quadraticCurveTo(b.x, b.y, end.x, end.y);
+      ctx.stroke();
+      cur = end;
+    }
+    ctx.lineWidth = baseWidth * widthFactor;
+    ctx.beginPath();
+    ctx.moveTo(cur.x, cur.y);
     ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
     ctx.stroke();
   }
@@ -1096,7 +1145,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   const staticCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const staticValidRef  = useRef(false);
   const rafPendingRef   = useRef(false);
-  const ptBatchRef      = useRef<Array<{id:string;x:number;y:number;color:string;size:number;eraser:boolean;highlight:boolean}>>([]);
+  const ptBatchRef      = useRef<Array<{id:string;x:number;y:number;t?:number;color:string;size:number;eraser:boolean;highlight:boolean}>>([]);
   const ptFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const channelRef      = useRef<ReturnType<ReturnType<typeof createClient>["channel"]> | null>(null);
   const saveTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1960,10 +2009,10 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           return;
         }
         if (payload.type === "path-pt") {
-          const { id, x, y, color, size, eraser, highlight } = payload;
+          const { id, x, y, t, color, size, eraser, highlight } = payload;
           const existing = remotePathsRef.current.get(id);
-          if (existing) { existing.points.push({ x, y }); }
-          else { remotePathsRef.current.set(id, { type:"path", id, points:[{x,y}], color, size, eraser, highlight }); }
+          if (existing) { existing.points.push({ x, y, t }); }
+          else { remotePathsRef.current.set(id, { type:"path", id, points:[{x,y,t}], color, size, eraser, highlight }); }
           skipSaveRef.current = true; render(); skipSaveRef.current = false;
           return;
         }
@@ -2383,11 +2432,18 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
       eraseAt(w.x, w.y); return;
     }
     if (!livePathRef.current) return;
-    const sp = snapPt(w.x, w.y);
+    const raw = snapPt(w.x, w.y);
+    // Smooth input jitter (moving average against the previous point) and
+    // stamp the time — the latter lets renderPath derive local drawing
+    // speed for variable stroke width.
+    const prevPt = livePathRef.current.points[livePathRef.current.points.length - 1];
+    const sp: Pt = prevPt
+      ? { x: prevPt.x + (raw.x - prevPt.x) * PEN_SMOOTH_ALPHA, y: prevPt.y + (raw.y - prevPt.y) * PEN_SMOOTH_ALPHA, t: performance.now() }
+      : { ...raw, t: performance.now() };
     livePathRef.current.points.push(sp);
     const { color: c, size: s, eraser, highlight: hl, id } = livePathRef.current;
     scheduleRender();
-    ptBatchRef.current.push({ id, x:sp.x, y:sp.y, color:c, size:s, eraser, highlight:hl });
+    ptBatchRef.current.push({ id, x:sp.x, y:sp.y, t:sp.t, color:c, size:s, eraser, highlight:hl });
     if (!ptFlushTimerRef.current) {
       ptFlushTimerRef.current = setTimeout(() => {
         ptFlushTimerRef.current = null;
@@ -2672,10 +2728,14 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     if (tool === "laser") { setOwnLaser(w); if (ownLaserTimer.current) clearTimeout(ownLaserTimer.current); ownLaserTimer.current = setTimeout(() => setOwnLaser(null), 2500); send({ type:"laser", x:w.x, y:w.y }); return; }
     if (tool === "eraser" && eraserActiveRef.current) { eraseAt(w.x, w.y); return; }
     if (!livePathRef.current) return;
-    livePathRef.current.points.push(w);
+    const prevPtT = livePathRef.current.points[livePathRef.current.points.length - 1];
+    const sp: Pt = prevPtT
+      ? { x: prevPtT.x + (w.x - prevPtT.x) * PEN_SMOOTH_ALPHA, y: prevPtT.y + (w.y - prevPtT.y) * PEN_SMOOTH_ALPHA, t: performance.now() }
+      : { ...w, t: performance.now() };
+    livePathRef.current.points.push(sp);
     const { color: c, size: s, eraser, highlight:hl, id } = livePathRef.current;
     scheduleRender();
-    ptBatchRef.current.push({ id, x:w.x, y:w.y, color:c, size:s, eraser, highlight:hl });
+    ptBatchRef.current.push({ id, x:sp.x, y:sp.y, t:sp.t, color:c, size:s, eraser, highlight:hl });
     if (!ptFlushTimerRef.current) {
       ptFlushTimerRef.current = setTimeout(() => {
         ptFlushTimerRef.current = null;
