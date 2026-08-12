@@ -14,6 +14,9 @@ import {
   ChevronsUp, ChevronsDown, ChevronUp, ChevronDown,
   LocateFixed, LockKeyhole, LockKeyholeOpen, Users, Cast,
   CheckCircle2, XCircle,
+  AlignStartVertical, AlignCenterVertical, AlignEndVertical,
+  AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal,
+  AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter,
 } from "lucide-react";
 
 // ── types ─────────────────────────────────────────────────────────────────────
@@ -3330,6 +3333,113 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     arr.forEach(i => send({ type:"path", item: i }));
   };
 
+  // ── align / distribute / match-size (multi-select toolbar actions) ──────────
+  type BBoxed = { item: DrawItem; b: { x: number; y: number; w: number; h: number } };
+  function selectedWithBounds(): BBoxed[] {
+    return [...selectedIds]
+      .map(id => itemsRef.current.find(i => i.id === id))
+      .filter((i): i is DrawItem => !!i)
+      .map(item => ({ item, b: getItemBounds(item) }))
+      .filter((x): x is BBoxed => !!x.b);
+  }
+  function commitMoved(entries: { item: DrawItem; dx: number; dy: number }[]) {
+    if (!entries.some(e => e.dx !== 0 || e.dy !== 0)) return;
+    pushHistory({ type: "clear", saved: [...itemsRef.current] });
+    for (const { item, dx, dy } of entries) {
+      if (dx === 0 && dy === 0) continue;
+      const idx = itemsRef.current.findIndex(i => i.id === item.id);
+      if (idx < 0) continue;
+      const next = shiftItem(item, dx, dy);
+      itemsRef.current[idx] = next;
+      send({ type: "update", item: next });
+    }
+    render(); setPanVer(v => v + 1);
+  }
+
+  const alignSelection = (mode: "left" | "hcenter" | "right" | "top" | "vcenter" | "bottom") => {
+    const items = selectedWithBounds();
+    if (items.length < 2) return;
+    let target: number;
+    if (mode === "left")        target = Math.min(...items.map(x => x.b.x));
+    else if (mode === "right")  target = Math.max(...items.map(x => x.b.x + x.b.w));
+    else if (mode === "hcenter") target = (Math.min(...items.map(x => x.b.x)) + Math.max(...items.map(x => x.b.x + x.b.w))) / 2;
+    else if (mode === "top")    target = Math.min(...items.map(x => x.b.y));
+    else if (mode === "bottom") target = Math.max(...items.map(x => x.b.y + x.b.h));
+    else /* vcenter */          target = (Math.min(...items.map(x => x.b.y)) + Math.max(...items.map(x => x.b.y + x.b.h))) / 2;
+
+    commitMoved(items.map(({ item, b }) => {
+      let dx = 0, dy = 0;
+      if (mode === "left")        dx = target - b.x;
+      else if (mode === "right")  dx = target - (b.x + b.w);
+      else if (mode === "hcenter") dx = target - (b.x + b.w / 2);
+      else if (mode === "top")    dy = target - b.y;
+      else if (mode === "bottom") dy = target - (b.y + b.h);
+      else /* vcenter */          dy = target - (b.y + b.h / 2);
+      return { item, dx, dy };
+    }));
+  };
+
+  const distributeSelection = (axis: "h" | "v") => {
+    const items = selectedWithBounds();
+    if (items.length < 3) return; // distributing needs a first/last to anchor to plus at least one to space out
+    if (axis === "h") {
+      items.sort((a, b) => a.b.x - b.b.x);
+      const span = (items[items.length - 1].b.x + items[items.length - 1].b.w) - items[0].b.x;
+      const totalW = items.reduce((s, x) => s + x.b.w, 0);
+      const gap = (span - totalW) / (items.length - 1);
+      let cursor = items[0].b.x + items[0].b.w + gap;
+      const moves: { item: DrawItem; dx: number; dy: number }[] = [];
+      for (let i = 1; i < items.length - 1; i++) {
+        const { item, b } = items[i];
+        moves.push({ item, dx: cursor - b.x, dy: 0 });
+        cursor += b.w + gap;
+      }
+      commitMoved(moves);
+    } else {
+      items.sort((a, b) => a.b.y - b.b.y);
+      const span = (items[items.length - 1].b.y + items[items.length - 1].b.h) - items[0].b.y;
+      const totalH = items.reduce((s, x) => s + x.b.h, 0);
+      const gap = (span - totalH) / (items.length - 1);
+      let cursor = items[0].b.y + items[0].b.h + gap;
+      const moves: { item: DrawItem; dx: number; dy: number }[] = [];
+      for (let i = 1; i < items.length - 1; i++) {
+        const { item, b } = items[i];
+        moves.push({ item, dx: 0, dy: cursor - b.y });
+        cursor += b.h + gap;
+      }
+      commitMoved(moves);
+    }
+  };
+
+  // Only items with an explicit w/h box (image/video/audio/frame/function/
+  // table/dice/wheel/card/grammar_exercise) can be resized this way — path,
+  // text and shape don't carry a simple resizable box in the same sense.
+  const matchSizeSelection = (dim: "w" | "h" | "both") => {
+    const resizable = [...selectedIds]
+      .map(id => itemsRef.current.find(i => i.id === id))
+      .filter((i): i is DrawItem => !!i && "w" in i && "h" in i);
+    if (resizable.length < 2) return;
+    // "Largest" rather than "first selected" — order in a Set isn't a
+    // meaningful signal to the tutor, size is.
+    const ref = resizable.reduce((big, it) => {
+      const a = (it as { w: number; h: number }), bb = (big as { w: number; h: number });
+      return a.w * a.h > bb.w * bb.h ? it : big;
+    }) as unknown as { w: number; h: number };
+    pushHistory({ type: "clear", saved: [...itemsRef.current] });
+    for (const it of resizable) {
+      const idx = itemsRef.current.findIndex(i => i.id === it.id);
+      if (idx < 0) continue;
+      const cur = itemsRef.current[idx] as unknown as { w: number; h: number };
+      const nw = dim === "h" ? cur.w : ref.w;
+      const nh = dim === "w" ? cur.h : ref.h;
+      if (nw === cur.w && nh === cur.h) continue;
+      const next = { ...itemsRef.current[idx], w: nw, h: nh } as DrawItem;
+      itemsRef.current[idx] = next;
+      send({ type: "update", item: next });
+    }
+    render(); setPanVer(v => v + 1);
+  };
+
   // ── board dice/wheel helpers ─────────────────────────────────────────────────
   const addDiceToBoard = (count = 1) => {
     const { zoom, panX, panY } = viewRef.current;
@@ -4826,8 +4936,58 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                         {items.length} объекта
                       </div>
                     </div>
-                    <div className="absolute pointer-events-auto flex items-center gap-1"
-                      style={{ top: vOff, right: 0 }}>
+                    <div className="absolute pointer-events-auto flex flex-wrap items-center gap-1 p-1 rounded-xl"
+                      style={{ top: vOff, right: 0, maxWidth: 300, background:"white", border:"1px solid var(--brown-pale)", boxShadow:"0 2px 10px rgba(0,0,0,0.12)" }}>
+                      {(() => {
+                        const iconBtn = (title: string, onClick: () => void, Icon: typeof AlignStartVertical) => (
+                          <button key={title} title={title}
+                            onMouseDown={e => e.stopPropagation()} onTouchStart={e=>e.stopPropagation()}
+                            onTouchEnd={e=>{e.preventDefault();e.stopPropagation();(e.currentTarget as HTMLButtonElement).click();}}
+                            onClick={onClick}
+                            className="p-1.5 rounded-lg hover:opacity-70 border"
+                            style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
+                            <Icon size={13}/>
+                          </button>
+                        );
+                        return (
+                          <>
+                            {iconBtn("Слева", () => alignSelection("left"), AlignStartVertical)}
+                            {iconBtn("По центру (гориз.)", () => alignSelection("hcenter"), AlignCenterVertical)}
+                            {iconBtn("Справа", () => alignSelection("right"), AlignEndVertical)}
+                            {iconBtn("Сверху", () => alignSelection("top"), AlignStartHorizontal)}
+                            {iconBtn("По середине (верт.)", () => alignSelection("vcenter"), AlignCenterHorizontal)}
+                            {iconBtn("Снизу", () => alignSelection("bottom"), AlignEndHorizontal)}
+                            {selectedIds.size > 2 && iconBtn("Распределить по горизонтали", () => distributeSelection("h"), AlignHorizontalDistributeCenter)}
+                            {selectedIds.size > 2 && iconBtn("Распределить по вертикали", () => distributeSelection("v"), AlignVerticalDistributeCenter)}
+                          </>
+                        );
+                      })()}
+                      <div style={{ width:1, alignSelf:"stretch", background:"var(--brown-pale)", margin:"0 1px" }}/>
+                      <button title="Сделать одной ширины"
+                        onMouseDown={e => e.stopPropagation()} onTouchStart={e=>e.stopPropagation()}
+                        onTouchEnd={e=>{e.preventDefault();e.stopPropagation();(e.currentTarget as HTMLButtonElement).click();}}
+                        onClick={() => matchSizeSelection("w")}
+                        className="px-1.5 py-1 rounded-lg text-xs font-semibold hover:opacity-70 border"
+                        style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
+                        Ш
+                      </button>
+                      <button title="Сделать одной высоты"
+                        onMouseDown={e => e.stopPropagation()} onTouchStart={e=>e.stopPropagation()}
+                        onTouchEnd={e=>{e.preventDefault();e.stopPropagation();(e.currentTarget as HTMLButtonElement).click();}}
+                        onClick={() => matchSizeSelection("h")}
+                        className="px-1.5 py-1 rounded-lg text-xs font-semibold hover:opacity-70 border"
+                        style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
+                        В
+                      </button>
+                      <button title="Сделать одного размера (ширина и высота)"
+                        onMouseDown={e => e.stopPropagation()} onTouchStart={e=>e.stopPropagation()}
+                        onTouchEnd={e=>{e.preventDefault();e.stopPropagation();(e.currentTarget as HTMLButtonElement).click();}}
+                        onClick={() => matchSizeSelection("both")}
+                        className="px-1.5 py-1 rounded-lg text-xs font-semibold hover:opacity-70 border"
+                        style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
+                        Ш+В
+                      </button>
+                      <div style={{ width:1, alignSelf:"stretch", background:"var(--brown-pale)", margin:"0 1px" }}/>
                       <button onMouseDown={e => e.stopPropagation()} onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>{e.preventDefault();e.stopPropagation();(e.currentTarget as HTMLButtonElement).click();}}
                         onClick={() => {
                           const sel = itemsRef.current.filter(i => selectedIds.has(i.id));
