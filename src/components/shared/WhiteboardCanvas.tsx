@@ -1111,6 +1111,62 @@ function getItemBounds(item: DrawItem): { x: number; y: number; w: number; h: nu
   }
 }
 
+// ── snapping (alignment guides while dragging) ─────────────────────────────────
+// Collected once per drag start from every item NOT being dragged — cheap
+// (a handful of numbers per item), and cached so a mousemove-driven drag
+// never re-walks the item list, only compares against this fixed list.
+function collectSnapCandidates(items: DrawItem[], excludeIds: ReadonlySet<string>): { xs: number[]; ys: number[] } {
+  const xs: number[] = [], ys: number[] = [];
+  for (const it of items) {
+    if (excludeIds.has(it.id)) continue;
+    const b = getItemBounds(it);
+    if (!b) continue;
+    xs.push(b.x, b.x + b.w / 2, b.x + b.w);
+    ys.push(b.y, b.y + b.h / 2, b.y + b.h);
+  }
+  return { xs, ys };
+}
+
+// Checks the dragged item/selection's tentative bbox (left/center/right,
+// top/center/bottom) against the cached candidates, independently per axis.
+// Falls back to snapping against the background grid (if it's on) only
+// when no item-edge snap was found on that axis. Returns the extra nudge
+// to apply on top of the raw drag delta, plus where to draw a guide line.
+function computeSnap(
+  bbox: { x: number; y: number; w: number; h: number },
+  candidates: { xs: number[]; ys: number[] } | null,
+  zoom: number,
+  thresholdPx: number,
+  ruling: Ruling,
+  gridStep: number,
+): { dx: number; dy: number; guideX: number | null; guideY: number | null } {
+  const thresholdWorld = thresholdPx / zoom;
+  let bestDx = 0, bestXDist = thresholdWorld, guideX: number | null = null;
+  let bestDy = 0, bestYDist = thresholdWorld, guideY: number | null = null;
+
+  if (candidates) {
+    const myXs = [bbox.x, bbox.x + bbox.w / 2, bbox.x + bbox.w];
+    const myYs = [bbox.y, bbox.y + bbox.h / 2, bbox.y + bbox.h];
+    for (const mx of myXs) for (const cx of candidates.xs) {
+      const d = Math.abs(mx - cx);
+      if (d < bestXDist) { bestXDist = d; bestDx = cx - mx; guideX = cx; }
+    }
+    for (const my of myYs) for (const cy of candidates.ys) {
+      const d = Math.abs(my - cy);
+      if (d < bestYDist) { bestYDist = d; bestDy = cy - my; guideY = cy; }
+    }
+  }
+  if (guideX === null && ruling === "grid") {
+    const nearest = Math.round(bbox.x / gridStep) * gridStep;
+    if (Math.abs(nearest - bbox.x) < thresholdWorld) { bestDx = nearest - bbox.x; guideX = nearest; }
+  }
+  if (guideY === null && ruling === "grid") {
+    const nearest = Math.round(bbox.y / gridStep) * gridStep;
+    if (Math.abs(nearest - bbox.y) < thresholdWorld) { bestDy = nearest - bbox.y; guideY = nearest; }
+  }
+  return { dx: bestDx, dy: bestDy, guideX, guideY };
+}
+
 // ── formula evaluator ─────────────────────────────────────────────────────────
 function parseFormula(input: string): ((x: number) => number) | null {
   let expr = input
@@ -1261,6 +1317,13 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   // multi-item drag
   type MultiDrag = { wx0: number; wy0: number; origItems: Map<string, DrawItem> };
   const multiDragRef = useRef<MultiDrag | null>(null);
+  // ── snapping (Miro/Figma-style alignment guides while dragging) ──────────
+  // Candidates are collected ONCE when a drag starts (other items don't move
+  // mid-drag), not rescanned every mousemove — the actual snap check per
+  // move is then just comparing a handful of numbers, not walking items.
+  const snapCandidatesRef = useRef<{ xs: number[]; ys: number[] } | null>(null);
+  const snapGuidesRef     = useRef<{ x: number | null; y: number | null }>({ x: null, y: null });
+  const SNAP_THRESHOLD_PX = 7;
   // clipboard
   const clipboardRef = useRef<DrawItem[]>([]);
   const selectedIdRef = useRef<string | null>(null);
@@ -2283,11 +2346,13 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
             if (it) origItems.set(id, { ...it });
           }
           multiDragRef.current = { wx0: w.x, wy0: w.y, origItems };
+          snapCandidatesRef.current = collectSnapCandidates(itemsRef.current, selectedIds);
         } else {
           // Single select
           setSelectedId(hit.id);
           setSelectedIds(new Set([hit.id]));
           selDragRef.current = { mode:"move", id: hit.id, wx0: w.x, wy0: w.y, origItem: { ...hit } };
+          snapCandidatesRef.current = collectSnapCandidates(itemsRef.current, new Set([hit.id]));
         }
       } else {
         // Start rubber-band box selection
@@ -2376,7 +2441,26 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
 
     if (multiDragRef.current) {
       const { wx0, wy0, origItems } = multiDragRef.current;
-      const ddx = w.x - wx0, ddy = w.y - wy0;
+      let ddx = w.x - wx0, ddy = w.y - wy0;
+      if (e.altKey) {
+        snapGuidesRef.current = { x: null, y: null };
+      } else {
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const orig of origItems.values()) {
+          const b = getItemBounds(orig);
+          if (!b) continue;
+          const bx = b.x + ddx, by = b.y + ddy;
+          minX = Math.min(minX, bx); minY = Math.min(minY, by);
+          maxX = Math.max(maxX, bx + b.w); maxY = Math.max(maxY, by + b.h);
+        }
+        if (isFinite(minX)) {
+          const gridStep = rulingSizeRef.current === "S" ? 20 : rulingSizeRef.current === "L" ? 60 : 36;
+          const snap = computeSnap({ x: minX, y: minY, w: maxX - minX, h: maxY - minY },
+            snapCandidatesRef.current, viewRef.current.zoom, SNAP_THRESHOLD_PX, rulingRef.current, gridStep);
+          ddx += snap.dx; ddy += snap.dy;
+          snapGuidesRef.current = { x: snap.guideX, y: snap.guideY };
+        }
+      }
       for (const [id, orig] of origItems) {
         const idx = itemsRef.current.findIndex(i => i.id === id);
         if (idx >= 0) itemsRef.current[idx] = shiftItem(orig, ddx, ddy);
@@ -2389,7 +2473,20 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
       const idx = itemsRef.current.findIndex(i => i.id === drag.id);
       if (idx < 0) return;
       if (drag.mode === "move") {
-        itemsRef.current[idx] = shiftItem(drag.origItem, w.x - drag.wx0, w.y - drag.wy0);
+        let dx = w.x - drag.wx0, dy = w.y - drag.wy0;
+        if (e.altKey) {
+          snapGuidesRef.current = { x: null, y: null };
+        } else {
+          const b = getItemBounds(drag.origItem);
+          if (b) {
+            const gridStep = rulingSizeRef.current === "S" ? 20 : rulingSizeRef.current === "L" ? 60 : 36;
+            const snap = computeSnap({ x: b.x + dx, y: b.y + dy, w: b.w, h: b.h },
+              snapCandidatesRef.current, viewRef.current.zoom, SNAP_THRESHOLD_PX, rulingRef.current, gridStep);
+            dx += snap.dx; dy += snap.dy;
+            snapGuidesRef.current = { x: snap.guideX, y: snap.guideY };
+          }
+        }
+        itemsRef.current[idx] = shiftItem(drag.origItem, dx, dy);
       } else if (drag.mode === "resize-img" || drag.mode === "resize-frame") {
         const orig = drag.origItem as ImageItem | FrameItem | VideoItem | FunctionItem;
         const dx = w.x - drag.wx0, dy = w.y - drag.wy0;
@@ -2456,6 +2553,8 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   // ── pointer up ───────────────────────────────────────────────────────────────
   const onMouseUp = (e: React.MouseEvent) => {
     eraserActiveRef.current = false;
+    snapCandidatesRef.current = null;
+    snapGuidesRef.current = { x: null, y: null };
     if (e.button === 1 || panning.current) {
       panning.current = false;
       setPanVer(v => v + 1); // final overlay-position sync — throttled updates during the pan may be a beat stale
@@ -2620,6 +2719,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           setSelectedId(hit.id);
           setSelectedIds(new Set([hit.id]));
           selDragRef.current = { mode: "move", id: hit.id, wx0: w.x, wy0: w.y, origItem: { ...hit } };
+          snapCandidatesRef.current = collectSnapCandidates(itemsRef.current, new Set([hit.id]));
           flushSync(() => setTouchDragging(true));
         }
         return;
@@ -2700,7 +2800,16 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
       const idx = itemsRef.current.findIndex(i => i.id === drag.id);
       if (idx >= 0) {
         if (drag.mode === "move") {
-          itemsRef.current[idx] = shiftItem(drag.origItem, w.x - drag.wx0, w.y - drag.wy0);
+          let dx = w.x - drag.wx0, dy = w.y - drag.wy0;
+          const b = getItemBounds(drag.origItem);
+          if (b) {
+            const gridStep = rulingSizeRef.current === "S" ? 20 : rulingSizeRef.current === "L" ? 60 : 36;
+            const snap = computeSnap({ x: b.x + dx, y: b.y + dy, w: b.w, h: b.h },
+              snapCandidatesRef.current, viewRef.current.zoom, SNAP_THRESHOLD_PX, rulingRef.current, gridStep);
+            dx += snap.dx; dy += snap.dy;
+            snapGuidesRef.current = { x: snap.guideX, y: snap.guideY };
+          }
+          itemsRef.current[idx] = shiftItem(drag.origItem, dx, dy);
         } else if (drag.mode === "resize-img" || drag.mode === "resize-frame") {
           const orig = drag.origItem as ImageItem | FrameItem;
           const dx = w.x - drag.wx0, dy = w.y - drag.wy0;
@@ -2747,6 +2856,8 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
 
   const onTouchEnd = (e: React.TouchEvent) => {
     e.preventDefault();
+    snapCandidatesRef.current = null;
+    snapGuidesRef.current = { x: null, y: null };
     // Eraser tap: finger lifted before crossing draw threshold — erase at touch point
     if (tool === "eraser" && touchDrawPending.current) {
       eraserRadiusRef.current = size * 3;
@@ -4319,6 +4430,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                   const { cx, cy } = clientXY(e);
                   const wp = s2w(cx, cy);
                   selDragRef.current = { mode: "move", id: vi.id, wx0: wp.x, wy0: wp.y, origItem: { ...vi } };
+                  snapCandidatesRef.current = collectSnapCandidates(itemsRef.current, new Set([vi.id]));
                 }
               }}>
               <div className="w-full h-full overflow-hidden relative"
@@ -4421,6 +4533,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                   const { cx, cy } = clientXY(e);
                   const wp = s2w(cx, cy);
                   selDragRef.current = { mode: "move", id: ai.id, wx0: wp.x, wy0: wp.y, origItem: { ...ai } };
+                  snapCandidatesRef.current = collectSnapCandidates(itemsRef.current, new Set([ai.id]));
                 }
               }}>
               <div className="w-full h-full overflow-hidden relative flex items-center gap-2 px-3"
@@ -4655,6 +4768,20 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
               className="ml-1 text-white opacity-70 hover:opacity-100 font-bold text-sm leading-none">✕</button>
           </div>
         )}
+
+        {/* Snap alignment guides — shown while dragging an item/selection
+            close enough to line up with a neighbor's edge/center or, when
+            the grid background is on, a grid line. Pure visual feedback
+            (pointer-events:none), span the full visible area like Miro/
+            Figma's guides do. */}
+        {(selDragRef.current?.mode === "move" || multiDragRef.current) && snapGuidesRef.current.x !== null && (() => {
+          const sx = w2s(snapGuidesRef.current.x!, 0).x;
+          return <div className="absolute pointer-events-none" style={{ left: sx, top: 0, width: 1, height: "100%", background: "#e0507a", zIndex: 46 }} />;
+        })()}
+        {(selDragRef.current?.mode === "move" || multiDragRef.current) && snapGuidesRef.current.y !== null && (() => {
+          const sy = w2s(0, snapGuidesRef.current.y!).y;
+          return <div className="absolute pointer-events-none" style={{ left: 0, top: sy, width: "100%", height: 1, background: "#e0507a", zIndex: 46 }} />;
+        })()}
 
         {/* Rubber-band selection box */}
         {selBoxVis && selBoxRef.current && (() => {
