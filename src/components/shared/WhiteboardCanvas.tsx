@@ -4227,7 +4227,13 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
               <span className="text-xs w-8 tabular-nums" style={{ color:"var(--brown-mid)" }}>{opacity}%</span>
             </div>
           </>)}
-          {tool === "text" && (<>
+          {/* Hidden while actively editing/creating a text box (textInput set) —
+              the inline floating toolbar right on the text box takes over then
+              (font/size/B/I/align/color/bg/Готово, same controls), so showing
+              both was a literal duplicate on top of the board. Still shown
+              right after picking the text tool, before the first click, so
+              you can set a starting style. */}
+          {tool === "text" && !textInput && (<>
             <ColorPalette colors={COLORS} active={color} onPick={setColor} />
             <Sep/>
             <select value={fontIdx} onChange={e => setFontIdx(+e.target.value)}
