@@ -1830,8 +1830,16 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
         const clamped = Math.max(0.7, Math.min(1.4, factor));
         zoomAt(cx, cy, clamped);
       } else {
-        // Trackpad two-finger swipe = pan; mouse wheel = zoom
-        const isTrackpad = e.deltaMode === 0 && Math.abs(e.deltaY) < 50 && !e.shiftKey;
+        // Trackpad two-finger swipe = pan; mouse wheel = zoom. Previously
+        // guessed this from deltaY's magnitude/deltaMode, which was
+        // unreliable — a plain mouse wheel notch can easily land under
+        // that threshold too, so it kept misfiring between pan and zoom
+        // depending on how hard/fast the wheel was spun. deltaX is a much
+        // more solid signal: a physical mouse wheel is mechanically
+        // vertical-only and can never report a nonzero deltaX, while a
+        // real two-finger swipe (or Shift+wheel, which browsers already
+        // remap to horizontal) always has at least a little.
+        const isTrackpad = e.deltaX !== 0;
         if (isTrackpad) {
           // Cancel any running inertia
           if (inertiaRef.current) { cancelAnimationFrame(inertiaRef.current.rafId); inertiaRef.current = null; }
