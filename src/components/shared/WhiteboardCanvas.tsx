@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHandle } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useCallback, forwardRef, useImperativeHandle } from "react";
 import { flushSync } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 import { saveBoardState, loadBoardState, saveBoardRuling } from "@/app/actions/board";
@@ -1769,13 +1769,30 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  // ── resize textarea when font size changes (A+/A- buttons) ──────────────────
-  useEffect(() => {
+  // ── resize textarea to fit its content — on open AND when font size changes ──
+  // Was a plain useEffect, which only runs after the browser paints. The box
+  // always opened at the textarea's default single-row height first, THEN
+  // snapped to its real (often taller, for existing multi-line text) height
+  // a frame later — a visible jump every time. useLayoutEffect runs before
+  // paint, so the resize is already applied in the first frame the box shows.
+  useLayoutEffect(() => {
     const ta = textRef.current;
     if (!ta || !textInput) return;
+    // Width too — otherwise opening an existing multi-word text box showed
+    // it pinned to the minimum width (only the onChange typing handler ever
+    // measured a wider one) until the next keystroke recalculated it.
+    const lines = textValue.split("\n");
+    const span = document.createElement("span");
+    span.style.cssText = `position:absolute;visibility:hidden;white-space:pre;font:${
+      ta.style.fontStyle} ${ta.style.fontWeight} ${ta.style.fontSize} ${ta.style.fontFamily
+    };padding:${ta.style.padding}`;
+    document.body.appendChild(span);
+    const maxW = Math.max(...lines.map(l => { span.textContent = l || "M"; return span.getBoundingClientRect().width; }));
+    document.body.removeChild(span);
+    ta.style.width = Math.max(maxW + 24, Math.round(60 * viewRef.current.zoom)) + "px";
     ta.style.height = "auto";
     ta.style.height = ta.scrollHeight + "px";
-  }, [fontSize, textInput]);
+  }, [fontSize, textInput, textValue]);
 
   useEffect(() => {
     if (textInput === null) { setKbOffset(0); return; }
