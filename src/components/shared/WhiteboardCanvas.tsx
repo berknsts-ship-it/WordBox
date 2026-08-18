@@ -1503,6 +1503,8 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   const [editFlowerId, setEditFlowerId] = useState<string | null>(null);
   const [editFlowerCenter, setEditFlowerCenter] = useState("");
   const [editFlowerPetalsText, setEditFlowerPetalsText] = useState("");
+  const [editFlowerSnapshot, setEditFlowerSnapshot] = useState<FlowerItem | null>(null);
+  const [editFlowerSaved, setEditFlowerSaved] = useState(false);
   const [showMoreTools, setShowMoreTools] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -3656,8 +3658,19 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
       }));
       const next: FlowerItem = { ...current, centerText: editFlowerCenter.trim() || "Прогресс", petals };
       updateBoardItem(next);
+      setEditFlowerSaved(true);
     }
-    setEditFlowerId(null);
+    // Stays open on purpose — Сохранить applies immediately so the board
+    // preview updates live, and "Вернуть как было" needs the dialog open
+    // to restore into. "Закрыть" below is what actually dismisses it.
+  };
+
+  const revertFlowerEdit = () => {
+    if (!editFlowerSnapshot) return;
+    updateBoardItem({ ...editFlowerSnapshot, petals: editFlowerSnapshot.petals.map(p => ({ ...p })) });
+    setEditFlowerCenter(editFlowerSnapshot.centerText);
+    setEditFlowerPetalsText(editFlowerSnapshot.petals.map(p => p.text).join("\n"));
+    setEditFlowerSaved(false);
   };
 
   const addTableToBoard = (rows = 3, cols = 3) => {
@@ -4871,10 +4884,17 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                 const petals = fi.petals.map((p, i) => i === idx ? { ...p, plucked: false } : p);
                 updateBoardItem({ ...fi, petals });
               }}
+              onEditCenterText={text => updateBoardItem({ ...fi, centerText: text })}
+              onEditPetalText={(idx, text) => {
+                const petals = fi.petals.map((p, i) => i === idx ? { ...p, text } : p);
+                updateBoardItem({ ...fi, petals });
+              }}
               onEdit={() => {
                 setEditFlowerId(fi.id);
                 setEditFlowerCenter(fi.centerText);
                 setEditFlowerPetalsText(fi.petals.map(p => p.text).join("\n"));
+                setEditFlowerSnapshot({ ...fi, petals: fi.petals.map(p => ({ ...p })) });
+                setEditFlowerSaved(false);
               }}
               onResizeStart={(corner, clientX, clientY) => {
                 const rect = containerRef.current!.getBoundingClientRect();
@@ -5597,6 +5617,9 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
             <div className="w-full max-w-sm rounded-2xl border shadow-2xl p-5"
               style={{ background:"white", borderColor:"var(--brown-pale)" }}>
               <div className="font-semibold mb-3 text-sm" style={{ color:"var(--brown-dark)" }}>🌸 Цветок-трекер</div>
+              <p className="text-xs mb-3" style={{ color:"var(--brown-light)" }}>
+                Переименовать название или лепесток можно и прямо на доске — двойной клик по нему. Здесь удобно менять количество лепестков.
+              </p>
               <label className="text-xs font-medium block mb-1" style={{ color:"var(--brown-mid)" }}>Название в центре</label>
               <input value={editFlowerCenter} onChange={e => setEditFlowerCenter(e.target.value)}
                 placeholder="Прогресс"
@@ -5607,13 +5630,20 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                 rows={8} placeholder="Понедельник&#10;Вторник&#10;Среда&#10;..."
                 className="w-full px-3 py-2 rounded-xl border outline-none text-sm resize-none mb-3"
                 style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}/>
+              {editFlowerSaved && (
+                <button onClick={revertFlowerEdit}
+                  className="w-full mb-3 py-2 rounded-xl text-sm font-medium border"
+                  style={{ borderColor:"#d97706", color:"#b45309", background:"#fffbeb" }}>
+                  ↺ Вернуть как было (до сохранения)
+                </button>
+              )}
               <div className="flex gap-2">
                 <button onClick={saveFlowerEdit}
                   className="flex-1 py-2 rounded-xl text-sm font-medium text-white"
                   style={{ background:"var(--gradient-primary)" }}>Сохранить</button>
                 <button onClick={() => setEditFlowerId(null)}
                   className="px-4 py-2 rounded-xl border text-sm"
-                  style={{ borderColor:"var(--brown-pale)", color:"var(--brown-light)" }}>Отмена</button>
+                  style={{ borderColor:"var(--brown-pale)", color:"var(--brown-light)" }}>Закрыть</button>
               </div>
             </div>
           </div>
@@ -6959,13 +6989,39 @@ function flowerPetalRx(n: number) {
   return Math.min(16, Math.max(8, 0.85 * arcAtRadius / 2));
 }
 
-function FlowerOverlay({ item, sp, sw, sh, selected, onPluck, onUnpluck, onEdit, onResizeStart }:
+function FlowerOverlay({ item, sp, sw, sh, selected, onPluck, onUnpluck, onEditCenterText, onEditPetalText, onEdit, onResizeStart }:
   { item: FlowerItem; sp:{x:number;y:number}; sw:number; sh:number; selected:boolean;
-    onPluck:(idx:number)=>void; onUnpluck:(idx:number)=>void; onEdit:()=>void;
+    onPluck:(idx:number)=>void; onUnpluck:(idx:number)=>void;
+    onEditCenterText:(text:string)=>void; onEditPetalText:(idx:number, text:string)=>void; onEdit:()=>void;
     onResizeStart:(corner:"se"|"sw"|"ne"|"nw", clientX:number, clientY:number)=>void }) {
   const locked = item.locked;
   const n = item.petals.length;
   const [flyingIdx, setFlyingIdx] = useState<number | null>(null);
+  // Petals need both a single tap (pluck) and a double-click (rename) on the
+  // same shape. A plain click handler can't tell those apart — the two
+  // clicks of a dblclick fire as clicks first — so the single-tap pluck is
+  // held back briefly; a dblclick arriving in that window cancels it and
+  // opens the inline editor instead.
+  const [editingTarget, setEditingTarget] = useState<{ target:"center" } | { target:"petal"; idx:number } | null>(null);
+  const [editingValue, setEditingValue] = useState("");
+  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const editInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editingTarget) setTimeout(() => editInputRef.current?.select(), 20);
+  }, [editingTarget]);
+
+  const startEdit = (target: { target:"center" } | { target:"petal"; idx:number }, value: string) => {
+    if (clickTimerRef.current) { clearTimeout(clickTimerRef.current); clickTimerRef.current = null; }
+    setEditingTarget(target); setEditingValue(value);
+  };
+  const commitEdit = () => {
+    if (!editingTarget) return;
+    const v = editingValue.trim();
+    if (editingTarget.target === "center") onEditCenterText(v || item.centerText);
+    else onEditPetalText(editingTarget.idx, v || item.petals[editingTarget.idx].text);
+    setEditingTarget(null);
+  };
   // visualPlucked lags one animation behind item.petals[i].plucked on purpose:
   // it only flips to true once the fly-away transition finishes, so a petal
   // stays visible (and animatable) for the full 400ms after the underlying
@@ -7019,7 +7075,8 @@ function FlowerOverlay({ item, sp, sw, sh, selected, onPluck, onUnpluck, onEdit,
             {remaining > 0 ? `🌸 Осталось ${remaining} из ${n}` : "🌸 Все собраны!"}
           </span>
         </div>
-        <svg width={size} height={size} viewBox={`0 0 ${FLOWER_VB} ${FLOWER_VB}`} className="shrink-0"
+        <div className="relative shrink-0" style={{ width:size, height:size }}>
+        <svg width={size} height={size} viewBox={`0 0 ${FLOWER_VB} ${FLOWER_VB}`}
           style={{ cursor: locked ? "default" : "move" }}>
           {item.petals.map((petal, i) => {
             const deg = i * 360 / n;
@@ -7042,7 +7099,14 @@ function FlowerOverlay({ item, sp, sw, sh, selected, onPluck, onUnpluck, onEdit,
                     cursor: locked ? "default" : "pointer",
                   }}
                   onMouseDown={stop} onTouchStart={stop}
-                  onClick={() => { if (!locked && !petal.plucked) onPluck(i); }}>
+                  onClick={() => {
+                    if (locked || petal.plucked) return;
+                    // Hold the pluck for one dblclick window — a dblclick
+                    // landing here cancels it and opens the renamer instead.
+                    if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+                    clickTimerRef.current = setTimeout(() => { onPluck(i); clickTimerRef.current = null; }, 250);
+                  }}
+                  onDoubleClick={e => { e.stopPropagation(); if (!locked) startEdit({ target:"petal", idx:i }, petal.text); }}>
                   <ellipse cx={FLOWER_CENTER} cy={FLOWER_CENTER - FLOWER_D} rx={rx} ry={FLOWER_PETAL_RY}
                     fill={color} stroke="#ffffffaa" strokeWidth={1.5}/>
                 </g>
@@ -7050,7 +7114,12 @@ function FlowerOverlay({ item, sp, sw, sh, selected, onPluck, onUnpluck, onEdit,
                   <g transform={`rotate(${deg} ${FLOWER_CENTER} ${FLOWER_CENTER})`}
                     style={{ cursor: locked ? "default" : "pointer" }}
                     onMouseDown={stop} onTouchStart={stop}
-                    onClick={() => { if (!locked) onUnpluck(i); }}>
+                    onClick={() => {
+                      if (locked) return;
+                      if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+                      clickTimerRef.current = setTimeout(() => { onUnpluck(i); clickTimerRef.current = null; }, 250);
+                    }}
+                    onDoubleClick={e => { e.stopPropagation(); if (!locked) startEdit({ target:"petal", idx:i }, petal.text); }}>
                     <ellipse cx={FLOWER_CENTER} cy={FLOWER_CENTER - FLOWER_D} rx={rx} ry={FLOWER_PETAL_RY}
                       fill="none" stroke="#d8cec0" strokeWidth={1.5} strokeDasharray="3 3"/>
                   </g>
@@ -7065,18 +7134,45 @@ function FlowerOverlay({ item, sp, sw, sh, selected, onPluck, onUnpluck, onEdit,
               </g>
             );
           })}
-          <circle cx={FLOWER_CENTER} cy={FLOWER_CENTER} r={FLOWER_CENTER_R} fill="#fbbf24" stroke="#d97706" strokeWidth={2}/>
-          <text x={FLOWER_CENTER} y={FLOWER_CENTER} textAnchor="middle" dominantBaseline="middle"
-            fontSize={Math.min(11, Math.max(7, 130 / Math.max(item.centerText.length, 4)))} fontWeight={700} fill="#7c3d0a"
-            style={{ pointerEvents:"none" }}>
-            {item.centerText.length > 14 ? item.centerText.slice(0, 13) + "…" : item.centerText}
-          </text>
+          <g
+            style={{ cursor: locked ? "default" : "pointer" }}
+            onMouseDown={stop} onTouchStart={stop}
+            onDoubleClick={e => { e.stopPropagation(); if (!locked) startEdit({ target:"center" }, item.centerText); }}>
+            <circle cx={FLOWER_CENTER} cy={FLOWER_CENTER} r={FLOWER_CENTER_R} fill="#fbbf24" stroke="#d97706" strokeWidth={2}/>
+            <text x={FLOWER_CENTER} y={FLOWER_CENTER} textAnchor="middle" dominantBaseline="middle"
+              fontSize={Math.min(11, Math.max(7, 130 / Math.max(item.centerText.length, 4)))} fontWeight={700} fill="#7c3d0a"
+              style={{ pointerEvents:"none" }}>
+              {item.centerText.length > 14 ? item.centerText.slice(0, 13) + "…" : item.centerText}
+            </text>
+          </g>
         </svg>
+        {editingTarget && (() => {
+          const pos = editingTarget.target === "center"
+            ? { x: FLOWER_CENTER, y: FLOWER_CENTER }
+            : (() => {
+                const deg = editingTarget.idx * 360 / n;
+                const angleRad = (-90 + deg) * Math.PI / 180;
+                return { x: FLOWER_CENTER + FLOWER_D * Math.cos(angleRad), y: FLOWER_CENTER + FLOWER_D * Math.sin(angleRad) };
+              })();
+          return (
+            <input ref={editInputRef} value={editingValue} onChange={e => setEditingValue(e.target.value)}
+              onMouseDown={stop} onTouchStart={stop}
+              onKeyDown={e => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") setEditingTarget(null); }}
+              onBlur={commitEdit}
+              className="absolute text-center text-xs px-1 py-0.5 rounded border outline-none"
+              style={{
+                left:`${(pos.x / FLOWER_VB) * 100}%`, top:`${(pos.y / FLOWER_VB) * 100}%`,
+                transform:"translate(-50%,-50%)", width: 72, zIndex:25,
+                borderColor:"#4a80f0", background:"white", color:"var(--brown-dark)",
+              }}/>
+          );
+        })()}
+        </div>
         {!locked && (
           <button onMouseDown={stop} onTouchStart={stop} onClick={onEdit}
             className="mb-1.5 px-2.5 py-0.5 rounded-lg text-xs border shrink-0"
             style={{ borderColor:"var(--brown-pale)", color:"var(--brown-mid)" }}>
-            ✎ Изменить
+            ✎ Число лепестков
           </button>
         )}
       </div>
