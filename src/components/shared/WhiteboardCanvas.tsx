@@ -130,7 +130,15 @@ type GrammarExerciseBoardItem = {
   results?: Record<string, GrammarBoardResult>;
   locked?: boolean; pdfPage?: number;
 };
-type DrawItem = PathItem | TextItem | ImageItem | ShapeItem | FrameItem | VideoItem | DiceItem | WheelItem | TableItem | FunctionItem | CardItem | AudioItem | GrammarExerciseBoardItem;
+type FlowerPetal = { text: string; plucked: boolean };
+type FlowerItem = {
+  type: "flower"; id: string;
+  x: number; y: number; w: number; h: number;
+  centerText: string;
+  petals: FlowerPetal[];
+  locked?: boolean; pdfPage?: number;
+};
+type DrawItem = PathItem | TextItem | ImageItem | ShapeItem | FrameItem | VideoItem | DiceItem | WheelItem | TableItem | FunctionItem | CardItem | AudioItem | GrammarExerciseBoardItem | FlowerItem;
 
 type WsEvent =
   | { type: "path-pt"; id: string; x: number; y: number; t?: number; color: string; size: number; eraser: boolean; highlight: boolean }
@@ -436,6 +444,7 @@ function itemBounds(item: DrawItem) {
   if (item.type === "card")    return { x0: item.x, y0: item.y, x1: item.x + item.w, y1: item.y + item.h };
   if (item.type === "audio")   return { x0: item.x, y0: item.y, x1: item.x + item.w, y1: item.y + item.h };
   if (item.type === "grammar_exercise") return { x0: item.x, y0: item.y, x1: item.x + item.w, y1: item.y + item.h };
+  if (item.type === "flower") return { x0: item.x, y0: item.y, x1: item.x + item.w, y1: item.y + item.h };
   return item.type === "path" ? pathBounds(item) : textBounds(item as TextItem);
 }
 const pathBboxCache = new WeakMap<PathItem, ReturnType<typeof pathBounds>>();
@@ -477,6 +486,7 @@ function shiftItem(item: DrawItem, dx: number, dy: number): DrawItem {
   if (item.type === "card")    return { ...item, x: item.x + dx, y: item.y + dy };
   if (item.type === "audio")   return { ...item, x: item.x + dx, y: item.y + dy };
   if (item.type === "grammar_exercise") return { ...item, x: item.x + dx, y: item.y + dy };
+  if (item.type === "flower") return { ...item, x: item.x + dx, y: item.y + dy };
   const ti = item as TextItem;
   return { ...ti, x: ti.x + dx, y: ti.y + dy };
 }
@@ -1059,6 +1069,11 @@ function renderItem(ctx: CanvasRenderingContext2D, item: DrawItem, zoom: number,
     ctx.strokeStyle = "#4a80f055"; ctx.lineWidth = 1;
     ctx.strokeRect(item.x, item.y, item.w, item.h);
     ctx.restore();
+  } else if (item.type === "flower") {
+    ctx.save();
+    ctx.strokeStyle = "#4a80f055"; ctx.lineWidth = 1;
+    ctx.strokeRect(item.x, item.y, item.w, item.h);
+    ctx.restore();
   } else {
     renderText(ctx, item as TextItem);
   }
@@ -1106,6 +1121,7 @@ function getItemBounds(item: DrawItem): { x: number; y: number; w: number; h: nu
     case "wheel":
     case "table":
     case "grammar_exercise":
+    case "flower":
     case "card": return { x: item.x, y: item.y, w: item.w, h: item.h };
     default: return null;
   }
@@ -1484,6 +1500,9 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   // board dice/wheel state
   const [editWheelId, setEditWheelId] = useState<string | null>(null);
   const [editWheelText, setEditWheelText] = useState("");
+  const [editFlowerId, setEditFlowerId] = useState<string | null>(null);
+  const [editFlowerCenter, setEditFlowerCenter] = useState("");
+  const [editFlowerPetalsText, setEditFlowerPetalsText] = useState("");
   const [showMoreTools, setShowMoreTools] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -2546,7 +2565,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
         }
         itemsRef.current[idx] = shiftItem(drag.origItem, dx, dy);
       } else if (drag.mode === "resize-img" || drag.mode === "resize-frame") {
-        const orig = drag.origItem as ImageItem | FrameItem | VideoItem | FunctionItem;
+        const orig = drag.origItem as ImageItem | FrameItem | VideoItem | FunctionItem | FlowerItem;
         const dx = w.x - drag.wx0, dy = w.y - drag.wy0;
         let { x, y, w: ow, h: oh } = orig;
         const minSize = orig.type === "function" ? 2 : 20;
@@ -2877,7 +2896,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           }
           itemsRef.current[idx] = shiftItem(drag.origItem, dx, dy);
         } else if (drag.mode === "resize-img" || drag.mode === "resize-frame") {
-          const orig = drag.origItem as ImageItem | FrameItem;
+          const orig = drag.origItem as ImageItem | FrameItem | FlowerItem;
           const dx = w.x - drag.wx0, dy = w.y - drag.wy0;
           let { x, y, w: ow, h: oh } = orig;
           if (drag.corner === "se") { ow = Math.max(20, ow + dx); oh = Math.max(20, oh + dy); }
@@ -3422,6 +3441,20 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     send({ type:"path", item }); pushHistory({ type:"add", item });
   };
 
+  const addFlowerToBoard = () => {
+    const { zoom, panX, panY } = viewRef.current;
+    const cv = canvasRef.current; const dpr = window.devicePixelRatio || 1;
+    const cx = cv ? (cv.width / dpr / 2 - panX) / zoom : 400;
+    const cy = cv ? (cv.height / dpr / 2 - panY) / zoom : 300;
+    const item: FlowerItem = {
+      type:"flower", id:uid(), x:cx-130, y:cy-150, w:260, h:300,
+      centerText:"Прогресс",
+      petals: Array.from({ length:6 }, (_,i) => ({ text:`Лепесток ${i+1}`, plucked:false })),
+    };
+    itemsRef.current.push(item); render();
+    send({ type:"path", item }); pushHistory({ type:"add", item });
+  };
+
   const speakWord = useCallback((word: string) => {
     if (!("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
@@ -3608,6 +3641,23 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
       updateBoardItem(next);
     }
     setEditWheelId(null);
+  };
+
+  const saveFlowerEdit = () => {
+    if (!editFlowerId) return;
+    const idx = itemsRef.current.findIndex(i => i.id === editFlowerId);
+    if (idx >= 0) {
+      const current = itemsRef.current[idx] as FlowerItem;
+      let lines = editFlowerPetalsText.split("\n").map(s => s.trim()).filter(Boolean);
+      while (lines.length < 4) lines.push(`Лепесток ${lines.length + 1}`);
+      if (lines.length > 12) lines = lines.slice(0, 12);
+      const petals: FlowerPetal[] = lines.map((text, i) => ({
+        text, plucked: current.petals[i]?.plucked ?? false,
+      }));
+      const next: FlowerItem = { ...current, centerText: editFlowerCenter.trim() || "Прогресс", petals };
+      updateBoardItem(next);
+    }
+    setEditFlowerId(null);
   };
 
   const addTableToBoard = (rows = 3, cols = 3) => {
@@ -4084,6 +4134,14 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                     style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
                     <span className="text-xl">🎡</span><span className="text-xs">Колесо</span>
                   </button>
+                  {role==="tutor" && (
+                    <button onClick={()=>{addFlowerToBoard();setShowMoreTools(false);}}
+                      onTouchEnd={e=>{e.preventDefault();e.stopPropagation();(e.currentTarget as HTMLButtonElement).click();}}
+                      className="flex flex-col items-center gap-1 p-2 rounded-xl border hover:opacity-70"
+                      style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
+                      <span className="text-xl">🌸</span><span className="text-xs">Цветок</span>
+                    </button>
+                  )}
                   {role==="tutor" && (
                     <button onClick={()=>{setShowVocabPanel(v=>!v);loadVocabTopics();setShowMoreTools(false);}}
                       onTouchEnd={e=>{e.preventDefault();e.stopPropagation();(e.currentTarget as HTMLButtonElement).click();}}
@@ -4796,6 +4854,38 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           );
         })}
 
+        {/* Flower progress-tracker overlays */}
+        {itemsRef.current.filter(it => it.type === "flower").map(it => {
+          const fi = it as FlowerItem;
+          const sp = w2s(fi.x, fi.y);
+          const ep = w2s(fi.x + fi.w, fi.y + fi.h);
+          const sw = ep.x - sp.x, sh = ep.y - sp.y;
+          const sel = selectedId === fi.id || selectedIds.has(fi.id);
+          return (
+            <FlowerOverlay key={fi.id} item={fi} sp={sp} sw={sw} sh={sh} selected={sel}
+              onPluck={idx => {
+                const petals = fi.petals.map((p, i) => i === idx ? { ...p, plucked: true } : p);
+                updateBoardItem({ ...fi, petals });
+              }}
+              onUnpluck={idx => {
+                const petals = fi.petals.map((p, i) => i === idx ? { ...p, plucked: false } : p);
+                updateBoardItem({ ...fi, petals });
+              }}
+              onEdit={() => {
+                setEditFlowerId(fi.id);
+                setEditFlowerCenter(fi.centerText);
+                setEditFlowerPetalsText(fi.petals.map(p => p.text).join("\n"));
+              }}
+              onResizeStart={(corner, clientX, clientY) => {
+                const rect = containerRef.current!.getBoundingClientRect();
+                const ww = (clientX - rect.left - viewRef.current.panX) / viewRef.current.zoom;
+                const wh = (clientY - rect.top  - viewRef.current.panY) / viewRef.current.zoom;
+                selDragRef.current = { mode:"resize-img", id: fi.id, corner, wx0: ww, wy0: wh, origItem: { ...fi } };
+                snapCandidatesRef.current = collectSnapCandidates(itemsRef.current, new Set([fi.id]));
+              }} />
+          );
+        })}
+
         {/* Laser */}
         {laserScr  && <LaserDot sx={laserScr.x}  sy={laserScr.y}  color="#ff3030"/>}
         {ownLaserS && tool==="laser" && <LaserDot sx={ownLaserS.x} sy={ownLaserS.y} color="#ff6600"/>}
@@ -5499,6 +5589,36 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           </div>
         )}
 
+        {/* Flower edit dialog */}
+        {editFlowerId && (
+          <div className="fixed inset-0 z-[160] flex items-center justify-center p-4" data-no-prevent style={{ background:"rgba(0,0,0,0.4)" }}
+            onClick={e => { if (e.target === e.currentTarget) setEditFlowerId(null); }}
+            onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()}>
+            <div className="w-full max-w-sm rounded-2xl border shadow-2xl p-5"
+              style={{ background:"white", borderColor:"var(--brown-pale)" }}>
+              <div className="font-semibold mb-3 text-sm" style={{ color:"var(--brown-dark)" }}>🌸 Цветок-трекер</div>
+              <label className="text-xs font-medium block mb-1" style={{ color:"var(--brown-mid)" }}>Название в центре</label>
+              <input value={editFlowerCenter} onChange={e => setEditFlowerCenter(e.target.value)}
+                placeholder="Прогресс"
+                className="w-full px-3 py-2 rounded-xl border outline-none text-sm mb-3"
+                style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}/>
+              <label className="text-xs font-medium block mb-1" style={{ color:"var(--brown-mid)" }}>Лепестки (по одному в строке, 4–12)</label>
+              <textarea value={editFlowerPetalsText} onChange={e => setEditFlowerPetalsText(e.target.value)}
+                rows={8} placeholder="Понедельник&#10;Вторник&#10;Среда&#10;..."
+                className="w-full px-3 py-2 rounded-xl border outline-none text-sm resize-none mb-3"
+                style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}/>
+              <div className="flex gap-2">
+                <button onClick={saveFlowerEdit}
+                  className="flex-1 py-2 rounded-xl text-sm font-medium text-white"
+                  style={{ background:"var(--gradient-primary)" }}>Сохранить</button>
+                <button onClick={() => setEditFlowerId(null)}
+                  className="px-4 py-2 rounded-xl border text-sm"
+                  style={{ borderColor:"var(--brown-pale)", color:"var(--brown-light)" }}>Отмена</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Emoji picker panel — fixed, right of sidebar */}
         {showEmojiPicker && (
           <div className="absolute inset-y-0 left-0 z-[100] flex"
@@ -6179,6 +6299,14 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
               <span className="text-lg">🎡</span><span className="text-xs">Колесо</span>
             </button>
             {role==="tutor" && (
+              <button onClick={()=>{addFlowerToBoard();setShowMoreTools(false);}}
+                onTouchEnd={e=>{e.preventDefault();e.stopPropagation();(e.currentTarget as HTMLButtonElement).click();}}
+                className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl border shrink-0"
+                style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
+                <span className="text-lg">🌸</span><span className="text-xs">Цветок</span>
+              </button>
+            )}
+            {role==="tutor" && (
               <button onClick={()=>{setShowTablePicker(v=>!v);setShowMoreTools(false);}}
                 onTouchEnd={e=>{e.preventDefault();e.stopPropagation();(e.currentTarget as HTMLButtonElement).click();}}
                 className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl border shrink-0"
@@ -6795,6 +6923,163 @@ function GrammarExerciseOverlay({ item, sp, sw, sh, selected, onAnswer, onCheck,
         </div>
       </div>
       {/* Resize handles */}
+      {selected && !locked && (["nw","ne","sw","se"] as const).map(corner => {
+        const isRight = corner.endsWith("e"), isBottom = corner.startsWith("s");
+        return (
+          <div key={corner} className="absolute pointer-events-auto"
+            style={{
+              [isRight?"right":"left"]: -7, [isBottom?"bottom":"top"]: -7,
+              width:18, height:18, cursor:`${corner}-resize`, zIndex:32,
+              background:"white", border:"2px solid #4a80f0", borderRadius:3,
+            }}
+            onMouseDown={e => { e.stopPropagation(); onResizeStart(corner, e.clientX, e.clientY); }}
+            onTouchStart={e => { e.stopPropagation(); e.preventDefault(); onResizeStart(corner, e.touches[0].clientX, e.touches[0].clientY); }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+// ── FlowerOverlay ─────────────────────────────────────────────────────────────
+// Geometry is deliberately fixed regardless of petal count N (4–12):
+// the center circle radius and petal length never change, only petal WIDTH
+// shrinks as N grows. That's what keeps the center from ballooning and the
+// tips from ever reaching the edge of the viewBox, no matter how many petals.
+const FLOWER_VB        = 200;
+const FLOWER_CENTER    = 100;
+const FLOWER_CENTER_R  = 26;
+const FLOWER_PETAL_RY  = 23;
+const FLOWER_PETAL_OVERLAP = 6;
+const FLOWER_D = FLOWER_CENTER_R + FLOWER_PETAL_RY - FLOWER_PETAL_OVERLAP; // 43 — petal-center distance from flower center, fixed
+const FLOWER_PETAL_COLORS = ["#f9a8d4","#c4b5fd","#93c5fd","#86efac","#fde68a","#fca5a5","#a5f3fc","#fdba74"];
+
+function flowerPetalRx(n: number) {
+  const arcAtRadius = (2 * Math.PI * FLOWER_D) / n;
+  return Math.min(16, Math.max(8, 0.85 * arcAtRadius / 2));
+}
+
+function FlowerOverlay({ item, sp, sw, sh, selected, onPluck, onUnpluck, onEdit, onResizeStart }:
+  { item: FlowerItem; sp:{x:number;y:number}; sw:number; sh:number; selected:boolean;
+    onPluck:(idx:number)=>void; onUnpluck:(idx:number)=>void; onEdit:()=>void;
+    onResizeStart:(corner:"se"|"sw"|"ne"|"nw", clientX:number, clientY:number)=>void }) {
+  const locked = item.locked;
+  const n = item.petals.length;
+  const [flyingIdx, setFlyingIdx] = useState<number | null>(null);
+  // visualPlucked lags one animation behind item.petals[i].plucked on purpose:
+  // it only flips to true once the fly-away transition finishes, so a petal
+  // stays visible (and animatable) for the full 400ms after the underlying
+  // board state already says "plucked" — including on the REMOTE viewer,
+  // who receives the same state change via realtime and replays the same
+  // animation rather than just snapping to the final look.
+  const [visualPlucked, setVisualPlucked] = useState<boolean[]>(() => item.petals.map(p => p.plucked));
+  const prevPluckedRef = useRef<boolean[]>(item.petals.map(p => p.plucked));
+
+  // Petal count (structural edit) changed — resync instantly, no animation.
+  useEffect(() => {
+    setVisualPlucked(item.petals.map(p => p.plucked));
+    prevPluckedRef.current = item.petals.map(p => p.plucked);
+    setFlyingIdx(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item.id, item.petals.length]);
+
+  // Same petal count — detect per-petal pluck/unpluck transitions and animate.
+  useEffect(() => {
+    const prev = prevPluckedRef.current;
+    item.petals.forEach((p, i) => {
+      if (p.plucked && !prev[i]) {
+        setFlyingIdx(i);
+        setTimeout(() => {
+          setVisualPlucked(vp => { const next = vp.slice(); next[i] = true; return next; });
+          setFlyingIdx(cur => cur === i ? null : cur);
+        }, 400);
+      } else if (!p.plucked && prev[i]) {
+        setVisualPlucked(vp => { const next = vp.slice(); next[i] = false; return next; });
+      }
+    });
+    prevPluckedRef.current = item.petals.map(p => p.plucked);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item.petals]);
+
+  const remaining = item.petals.filter(p => !p.plucked).length;
+  const size = Math.max(60, Math.min(sw - 16, sh - 60));
+  const rx = flowerPetalRx(n);
+  const stop = (e: React.SyntheticEvent) => e.stopPropagation();
+
+  return (
+    // data-no-prevent: exempts this from the board-wide touchstart preventDefault,
+    // same reason as GrammarExerciseOverlay — otherwise petals aren't tappable on mobile.
+    <div data-no-prevent className="absolute select-none" style={{ left:sp.x, top:sp.y, width:sw, height:sh, zIndex:20 }}>
+      <div className="w-full h-full overflow-hidden flex flex-col items-center"
+        style={{ outline: selected ? "2px solid #4a80f0" : "1px solid #e8d8e8",
+          borderRadius:14, background:"#fffaf5", boxShadow:"0 1px 6px rgba(0,0,0,0.08)" }}>
+        {/* Drag handle — bubbles up to the board's generic select/move (no stopPropagation) */}
+        <div className="w-full px-2 pt-1.5 shrink-0 text-center" style={{ cursor: locked ? "default" : "move" }}>
+          <span className="text-[11px] font-medium truncate block" style={{ color:"var(--brown-mid)" }}>
+            {remaining > 0 ? `🌸 Осталось ${remaining} из ${n}` : "🌸 Все собраны!"}
+          </span>
+        </div>
+        <svg width={size} height={size} viewBox={`0 0 ${FLOWER_VB} ${FLOWER_VB}`} className="shrink-0"
+          onMouseDown={stop} onTouchStart={stop}>
+          {item.petals.map((petal, i) => {
+            const deg = i * 360 / n;
+            const flying = flyingIdx === i;
+            const settled = visualPlucked[i] ?? false;
+            const color = FLOWER_PETAL_COLORS[i % FLOWER_PETAL_COLORS.length];
+            const angleRad = (-90 + deg) * Math.PI / 180;
+            const labelX = FLOWER_CENTER + FLOWER_D * Math.cos(angleRad);
+            const labelY = FLOWER_CENTER + FLOWER_D * Math.sin(angleRad);
+            const label = petal.text.length > 10 ? petal.text.slice(0, 9) + "…" : petal.text;
+            return (
+              <g key={i}>
+                <g
+                  transform={flying
+                    ? `rotate(${deg} ${FLOWER_CENTER} ${FLOWER_CENTER}) translate(0 ${-(FLOWER_PETAL_RY * 1.7)})`
+                    : `rotate(${deg} ${FLOWER_CENTER} ${FLOWER_CENTER})`}
+                  style={{
+                    transition: "transform 0.4s cubic-bezier(.3,.6,.4,1), opacity 0.4s ease-out",
+                    opacity: flying ? 0 : (settled ? 0 : 1),
+                    cursor: locked ? "default" : "pointer",
+                  }}
+                  onMouseDown={stop} onTouchStart={stop}
+                  onClick={() => { if (!locked && !petal.plucked) onPluck(i); }}>
+                  <ellipse cx={FLOWER_CENTER} cy={FLOWER_CENTER - FLOWER_D} rx={rx} ry={FLOWER_PETAL_RY}
+                    fill={color} stroke="#ffffffaa" strokeWidth={1.5}/>
+                </g>
+                {settled && !flying && (
+                  <g transform={`rotate(${deg} ${FLOWER_CENTER} ${FLOWER_CENTER})`}
+                    style={{ cursor: locked ? "default" : "pointer" }}
+                    onMouseDown={stop} onTouchStart={stop}
+                    onClick={() => { if (!locked) onUnpluck(i); }}>
+                    <ellipse cx={FLOWER_CENTER} cy={FLOWER_CENTER - FLOWER_D} rx={rx} ry={FLOWER_PETAL_RY}
+                      fill="none" stroke="#d8cec0" strokeWidth={1.5} strokeDasharray="3 3"/>
+                  </g>
+                )}
+                {petal.text && !settled && (
+                  <text x={labelX} y={labelY} textAnchor="middle" dominantBaseline="middle"
+                    fontSize={Math.min(9, Math.max(6, 90 / n))} fill="#5a3a2a"
+                    style={{ pointerEvents:"none", opacity: flying ? 0 : 1, transition:"opacity 0.4s ease-out" }}>
+                    {label}
+                  </text>
+                )}
+              </g>
+            );
+          })}
+          <circle cx={FLOWER_CENTER} cy={FLOWER_CENTER} r={FLOWER_CENTER_R} fill="#fbbf24" stroke="#d97706" strokeWidth={2}/>
+          <text x={FLOWER_CENTER} y={FLOWER_CENTER} textAnchor="middle" dominantBaseline="middle"
+            fontSize={Math.min(11, Math.max(7, 130 / Math.max(item.centerText.length, 4)))} fontWeight={700} fill="#7c3d0a"
+            style={{ pointerEvents:"none" }}>
+            {item.centerText.length > 14 ? item.centerText.slice(0, 13) + "…" : item.centerText}
+          </text>
+        </svg>
+        {!locked && (
+          <button onMouseDown={stop} onTouchStart={stop} onClick={onEdit}
+            className="mb-1.5 px-2.5 py-0.5 rounded-lg text-xs border shrink-0"
+            style={{ borderColor:"var(--brown-pale)", color:"var(--brown-mid)" }}>
+            ✎ Изменить
+          </button>
+        )}
+      </div>
       {selected && !locked && (["nw","ne","sw","se"] as const).map(corner => {
         const isRight = corner.endsWith("e"), isBottom = corner.startsWith("s");
         return (
