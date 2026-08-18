@@ -54,6 +54,12 @@ type FrameItem = {
 type ImageItem = {
   type: "image"; id: string;
   x: number; y: number; w: number; h: number; url: string;
+  // Crop window into the source image, as fractions 0-1 (defaults to the
+  // full image when absent). Cropping narrows this rect and shrinks the
+  // on-board box by the same factor, so the crop only cuts away pixels —
+  // it never resamples the kept portion to fill the old box, which is what
+  // made "crop" look identical to a squish-resize before this existed.
+  cropX0?: number; cropY0?: number; cropX1?: number; cropY1?: number;
   locked?: boolean; pdfPage?: number;
 };
 type ShapeItem = {
@@ -714,7 +720,16 @@ function renderFrame(ctx: CanvasRenderingContext2D, item: FrameItem) {
 function renderImage(ctx: CanvasRenderingContext2D, item: ImageItem, onLoad: () => void) {
   const img = getCachedImage(item.url, onLoad);
   if (img) {
-    try { ctx.drawImage(img, item.x, item.y, item.w, item.h); } catch { /* cross-origin taint — skip */ }
+    const cx0 = item.cropX0 ?? 0, cy0 = item.cropY0 ?? 0, cx1 = item.cropX1 ?? 1, cy1 = item.cropY1 ?? 1;
+    const nw = img.naturalWidth || img.width, nh = img.naturalHeight || img.height;
+    try {
+      if (cx0 === 0 && cy0 === 0 && cx1 === 1 && cy1 === 1) {
+        ctx.drawImage(img, item.x, item.y, item.w, item.h);
+      } else {
+        ctx.drawImage(img, cx0 * nw, cy0 * nh, Math.max(1, (cx1 - cx0) * nw), Math.max(1, (cy1 - cy0) * nh),
+          item.x, item.y, item.w, item.h);
+      }
+    } catch { /* cross-origin taint — skip */ }
   } else {
     ctx.save();
     ctx.fillStyle = "#f0f0f0"; ctx.strokeStyle = "#ccc"; ctx.lineWidth = 1 / (ctx.getTransform().a || 1);
@@ -4498,6 +4513,18 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
         {/* Canvas */}
         <div ref={containerRef} className="flex-1 relative overflow-hidden"
         style={{ background:"#e8e8e8", cursor, touchAction:"none" }}
+        onMouseDownCapture={e => {
+          // DOM-overlay items (video, audio, table, grammar_exercise, wheel,
+          // dice, flower...) each own their mousedown and never check whether
+          // a text box is mid-edit before grabbing the click for themselves —
+          // so clicking one of those while typing left the edit box stuck
+          // open forever. Capture-phase runs before any of those handlers,
+          // so this commits first regardless of what ends up getting clicked.
+          if (textInput !== null && !(e.target as HTMLElement).closest("[data-text-editor]")) commitText();
+        }}
+        onTouchStartCapture={e => {
+          if (textInput !== null && !(e.target as HTMLElement).closest("[data-text-editor]")) commitText();
+        }}
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
         onMouseUp={onMouseUp}
@@ -4509,13 +4536,20 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           if (multiDragRef.current) { multiDragRef.current=null; }
         }}
         onDoubleClick={e => {
-          // Double-click on empty canvas → create text (works in select & text tools)
+          // Double-click on empty canvas → create text (works in select & text tools).
+          // Also fires over images/frames/shapes/etc — those are canvas-drawn and
+          // have no dblclick handling of their own, so a double-click there should
+          // still let you write a caption/label on top of the picture or page,
+          // same as on empty canvas. Only an existing TEXT item bails out (its own
+          // edit path is the "text" tool's single-click-to-edit, not this handler),
+          // and DOM-overlay items (table, flower, ...) never reach here at all —
+          // they stop the event themselves before it bubbles this far.
           if (tool !== "select" && tool !== "text") return;
           if (textInput) return;
           const { cx, cy } = clientXY(e as unknown as React.MouseEvent);
           const w = s2w(cx, cy);
           const hit = [...itemsRef.current].reverse().find(item => hitTest(item, w.x, w.y));
-          if (hit) return; // let item handle its own dblclick
+          if (hit?.type === "text") return;
           draftIdRef.current = uid(); setTextInput({ wx: w.x, wy: w.y }); setTextValue("");
           setTimeout(() => textRef.current?.focus(), 30);
         }}
@@ -5315,10 +5349,10 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           return (
             <>
               {/* ── Floating toolbar above text (desktop only — touch devices use bottom sheet) ── */}
-              {!isMobile && <div className="absolute pointer-events-auto hidden sm:flex items-center gap-0.5 px-2 py-1 rounded-2xl shadow-2xl border"
+              {!isMobile && <div data-text-editor className="absolute pointer-events-auto hidden sm:flex items-center gap-0.5 px-2 py-1 rounded-2xl shadow-2xl border"
                 style={{ top: toolbarTop, left: toolbarLeft, width: TOOLBAR_W,
                   background:"white", borderColor:"var(--brown-pale)", zIndex:60 }}
-                onMouseDown={e => e.preventDefault()}>
+                onMouseDown={e => { e.preventDefault(); e.stopPropagation(); }}>
                 {/* Font */}
                 <select value={fontIdx} onChange={e=>setFontIdx(+e.target.value)} onMouseDown={e=>e.stopPropagation()}
                   className="border-0 rounded outline-none"
@@ -5386,7 +5420,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                   background:"white", border:"2px solid #4a80f0", pointerEvents:"none",
                 };
                 return (
-                  <div className="absolute" style={{ left:textScr.x, top:textScr.y, zIndex:50 }}
+                  <div data-text-editor className="absolute" style={{ left:textScr.x, top:textScr.y, zIndex:50 }}
                     onMouseDown={e => e.stopPropagation()}>
                     <textarea ref={textRef} value={textValue}
                       onChange={e => {
@@ -5438,7 +5472,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
               {isMobile && (() => {
                 const cancel = () => { if(typingTimerRef.current){clearTimeout(typingTimerRef.current);typingTimerRef.current=null;} if(draftIdRef.current){send({type:"text_typing_cancel",id:draftIdRef.current});draftIdRef.current="";} setTextInput(null); editingIdRef.current=null; setEditingId(null); render(); };
                 return (
-                  <div style={{ position:"fixed", inset:0, zIndex:300, touchAction:"auto" }} onClick={cancel}
+                  <div data-text-editor style={{ position:"fixed", inset:0, zIndex:300, touchAction:"auto" }} onClick={cancel}
                     onTouchStart={e=>e.stopPropagation()} onTouchMove={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()}>
                     <div style={{
                       position:"absolute", bottom:kbOffset, left:0, right:0,
@@ -5523,8 +5557,14 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
             const idx = itemsRef.current.findIndex(i => i.id === cropId);
             if (idx < 0) { setCropId(null); cropRef.current=null; return; }
             const c = cropRef.current!;
+            // Narrow the existing crop window by the same fractions, so a
+            // second crop pass keeps composing correctly instead of resetting
+            // to "crop of the original" each time.
+            const px0 = ci.cropX0 ?? 0, py0 = ci.cropY0 ?? 0, px1 = ci.cropX1 ?? 1, py1 = ci.cropY1 ?? 1;
             const next: ImageItem = { ...ci, x: ci.x + c.sx*ci.w, y: ci.y + c.sy*ci.h,
-              w: (c.ex-c.sx)*ci.w, h: (c.ey-c.sy)*ci.h };
+              w: (c.ex-c.sx)*ci.w, h: (c.ey-c.sy)*ci.h,
+              cropX0: px0 + c.sx*(px1-px0), cropY0: py0 + c.sy*(py1-py0),
+              cropX1: px0 + c.ex*(px1-px0), cropY1: py0 + c.ey*(py1-py0) };
             itemsRef.current[idx] = next; pushHistory({type:"update",idx,prev:ci,next}); send({type:"update",item:next});
             render(); setCropId(null); cropRef.current=null;
           };
