@@ -7020,7 +7020,7 @@ function FlowerOverlay({ item, sp, sw, sh, selected, onPluck, onUnpluck, onEdit,
           </span>
         </div>
         <svg width={size} height={size} viewBox={`0 0 ${FLOWER_VB} ${FLOWER_VB}`} className="shrink-0"
-          onMouseDown={stop} onTouchStart={stop}>
+          style={{ cursor: locked ? "default" : "move" }}>
           {item.petals.map((petal, i) => {
             const deg = i * 360 / n;
             const flying = flyingIdx === i;
