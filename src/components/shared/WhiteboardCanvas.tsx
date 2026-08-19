@@ -202,6 +202,15 @@ const FONTS = [
   { label: "Playfair",            family: "'Playfair Display', serif" },
   { label: "Montserrat",          family: "'Montserrat', sans-serif" },
   { label: "JetBrains Mono",      family: "'JetBrains Mono', monospace" },
+  // Latin-only decorative faces — no Cyrillic glyphs, so these render
+  // correctly for English board content but fall back to a system font
+  // for Russian text (not a bug, those faces simply don't cover Cyrillic).
+  { label: "Dancing Script",      family: "'Dancing Script', cursive" },
+  { label: "Pacifico",            family: "'Pacifico', cursive" },
+  { label: "Quicksand",           family: "'Quicksand', sans-serif" },
+  { label: "Bebas Neue",          family: "'Bebas Neue', sans-serif" },
+  { label: "Indie Flower",        family: "'Indie Flower', cursive" },
+  { label: "Merriweather",        family: "'Merriweather', serif" },
 ];
 const RULING_OPTIONS: { v: Ruling; title: string }[] = [
   { v: "none",        title: "Без разлиновки" },
