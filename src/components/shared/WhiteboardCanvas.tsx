@@ -5339,12 +5339,15 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                 style={{ top: toolbarTop, left: toolbarLeft, width: TOOLBAR_W,
                   background:"white", borderColor:"#ece4da", zIndex:60 }}
                 onMouseDown={e => { e.preventDefault(); e.stopPropagation(); }}>
-                {/* Font — compact, borderless trigger */}
+                {/* Font — compact, borderless trigger. Each option previews in its
+                    own face so you can see what it looks like before picking it,
+                    not just read its name; the closed trigger does the same for
+                    whichever font is currently active. */}
                 <select value={fontIdx} onChange={e=>setFontIdx(+e.target.value)} onMouseDown={e=>e.stopPropagation()}
                   title="Шрифт"
                   className="border-0 rounded-full outline-none cursor-pointer"
-                  style={{ color:"var(--brown-dark)", height:32, maxWidth:64, fontSize:11, background:"transparent" }}>
-                  {FONTS.map((f,i)=><option key={i} value={i}>{f.label}</option>)}
+                  style={{ color:"var(--brown-dark)", height:32, maxWidth:64, fontSize:11, background:"transparent", fontFamily: FONTS[fontIdx].family }}>
+                  {FONTS.map((f,i)=><option key={i} value={i} style={{ fontFamily:f.family, fontSize:15 }}>{f.label}</option>)}
                 </select>
                 <Sep2/>
                 {/* Size — stepper, no bare number field */}
