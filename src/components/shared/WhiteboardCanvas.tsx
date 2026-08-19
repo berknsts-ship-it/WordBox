@@ -2607,7 +2607,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
         }
         itemsRef.current[idx] = shiftItem(drag.origItem, dx, dy);
       } else if (drag.mode === "resize-img" || drag.mode === "resize-frame") {
-        const orig = drag.origItem as ImageItem | FrameItem | VideoItem | FunctionItem | FlowerItem;
+        const orig = drag.origItem as ImageItem | FrameItem | VideoItem | FunctionItem | FlowerItem | TableItem;
         const dx = w.x - drag.wx0, dy = w.y - drag.wy0;
         let { x, y, w: ow, h: oh } = orig;
         const minSize = orig.type === "function" ? 2 : 20;
@@ -2938,7 +2938,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           }
           itemsRef.current[idx] = shiftItem(drag.origItem, dx, dy);
         } else if (drag.mode === "resize-img" || drag.mode === "resize-frame") {
-          const orig = drag.origItem as ImageItem | FrameItem | FlowerItem;
+          const orig = drag.origItem as ImageItem | FrameItem | FlowerItem | TableItem;
           const dx = w.x - drag.wx0, dy = w.y - drag.wy0;
           let { x, y, w: ow, h: oh } = orig;
           if (drag.corner === "se") { ow = Math.max(20, ow + dx); oh = Math.max(20, oh + dy); }
@@ -4845,6 +4845,13 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                 const newData = ti.data.map(row => [...row]);
                 newData[r][c] = text;
                 updateBoardItem({ ...ti, data: newData });
+              }}
+              onResizeStart={(corner, clientX, clientY) => {
+                const rect = containerRef.current!.getBoundingClientRect();
+                const ww = (clientX - rect.left - viewRef.current.panX) / viewRef.current.zoom;
+                const wh = (clientY - rect.top  - viewRef.current.panY) / viewRef.current.zoom;
+                selDragRef.current = { mode:"resize-img", id: ti.id, corner, wx0: ww, wy0: wh, origItem: { ...ti } };
+                snapCandidatesRef.current = collectSnapCandidates(itemsRef.current, new Set([ti.id]));
               }} />
           );
         })}
@@ -6868,9 +6875,10 @@ function WheelOverlay({ item, sp, sw, sh, selected, onAngleUpdate, onEdit }:
 }
 
 // ── TableOverlay ──────────────────────────────────────────────────────────────
-function TableOverlay({ item, sp, sw, sh, selected, zoom, onCellChange }:
+function TableOverlay({ item, sp, sw, sh, selected, zoom, onCellChange, onResizeStart }:
   { item: TableItem; sp:{x:number;y:number}; sw:number; sh:number; selected:boolean;
-    zoom:number; onCellChange:(r:number,c:number,text:string)=>void }) {
+    zoom:number; onCellChange:(r:number,c:number,text:string)=>void;
+    onResizeStart:(corner:"se"|"sw"|"ne"|"nw", clientX:number, clientY:number)=>void }) {
   const [editing, setEditing] = useState<{r:number;c:number}|null>(null);
   const [val, setVal] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -6888,40 +6896,57 @@ function TableOverlay({ item, sp, sw, sh, selected, zoom, onCellChange }:
     setEditing(null);
   };
 
+  const locked = item.locked;
+
   return (
-    <div className="absolute overflow-hidden select-none"
-      style={{ left:sp.x, top:sp.y, width:sw, height:sh, zIndex:20,
-        outline: selected ? "2px solid #4a80f0" : "1px solid #c0b8b0",
-        borderRadius:4, background:"white" }}>
-      {Array.from({length:item.rows}).map((_,r) => (
-        <div key={r} className="flex" style={{ height:cellH }}>
-          {Array.from({length:item.cols}).map((_,c) => {
-            const isHeader = item.headerRow && r === 0;
-            const isEdit = editing?.r===r && editing?.c===c;
-            return (
-              <div key={c} className="relative overflow-hidden border-r border-b"
-                style={{ width:cellW, height:cellH, borderColor:"#c0b8b0",
-                  background: isHeader ? "#f0ece8" : "white",
-                  borderRight: c===item.cols-1?"none":undefined,
-                  borderBottom: r===item.rows-1?"none":undefined }}>
-                {isEdit ? (
-                  <input ref={inputRef} value={val} onChange={e=>setVal(e.target.value)}
-                    onBlur={commit}
-                    onKeyDown={e=>{ if(e.key==="Enter"||e.key==="Tab"){e.preventDefault();commit();} if(e.key==="Escape")setEditing(null); }}
-                    className="absolute inset-0 w-full h-full px-1 outline-none text-center bg-blue-50"
-                    style={{ fontSize:fs, fontWeight: isHeader?600:400 }}/>
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center px-1 cursor-text overflow-hidden"
-                    style={{ fontSize:fs, fontWeight: isHeader?600:400, color:"#1a1a1a" }}
-                    onDoubleClick={e=>{ e.stopPropagation(); startEdit(r,c); }}>
-                    {item.data[r]?.[c] ?? ""}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      ))}
+    <div className="absolute" style={{ left:sp.x, top:sp.y, width:sw, height:sh, zIndex:20 }}>
+      <div className="w-full h-full overflow-hidden select-none"
+        style={{ outline: selected ? "2px solid #4a80f0" : "1px solid #c0b8b0",
+          borderRadius:4, background:"white" }}>
+        {Array.from({length:item.rows}).map((_,r) => (
+          <div key={r} className="flex" style={{ height:cellH }}>
+            {Array.from({length:item.cols}).map((_,c) => {
+              const isHeader = item.headerRow && r === 0;
+              const isEdit = editing?.r===r && editing?.c===c;
+              return (
+                <div key={c} className="relative overflow-hidden border-r border-b"
+                  style={{ width:cellW, height:cellH, borderColor:"#c0b8b0",
+                    background: isHeader ? "#f0ece8" : "white",
+                    borderRight: c===item.cols-1?"none":undefined,
+                    borderBottom: r===item.rows-1?"none":undefined }}>
+                  {isEdit ? (
+                    <input ref={inputRef} value={val} onChange={e=>setVal(e.target.value)}
+                      onBlur={commit}
+                      onKeyDown={e=>{ if(e.key==="Enter"||e.key==="Tab"){e.preventDefault();commit();} if(e.key==="Escape")setEditing(null); }}
+                      className="absolute inset-0 w-full h-full px-1 outline-none text-center bg-blue-50"
+                      style={{ fontSize:fs, fontWeight: isHeader?600:400 }}/>
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center px-1 cursor-text overflow-hidden"
+                      style={{ fontSize:fs, fontWeight: isHeader?600:400, color:"#1a1a1a" }}
+                      onDoubleClick={e=>{ e.stopPropagation(); startEdit(r,c); }}>
+                      {item.data[r]?.[c] ?? ""}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+      {selected && !locked && (["nw","ne","sw","se"] as const).map(corner => {
+        const isRight = corner.endsWith("e"), isBottom = corner.startsWith("s");
+        return (
+          <div key={corner} className="absolute pointer-events-auto"
+            style={{
+              [isRight?"right":"left"]: -7, [isBottom?"bottom":"top"]: -7,
+              width:18, height:18, cursor:`${corner}-resize`, zIndex:32,
+              background:"white", border:"2px solid #4a80f0", borderRadius:3,
+            }}
+            onMouseDown={e => { e.stopPropagation(); onResizeStart(corner, e.clientX, e.clientY); }}
+            onTouchStart={e => { e.stopPropagation(); e.preventDefault(); onResizeStart(corner, e.touches[0].clientX, e.touches[0].clientY); }}
+          />
+        );
+      })}
     </div>
   );
 }
