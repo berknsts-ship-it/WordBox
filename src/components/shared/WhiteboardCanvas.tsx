@@ -207,7 +207,6 @@ const FONTS = [
   // for Russian text (not a bug, those faces simply don't cover Cyrillic).
   { label: "Dancing Script",      family: "'Dancing Script', cursive" },
   { label: "Pacifico",            family: "'Pacifico', cursive" },
-  { label: "Quicksand",           family: "'Quicksand', sans-serif" },
   { label: "Bebas Neue",          family: "'Bebas Neue', sans-serif" },
   { label: "Indie Flower",        family: "'Indie Flower', cursive" },
   { label: "Merriweather",        family: "'Merriweather', serif" },
