@@ -4515,19 +4515,24 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
         }}
         onDoubleClick={e => {
           // Double-click on empty canvas → create text (works in select & text tools).
-          // Also fires over images/frames/shapes/etc — those are canvas-drawn and
-          // have no dblclick handling of their own, so a double-click there should
-          // still let you write a caption/label on top of the picture or page,
-          // same as on empty canvas. Only an existing TEXT item bails out (its own
-          // edit path is the "text" tool's single-click-to-edit, not this handler),
-          // and DOM-overlay items (table, flower, ...) never reach here at all —
-          // they stop the event themselves before it bubbles this far.
+          // Also fires over images/frames/shapes — those are plain canvas-drawn
+          // pixels with no interaction model of their own, so writing a caption
+          // over a picture or page should work the same as on empty canvas.
+          // Everything else (table, flower, ...) is a DOM overlay with its own
+          // interactive parts — those stop the event themselves before it
+          // bubbles this far, BUT only over the parts that are actually
+          // clickable (a petal, a cell). Dead space inside their box — the
+          // gaps between petals, say — isn't covered by that, and used to
+          // fall through to here and drop a stray text box on the item.
+          // Allowlisting the plain types instead of blocking just "text"
+          // closes that gap for all of them at once.
           if (tool !== "select" && tool !== "text") return;
           if (textInput) return;
           const { cx, cy } = clientXY(e as unknown as React.MouseEvent);
           const w = s2w(cx, cy);
           const hit = [...itemsRef.current].reverse().find(item => hitTest(item, w.x, w.y));
-          if (hit?.type === "text") return;
+          const plainCanvasTypes = new Set(["image", "frame", "shape", "path"]);
+          if (hit && !plainCanvasTypes.has(hit.type)) return;
           draftIdRef.current = uid(); setTextInput({ wx: w.x, wy: w.y }); setTextValue("");
           setTimeout(() => textRef.current?.focus(), 30);
         }}
@@ -4921,7 +4926,8 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                 const wh = (clientY - rect.top  - viewRef.current.panY) / viewRef.current.zoom;
                 selDragRef.current = { mode:"resize-img", id: fi.id, corner, wx0: ww, wy0: wh, origItem: { ...fi } };
                 snapCandidatesRef.current = collectSnapCandidates(itemsRef.current, new Set([fi.id]));
-              }} />
+              }}
+              onUndo={undo} canUndo={canUndo} />
           );
         })}
 
@@ -7067,11 +7073,12 @@ function flowerPetalRx(n: number) {
   return Math.min(16, Math.max(8, 0.85 * arcAtRadius / 2));
 }
 
-function FlowerOverlay({ item, sp, sw, sh, selected, onPluck, onUnpluck, onEditCenterText, onEditPetalText, onEdit, onResizeStart }:
+function FlowerOverlay({ item, sp, sw, sh, selected, onPluck, onUnpluck, onEditCenterText, onEditPetalText, onEdit, onResizeStart, onUndo, canUndo }:
   { item: FlowerItem; sp:{x:number;y:number}; sw:number; sh:number; selected:boolean;
     onPluck:(idx:number)=>void; onUnpluck:(idx:number)=>void;
     onEditCenterText:(text:string)=>void; onEditPetalText:(idx:number, text:string)=>void; onEdit:()=>void;
-    onResizeStart:(corner:"se"|"sw"|"ne"|"nw", clientX:number, clientY:number)=>void }) {
+    onResizeStart:(corner:"se"|"sw"|"ne"|"nw", clientX:number, clientY:number)=>void;
+    onUndo:()=>void; canUndo:boolean }) {
   const locked = item.locked;
   const n = item.petals.length;
   const [flyingIdx, setFlyingIdx] = useState<number | null>(null);
@@ -7247,11 +7254,21 @@ function FlowerOverlay({ item, sp, sw, sh, selected, onPluck, onUnpluck, onEditC
         })()}
         </div>
         {!locked && (
-          <button onMouseDown={stop} onTouchStart={stop} onClick={onEdit}
-            className="mb-1.5 px-2.5 py-0.5 rounded-lg text-xs border shrink-0"
-            style={{ borderColor:"var(--brown-pale)", color:"var(--brown-mid)" }}>
-            ✎ Число лепестков
-          </button>
+          <div className="flex items-center gap-1 mb-1.5">
+            <button onMouseDown={stop} onTouchStart={stop} onClick={onEdit}
+              className="px-2.5 py-0.5 rounded-lg text-xs border shrink-0"
+              style={{ borderColor:"var(--brown-pale)", color:"var(--brown-mid)" }}>
+              ✎ Число лепестков
+            </button>
+            {canUndo && (
+              <button onMouseDown={stop} onTouchStart={stop} onClick={onUndo}
+                title="Отменить последнее изменение (работает и как Ctrl+Z)"
+                className="px-2 py-0.5 rounded-lg text-xs border shrink-0"
+                style={{ borderColor:"var(--brown-pale)", color:"var(--brown-mid)" }}>
+                ↺
+              </button>
+            )}
+          </div>
         )}
       </div>
       {selected && !locked && (["nw","ne","sw","se"] as const).map(corner => {
