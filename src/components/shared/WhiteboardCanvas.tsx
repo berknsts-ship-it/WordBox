@@ -4330,57 +4330,10 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
               <span className="text-xs w-8 tabular-nums" style={{ color:"var(--brown-mid)" }}>{opacity}%</span>
             </div>
           </>)}
-          {/* Hidden while actively editing/creating a text box (textInput set) —
-              the inline floating toolbar right on the text box takes over then
-              (font/size/B/I/align/color/bg/Готово, same controls), so showing
-              both was a literal duplicate on top of the board. Still shown
-              right after picking the text tool, before the first click, so
-              you can set a starting style. */}
-          {tool === "text" && !textInput && (<>
-            <ColorPalette colors={COLORS} active={color} onPick={setColor} />
-            <Sep/>
-            <select value={fontIdx} onChange={e => setFontIdx(+e.target.value)}
-              className="text-xs px-2 py-1 rounded-lg border outline-none"
-              style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
-              {FONTS.map((f,i) => <option key={i} value={i}>{f.label}</option>)}
-            </select>
-            <select value={fontSize} onChange={e => setFontSize(+e.target.value)}
-              className="text-xs px-2 py-1 rounded-lg border outline-none w-16"
-              style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
-              {[10,12,14,16,18,20,24,28,32,36,40,48,64,80].map(s=><option key={s} value={s}>{s}</option>)}
-            </select>
-            <Sep/>
-            <button onClick={() => setBold(b=>!b)} className="w-7 h-7 rounded-lg border-2 text-sm font-bold"
-              style={{ borderColor:bold?"var(--brown-dark)":"var(--brown-pale)", color:"var(--brown-dark)", opacity:bold?1:0.45 }}>B</button>
-            <button onClick={() => setItalic(i=>!i)} className="w-7 h-7 rounded-lg border-2 text-sm italic"
-              style={{ borderColor:italic?"var(--brown-dark)":"var(--brown-pale)", color:"var(--brown-dark)", opacity:italic?1:0.45, fontFamily:"Georgia,serif" }}>I</button>
-            <Sep/>
-            {(["left","center","right"] as TextAlign[]).map(a => (
-              <button key={a} onClick={() => setAlign(a)}
-                className="w-7 h-7 rounded-lg border-2 flex items-center justify-center"
-                style={{ borderColor: align===a?"var(--brown-dark)":"var(--brown-pale)", opacity: align===a?1:0.4 }}>
-                <svg width={14} height={12} viewBox="0 0 14 12">
-                  {a==="left"   && <><line x1={0} y1={2}  x2={14} y2={2}  stroke="currentColor" strokeWidth={1.5}/><line x1={0} y1={6}  x2={9}  y2={6}  stroke="currentColor" strokeWidth={1.5}/><line x1={0} y1={10} x2={12} y2={10} stroke="currentColor" strokeWidth={1.5}/></>}
-                  {a==="center" && <><line x1={0} y1={2}  x2={14} y2={2}  stroke="currentColor" strokeWidth={1.5}/><line x1={2.5} y1={6} x2={11.5} y2={6} stroke="currentColor" strokeWidth={1.5}/><line x1={1} y1={10} x2={13} y2={10} stroke="currentColor" strokeWidth={1.5}/></>}
-                  {a==="right"  && <><line x1={0} y1={2}  x2={14} y2={2}  stroke="currentColor" strokeWidth={1.5}/><line x1={5} y1={6}  x2={14} y2={6}  stroke="currentColor" strokeWidth={1.5}/><line x1={2} y1={10} x2={14} y2={10} stroke="currentColor" strokeWidth={1.5}/></>}
-                </svg>
-              </button>
-            ))}
-            <Sep/>
-            <div className="flex items-center gap-1.5">
-              <label className="relative w-6 h-6 rounded-md border-2 overflow-hidden cursor-pointer"
-                style={{ borderColor:"var(--brown-pale)", background: textBgOpacity>0 ? textBgColor : "transparent" }}
-                title="Фон текста">
-                <input type="color" value={textBgColor}
-                  onChange={e => { setTextBgColor(e.target.value); if(textBgOpacity===0) setTextBgOpacity(80); }}
-                  className="absolute opacity-0 w-full h-full cursor-pointer" style={{ top:0,left:0 }}/>
-              </label>
-              <input type="range" min={0} max={100} step={5} value={textBgOpacity}
-                onChange={e => setTextBgOpacity(+e.target.value)}
-                className="w-14 h-1.5 rounded cursor-pointer accent-stone-700" title="Прозрачность фона" />
-              <span className="text-xs" style={{ color:"var(--brown-light)" }}>фон</span>
-            </div>
-          </>)}
+          {/* No text-formatting controls here anymore for the "text" tool —
+              the floating icon toolbar on the text box itself (font/size/
+              B/I/align/color/bg/Готово) is the only place for that now, so
+              there's nothing duplicated in the header while typing. */}
 
           </div>{/* end left scrollable zone */}
 
@@ -5355,80 +5308,95 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           const bgCss = textBgOpacity > 0
             ? textBgColor + Math.round(textBgOpacity * 2.55).toString(16).padStart(2,"0")
             : "transparent";
-          const Sep2 = () => <div className="w-px h-5 mx-1 shrink-0" style={{ background:"#e0d8d0" }}/>;
+          const Sep2 = () => <div className="w-px h-4 mx-0.5 shrink-0" style={{ background:"#e5ded6" }}/>;
           const TOOLBAR_H = 44;
-          const TOOLBAR_W = 480;
+          const TOOLBAR_W = 380;
           const containerH = containerRef.current?.clientHeight ?? 600;
           const containerW = containerRef.current?.clientWidth ?? 800;
-          // Position toolbar just above the text, clamped inside canvas
-          const toolbarTop = Math.max(4, Math.min(textScr.y - TOOLBAR_H - 8, containerH - TOOLBAR_H - 4));
+          // Prefer just above the text; if there isn't room (text near the
+          // top of the viewport), drop it below the text box instead of
+          // clamping in place — clamping was what let the toolbar land on
+          // top of the very text you're writing.
+          const textBoxH = textRef.current?.getBoundingClientRect().height ?? (fontSize * viewRef.current.zoom * 1.6 + 16);
+          const fitsAbove = textScr.y - 4 >= TOOLBAR_H + 8;
+          const toolbarTop = fitsAbove
+            ? textScr.y - TOOLBAR_H - 8
+            : Math.min(textScr.y + textBoxH + 8, containerH - TOOLBAR_H - 4);
           const toolbarLeft = Math.max(4, Math.min(textScr.x - TOOLBAR_W / 2, containerW - TOOLBAR_W - 4));
+          const iconBtn = "w-8 h-8 rounded-full flex items-center justify-center transition-colors shrink-0";
           return (
             <>
-              {/* ── Floating toolbar above text (desktop only — touch devices use bottom sheet) ── */}
-              {!isMobile && <div data-text-editor className="absolute pointer-events-auto hidden sm:flex items-center gap-0.5 px-2 py-1 rounded-2xl shadow-2xl border"
+              {/* ── Floating toolbar — compact icon pill, desktop only (touch devices use bottom sheet) ── */}
+              {!isMobile && <div data-text-editor className="absolute pointer-events-auto hidden sm:flex items-center gap-0.5 px-1.5 py-1.5 rounded-full shadow-xl border"
                 style={{ top: toolbarTop, left: toolbarLeft, width: TOOLBAR_W,
-                  background:"white", borderColor:"var(--brown-pale)", zIndex:60 }}
+                  background:"white", borderColor:"#ece4da", zIndex:60 }}
                 onMouseDown={e => { e.preventDefault(); e.stopPropagation(); }}>
-                {/* Font */}
+                {/* Font — compact, borderless trigger */}
                 <select value={fontIdx} onChange={e=>setFontIdx(+e.target.value)} onMouseDown={e=>e.stopPropagation()}
-                  className="border-0 rounded outline-none"
-                  style={{ color:"var(--brown-dark)", height:28, maxWidth:76, fontSize:11 }}>
+                  title="Шрифт"
+                  className="border-0 rounded-full outline-none cursor-pointer"
+                  style={{ color:"var(--brown-dark)", height:32, maxWidth:64, fontSize:11, background:"transparent" }}>
                   {FONTS.map((f,i)=><option key={i} value={i}>{f.label}</option>)}
                 </select>
                 <Sep2/>
-                {/* Size — editable input */}
-                <input type="number" value={fontSize} min={8} max={200}
-                  onChange={e=>setFontSize(Math.max(8,Math.min(200,+e.target.value)))}
-                  onMouseDown={e=>e.stopPropagation()}
-                  className="border rounded text-center outline-none"
-                  style={{ color:"var(--brown-dark)", width:40, height:28, fontSize:12, borderColor:"var(--brown-pale)" }}/>
+                {/* Size — stepper, no bare number field */}
+                <button onMouseDown={e=>e.preventDefault()} onClick={()=>setFontSize(s=>Math.max(8,s-2))}
+                  title="Меньше" className={iconBtn} style={{ color:"var(--brown-dark)" }}>
+                  <span className="text-xs font-bold">A−</span>
+                </button>
+                <span className="text-xs tabular-nums text-center shrink-0" style={{ width:22, color:"var(--brown-mid)" }}>{fontSize}</span>
+                <button onMouseDown={e=>e.preventDefault()} onClick={()=>setFontSize(s=>Math.min(200,s+2))}
+                  title="Больше" className={iconBtn} style={{ color:"var(--brown-dark)" }}>
+                  <span className="text-xs font-bold">A+</span>
+                </button>
                 <Sep2/>
-                {/* Bold / Italic / Underline-placeholder */}
-                <button onMouseDown={e=>e.preventDefault()} onClick={()=>setBold(b=>!b)}
-                  className="w-8 h-8 rounded-lg text-sm font-bold border-2 flex items-center justify-center transition-all"
-                  style={{ borderColor:bold?"#4a80f0":"transparent", color:"var(--brown-dark)", background:bold?"#eef2ff":"transparent" }}>B</button>
-                <button onMouseDown={e=>e.preventDefault()} onClick={()=>setItalic(i=>!i)}
-                  className="w-8 h-8 rounded-lg text-sm italic border-2 flex items-center justify-center transition-all"
-                  style={{ fontFamily:"Georgia,serif", borderColor:italic?"#4a80f0":"transparent", color:"var(--brown-dark)", background:italic?"#eef2ff":"transparent" }}>I</button>
+                {/* Bold / Italic */}
+                <button onMouseDown={e=>e.preventDefault()} onClick={()=>setBold(b=>!b)} title="Жирный"
+                  className={iconBtn} style={{ color: bold ? "#4a80f0" : "var(--brown-dark)", background: bold ? "#eef2ff" : "transparent" }}>
+                  <span className="text-sm font-bold">B</span>
+                </button>
+                <button onMouseDown={e=>e.preventDefault()} onClick={()=>setItalic(i=>!i)} title="Курсив"
+                  className={iconBtn} style={{ fontFamily:"Georgia,serif", color: italic ? "#4a80f0" : "var(--brown-dark)", background: italic ? "#eef2ff" : "transparent" }}>
+                  <span className="text-sm italic">I</span>
+                </button>
                 <Sep2/>
-                {/* Alignment */}
-                {(["left","center","right"] as TextAlign[]).map(a=>(
-                  <button key={a} onMouseDown={e=>e.preventDefault()} onClick={()=>setAlign(a)}
-                    className="w-8 h-8 rounded-lg border-2 flex items-center justify-center transition-all"
-                    style={{ borderColor:align===a?"#4a80f0":"transparent", background:align===a?"#eef2ff":"transparent" }}>
-                    <svg width={14} height={11} viewBox="0 0 14 11" style={{ color:"var(--brown-dark)" }}>
-                      {a==="left"   && <><line x1={0} y1={1.5} x2={14} y2={1.5} stroke="currentColor" strokeWidth={1.5}/><line x1={0} y1={5.5} x2={9} y2={5.5} stroke="currentColor" strokeWidth={1.5}/><line x1={0} y1={9.5} x2={11} y2={9.5} stroke="currentColor" strokeWidth={1.5}/></>}
-                      {a==="center" && <><line x1={0} y1={1.5} x2={14} y2={1.5} stroke="currentColor" strokeWidth={1.5}/><line x1={2.5} y1={5.5} x2={11.5} y2={5.5} stroke="currentColor" strokeWidth={1.5}/><line x1={1.5} y1={9.5} x2={12.5} y2={9.5} stroke="currentColor" strokeWidth={1.5}/></>}
-                      {a==="right"  && <><line x1={0} y1={1.5} x2={14} y2={1.5} stroke="currentColor" strokeWidth={1.5}/><line x1={5} y1={5.5} x2={14} y2={5.5} stroke="currentColor" strokeWidth={1.5}/><line x1={3} y1={9.5} x2={14} y2={9.5} stroke="currentColor" strokeWidth={1.5}/></>}
-                    </svg>
-                  </button>
-                ))}
+                {/* Alignment — single button, cycles left → center → right */}
+                <button onMouseDown={e=>e.preventDefault()}
+                  onClick={()=>setAlign(a => a==="left" ? "center" : a==="center" ? "right" : "left")}
+                  title="Выравнивание" className={iconBtn} style={{ color:"var(--brown-dark)" }}>
+                  <svg width={15} height={12} viewBox="0 0 14 11">
+                    {align==="left"   && <><line x1={0} y1={1.5} x2={14} y2={1.5} stroke="currentColor" strokeWidth={1.5}/><line x1={0} y1={5.5} x2={9} y2={5.5} stroke="currentColor" strokeWidth={1.5}/><line x1={0} y1={9.5} x2={11} y2={9.5} stroke="currentColor" strokeWidth={1.5}/></>}
+                    {align==="center" && <><line x1={0} y1={1.5} x2={14} y2={1.5} stroke="currentColor" strokeWidth={1.5}/><line x1={2.5} y1={5.5} x2={11.5} y2={5.5} stroke="currentColor" strokeWidth={1.5}/><line x1={1.5} y1={9.5} x2={12.5} y2={9.5} stroke="currentColor" strokeWidth={1.5}/></>}
+                    {align==="right"  && <><line x1={0} y1={1.5} x2={14} y2={1.5} stroke="currentColor" strokeWidth={1.5}/><line x1={5} y1={5.5} x2={14} y2={5.5} stroke="currentColor" strokeWidth={1.5}/><line x1={3} y1={9.5} x2={14} y2={9.5} stroke="currentColor" strokeWidth={1.5}/></>}
+                  </svg>
+                </button>
                 <Sep2/>
                 {/* Text color */}
-                <label className="relative flex flex-col items-center gap-0.5 cursor-pointer w-8 h-8 rounded-lg hover:bg-gray-50 justify-center" title="Цвет текста">
-                  <span className="font-bold leading-none" style={{ color:"var(--brown-dark)", fontSize:14 }}>A</span>
-                  <div className="w-5 h-1 rounded-full" style={{ background:color }}/>
+                <label className={`relative ${iconBtn} cursor-pointer`} title="Цвет текста">
+                  <span className="font-bold leading-none" style={{ color:"var(--brown-dark)", fontSize:13 }}>A</span>
+                  <div className="absolute rounded-full" style={{ bottom:5, left:9, width:14, height:3, background:color }}/>
                   <input type="color" value={color} onChange={e=>setColor(e.target.value)}
                     className="absolute opacity-0 inset-0 cursor-pointer" onMouseDown={e=>e.stopPropagation()}/>
                 </label>
                 {/* Bg color */}
-                <label className="relative flex flex-col items-center gap-0.5 cursor-pointer w-8 h-8 rounded-lg hover:bg-gray-50 justify-center" title="Фон">
-                  <div className="w-5 h-5 rounded border-2" style={{ background:textBgOpacity>0?textBgColor:"transparent", borderColor:"var(--brown-pale)" }}/>
+                <label className={`relative ${iconBtn} cursor-pointer`} title="Фон">
+                  <div className="w-4 h-4 rounded-full border" style={{ background:textBgOpacity>0?textBgColor:"transparent", borderColor:"#ccc" }}/>
                   <input type="color" value={textBgColor}
                     onChange={e=>{setTextBgColor(e.target.value);if(textBgOpacity===0)setTextBgOpacity(90);}}
                     className="absolute opacity-0 inset-0 cursor-pointer" onMouseDown={e=>e.stopPropagation()}/>
                 </label>
                 {textBgOpacity > 0 && (
-                  <button onMouseDown={e=>e.preventDefault()} onClick={()=>setTextBgOpacity(0)}
-                    className="w-5 h-5 rounded text-xs leading-none flex items-center justify-center"
-                    style={{ color:"var(--brown-light)" }}>×</button>
+                  <button onMouseDown={e=>e.preventDefault()} onClick={()=>setTextBgOpacity(0)} title="Убрать фон"
+                    className={iconBtn} style={{ color:"var(--brown-light)" }}>
+                    <span className="text-xs leading-none">×</span>
+                  </button>
                 )}
                 <div className="flex-1"/>
-                <Sep2/>
-                <button onMouseDown={e=>e.preventDefault()} onClick={commitText}
-                  className="px-3 h-8 rounded-xl text-xs font-semibold text-white shrink-0"
-                  style={{ background:"var(--gradient-primary)" }}>Готово</button>
+                <button onMouseDown={e=>e.preventDefault()} onClick={commitText} title="Готово"
+                  className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+                  style={{ background:"var(--gradient-primary)" }}>
+                  <svg width={15} height={15} viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="white" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </button>
               </div>}
               {/* ── Inline textarea — Miro-style: desktop only ── */}
               {!isMobile && (() => {
