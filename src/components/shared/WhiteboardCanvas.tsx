@@ -6897,9 +6897,15 @@ function TableOverlay({ item, sp, sw, sh, selected, zoom, onCellChange, onResize
   };
 
   const locked = item.locked;
+  // Double-tap-to-edit on touch: the board-wide touchstart preventDefault
+  // (see data-no-prevent below) already blocked this outright, but even with
+  // that fixed, waiting on the browser to synthesize a dblclick from two taps
+  // is flaky on mobile. Detected explicitly instead — two taps on the same
+  // cell inside 350ms — rather than trusted to arrive as one.
+  const lastTapRef = useRef<{ r:number; c:number; t:number } | null>(null);
 
   return (
-    <div className="absolute" style={{ left:sp.x, top:sp.y, width:sw, height:sh, zIndex:20 }}>
+    <div data-no-prevent className="absolute" style={{ left:sp.x, top:sp.y, width:sw, height:sh, zIndex:20 }}>
       <div className="w-full h-full overflow-hidden select-none"
         style={{ outline: selected ? "2px solid #4a80f0" : "1px solid #c0b8b0",
           borderRadius:4, background:"white" }}>
@@ -6923,7 +6929,18 @@ function TableOverlay({ item, sp, sw, sh, selected, zoom, onCellChange, onResize
                   ) : (
                     <div className="absolute inset-0 flex items-center justify-center px-1 cursor-text overflow-hidden"
                       style={{ fontSize:fs, fontWeight: isHeader?600:400, color:"#1a1a1a" }}
-                      onDoubleClick={e=>{ e.stopPropagation(); startEdit(r,c); }}>
+                      onDoubleClick={e=>{ e.stopPropagation(); startEdit(r,c); }}
+                      onTouchEnd={e=>{
+                        const last = lastTapRef.current;
+                        const now = Date.now();
+                        if (last && last.r===r && last.c===c && now-last.t < 350) {
+                          e.preventDefault(); e.stopPropagation();
+                          lastTapRef.current = null;
+                          startEdit(r,c);
+                        } else {
+                          lastTapRef.current = { r, c, t: now };
+                        }
+                      }}>
                       {item.data[r]?.[c] ?? ""}
                     </div>
                   )}
