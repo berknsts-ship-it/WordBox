@@ -3184,15 +3184,31 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
         const tmp = document.createElement("canvas");
         tmp.width = Math.round(vp.width); tmp.height = Math.round(vp.height);
         await pg.render({ canvas: tmp, viewport: vp }).promise;
-        const dataUrl = tmp.toDataURL("image/jpeg", 0.95);
+        // Upload the rendered page like any other image instead of embedding
+        // it as a base64 data URL — a handful of pages at this resolution
+        // easily added several MB of base64 straight into the board's saved
+        // JSON, which every participant had to download and parse on every
+        // single board load. That JSON bloat, not server load, was the
+        // actual cause of boards being slow to open.
+        const blob: Blob | null = await new Promise(resolve => tmp.toBlob(resolve, "image/jpeg", 0.88));
         const w = Math.min(tmp.width / renderScale, 800);
         const h = Math.round(w * (tmp.height / tmp.width));
+        let url = "";
+        if (blob) {
+          try {
+            const form = new FormData();
+            form.append("file", new File([blob], `page-${pageNum}.jpg`, { type: "image/jpeg" }));
+            const res = await fetch("/api/board/image", { method: "POST", body: form });
+            if (res.ok) url = (await res.json()).url;
+          } catch { /* falls through to the data-URL fallback below */ }
+        }
+        if (!url) url = tmp.toDataURL("image/jpeg", 0.85); // upload failed — still add the page, just not ideally
         const item: ImageItem = {
-          type: "image", id: uid(), url: dataUrl,
+          type: "image", id: uid(), url,
           x: cx - w / 2, y: cy - h / 2, w, h,
         };
-        const img = new Image(); img.src = dataUrl;
-        img.onload = () => { imgCache.set(dataUrl, img); };
+        const img = new Image(); img.src = url;
+        img.onload = () => { imgCache.set(url, img); };
         itemsRef.current.push(item);
         send({ type: "path", item }); pushHistory({ type: "add", item });
         cy += h + 24; // stack pages vertically
