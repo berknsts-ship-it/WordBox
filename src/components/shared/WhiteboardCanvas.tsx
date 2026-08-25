@@ -4271,8 +4271,12 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
         <div className="hidden sm:flex items-center border-b shrink-0"
           style={{ borderColor:"var(--brown-pale)", background:"white", minHeight:44 }}>
 
-          {/* Left: sidebar toggle + tool-specific options, scrolls horizontally */}
-          <div className="flex items-center gap-2 px-2 py-1.5 overflow-x-auto flex-1 min-w-0">
+          {/* Left: sidebar toggle + tool-specific options. Wraps onto a second
+              line on narrower windows instead of scrolling sideways — a
+              horizontally-scrolled-away control (the color palette, on a
+              narrower screen) is easy to never discover; a wrapped one is
+              still just sitting there in view. */}
+          <div className="flex items-center gap-2 px-2 py-1.5 flex-wrap flex-1 min-w-0">
 
           {/* Sidebar toggle */}
           <button onClick={() => setSidebarCollapsed(v => !v)}
