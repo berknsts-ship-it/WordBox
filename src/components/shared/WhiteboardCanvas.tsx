@@ -4603,7 +4603,14 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           const isDraggingThis = touchDragging && selectedId === vi.id;
           return (
             <div key={vi.id} className="absolute"
-              style={{ left: sp.x, top: sp.y, width: sw, height: sh, zIndex: 20,
+              style={{ left: 0, top: 0, width: sw, height: sh, zIndex: 20,
+                // transform instead of left/top: repositioning a <video> via
+                // left/top forces a layout reflow on every pan frame, on top
+                // of the browser's own video-decode/compositing work — that
+                // combination is what was actually showing up as the video
+                // visibly trailing behind the rest of the board while
+                // panning. transform is compositor-only, no reflow.
+                transform: `translate(${sp.x}px, ${sp.y}px)`,
                 visibility: isDraggingThis ? "hidden" : undefined }}
               onMouseDown={e => {
                 e.stopPropagation();
@@ -4707,7 +4714,10 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
             // without this, play/pause/scrub on the audio player never
             // worked by touch.
             <div key={ai.id} data-no-prevent className="absolute"
-              style={{ left: sp.x, top: sp.y, width: sw, height: sh, zIndex: 20,
+              style={{ left: 0, top: 0, width: sw, height: sh, zIndex: 20,
+                // transform, not left/top — same reasoning as the video
+                // overlay: avoids a layout reflow on every pan frame.
+                transform: `translate(${sp.x}px, ${sp.y}px)`,
                 visibility: isDraggingThis ? "hidden" : undefined }}
               onMouseDown={e => {
                 e.stopPropagation();
