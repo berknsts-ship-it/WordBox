@@ -194,7 +194,6 @@ export interface WhiteboardRef {
 // ── constants ─────────────────────────────────────────────────────────────────
 const COLORS           = ["#1a1a1a","#e03030","#2060d0","#20a040","#d07020","#9030b0","#ffffff"];
 const HIGHLIGHT_COLORS = ["#ffe400","#80ff60","#60e0ff","#ff80d0","#ffaa40"];
-const SIZES            = [2, 5, 12, 24];
 const FONTS = [
   { label: "Обычный",             family: "Arial, sans-serif" },
   { label: "Caveat",              family: "'Caveat', cursive" },
@@ -4335,16 +4334,15 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
             </div>
           )}
           {(tool === "pen" || tool === "eraser" || tool === "highlight" || tool === "shape") && (
-            <div className="flex gap-1">
-              {SIZES.map(s => (
-                <button key={s} onClick={() => setSize(s)} className="flex items-center justify-center rounded-full border-2 transition-all"
-                  style={{ width:26, height:26, borderColor: size===s?"var(--brown-dark)":"transparent", opacity: size===s?1:0.4 }}>
-                  <div className="rounded-full bg-gray-800" style={{ width:s+2, height:s+2 }} />
-                </button>
-              ))}
+            <div className="flex items-center gap-1.5">
+              <div className="rounded-full bg-gray-800 shrink-0" style={{ width:Math.min(size+2,22), height:Math.min(size+2,22) }} />
+              <input type="range" min={1} max={32} step={1} value={size}
+                onChange={e => setSize(+e.target.value)}
+                className="w-20 h-1.5 rounded cursor-pointer accent-stone-700"/>
+              <span className="text-xs w-6 tabular-nums" style={{ color:"var(--brown-mid)" }}>{size}</span>
             </div>
           )}
-          {(tool === "shape") && <ColorPalette colors={COLORS} active={color} onPick={setColor}/>}
+          {(tool === "pen" || tool === "shape") && <ColorPalette colors={COLORS} active={color} onPick={setColor}/>}
           {(tool === "pen" || tool === "highlight" || tool === "shape") && (<><Sep/>
             <div className="flex items-center gap-1.5">
               <span className="text-xs" style={{ color:"var(--brown-light)" }}>Прозр.</span>
@@ -6452,16 +6450,14 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
               Нажмите на доску, чтобы добавить текст
             </div>
           )}
-          {/* Brush sizes for pen/highlight/eraser/shape */}
+          {/* Brush size for pen/highlight/eraser/shape */}
           {(tool==="pen"||tool==="eraser"||tool==="highlight"||tool==="shape") && (
-            <div className="flex gap-1 shrink-0">
-              {SIZES.map(s => (
-                <button key={s} onClick={() => setSize(s)}
-                  className="flex items-center justify-center rounded-full border-2 shrink-0 transition-all"
-                  style={{ width:38, height:38, borderColor:size===s?"var(--brown-dark)":"var(--brown-pale)", opacity:size===s?1:0.4 }}>
-                  <div className="rounded-full" style={{ width:Math.min(s+2,22), height:Math.min(s+2,22), background:"var(--brown-dark)" }}/>
-                </button>
-              ))}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <div className="rounded-full shrink-0" style={{ width:Math.min(size+2,26), height:Math.min(size+2,26), background:"var(--brown-dark)" }}/>
+              <input type="range" min={1} max={32} step={1} value={size}
+                onChange={e => setSize(+e.target.value)}
+                className="w-24 h-1.5 rounded cursor-pointer accent-stone-700"/>
+              <span className="text-xs w-6 tabular-nums shrink-0" style={{ color:"var(--brown-mid)" }}>{size}</span>
             </div>
           )}
           {/* Shape kind picker */}
