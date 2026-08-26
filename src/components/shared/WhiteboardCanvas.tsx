@@ -1357,8 +1357,10 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   const [pendingAudioSync, setPendingAudioSync] = useState<Map<string, { position: number; sentAt: number }>>(new Map());
   const [videoUploadProgress, setVideoUploadProgress] = useState<number | null>(null);
   const [videoUploadError,    setVideoUploadError]    = useState<string | null>(null);
+  const [videoUploadBatch,    setVideoUploadBatch]    = useState<{ i: number; total: number } | null>(null);
   const [audioUploadProgress, setAudioUploadProgress] = useState<number | null>(null);
   const [audioUploadError,    setAudioUploadError]    = useState<string | null>(null);
+  const [audioUploadBatch,    setAudioUploadBatch]    = useState<{ i: number; total: number } | null>(null);
 
   // undo/redo
   type HistoryEntry =
@@ -3218,16 +3220,16 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     finally { setPdfPickerLoading(false); }
   };
 
-  const addVideoToBoard = (url: string) => {
+  const addVideoToBoard = (url: string, offsetIndex = 0) => {
     const { zoom, panX, panY } = viewRef.current;
     const cv = canvasRef.current;
     const dpr = window.devicePixelRatio || 1;
     const cx = cv ? (cv.width / dpr / 2 - panX) / zoom : 400;
     const cy = cv ? (cv.height / dpr / 2 - panY) / zoom : 300;
-    const w = 480, h = 270;
+    const w = 480, h = 270, GAP = 24;
     const item: VideoItem = {
       type: "video", id: uid(), url,
-      x: cx - w/2, y: cy - h/2, w, h,
+      x: cx - w/2 + offsetIndex * (w + GAP), y: cy - h/2, w, h,
     };
     itemsRef.current.push(item); render();
     send({ type:"path", item }); pushHistory({ type:"add", item });
@@ -3244,7 +3246,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     } finally { setImgUploading(false); }
   };
 
-  const uploadAndAddVideo = async (file: File) => {
+  const uploadAndAddVideo = async (file: File, offsetIndex = 0) => {
     setVideoUploadProgress(0);
     setVideoUploadError(null);
     try {
@@ -3271,7 +3273,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
         xhr.setRequestHeader("Content-Type", contentType);
         xhr.send(file);
       });
-      addVideoToBoard(publicUrl);
+      addVideoToBoard(publicUrl, offsetIndex);
     } catch (err) {
       setVideoUploadError(err instanceof Error ? err.message : "Ошибка загрузки");
     } finally {
@@ -3279,22 +3281,34 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     }
   };
 
-  const addAudioToBoard = (url: string, title: string) => {
+  // Uploads are sequential, not parallel — the progress toast is a single
+  // shared bar (i/total), and there's no obvious win to overlapping several
+  // large video PUTs on a modest VPS uplink anyway.
+  const uploadAndAddVideos = async (files: File[]) => {
+    if (files.length === 0) return;
+    for (let i = 0; i < files.length; i++) {
+      setVideoUploadBatch(files.length > 1 ? { i: i + 1, total: files.length } : null);
+      await uploadAndAddVideo(files[i], i);
+    }
+    setVideoUploadBatch(null);
+  };
+
+  const addAudioToBoard = (url: string, title: string, offsetIndex = 0) => {
     const { zoom, panX, panY } = viewRef.current;
     const cv = canvasRef.current;
     const dpr = window.devicePixelRatio || 1;
     const cx = cv ? (cv.width / dpr / 2 - panX) / zoom : 400;
     const cy = cv ? (cv.height / dpr / 2 - panY) / zoom : 300;
-    const w = 300, h = 64;
+    const w = 300, h = 64, GAP = 24;
     const item: AudioItem = {
       type: "audio", id: uid(), url, title,
-      x: cx - w/2, y: cy - h/2, w, h,
+      x: cx - w/2 + offsetIndex * (w + GAP), y: cy - h/2, w, h,
     };
     itemsRef.current.push(item); render();
     send({ type: "path", item }); pushHistory({ type: "add", item });
   };
 
-  const uploadAndAddAudio = async (file: File) => {
+  const uploadAndAddAudio = async (file: File, offsetIndex = 0) => {
     setAudioUploadProgress(0);
     setAudioUploadError(null);
     try {
@@ -3321,12 +3335,21 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
         xhr.setRequestHeader("Content-Type", contentType);
         xhr.send(file);
       });
-      addAudioToBoard(publicUrl, file.name.replace(/\.[^.]+$/, ""));
+      addAudioToBoard(publicUrl, file.name.replace(/\.[^.]+$/, ""), offsetIndex);
     } catch (err) {
       setAudioUploadError(err instanceof Error ? err.message : "Ошибка загрузки");
     } finally {
       setAudioUploadProgress(null);
     }
+  };
+
+  const uploadAndAddAudios = async (files: File[]) => {
+    if (files.length === 0) return;
+    for (let i = 0; i < files.length; i++) {
+      setAudioUploadBatch(files.length > 1 ? { i: i + 1, total: files.length } : null);
+      await uploadAndAddAudio(files[i], i);
+    }
+    setAudioUploadBatch(null);
   };
 
 
@@ -4246,16 +4269,16 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                     <label className="flex flex-col items-center gap-1 p-2 rounded-xl border hover:opacity-70 cursor-pointer"
                       style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
                       <span className="text-xl">🎬</span><span className="text-xs">Видео</span>
-                      <input type="file" accept="video/*" className="hidden"
-                        onChange={e=>{const f=e.target.files?.[0];if(!f)return;e.target.value="";setShowMoreTools(false);uploadAndAddVideo(f);}}/>
+                      <input type="file" accept="video/*" multiple className="hidden"
+                        onChange={e=>{const files=Array.from(e.target.files??[]);if(!files.length)return;e.target.value="";setShowMoreTools(false);uploadAndAddVideos(files);}}/>
                     </label>
                   )}
                   {role==="tutor" && (
                     <label className="flex flex-col items-center gap-1 p-2 rounded-xl border hover:opacity-70 cursor-pointer"
                       style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
                       <span className="text-xl">🎵</span><span className="text-xs">Аудио</span>
-                      <input type="file" accept="audio/*" className="hidden"
-                        onChange={e=>{const f=e.target.files?.[0];if(!f)return;e.target.value="";setShowMoreTools(false);uploadAndAddAudio(f);}}/>
+                      <input type="file" accept="audio/*" multiple className="hidden"
+                        onChange={e=>{const files=Array.from(e.target.files??[]);if(!files.length)return;e.target.value="";setShowMoreTools(false);uploadAndAddAudios(files);}}/>
                     </label>
                   )}
                 </div>
@@ -5996,7 +6019,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
               </>
             ) : (
               <>
-                <span style={{ color: "var(--brown-dark)" }}>Загрузка видео...</span>
+                <span style={{ color: "var(--brown-dark)" }}>Загрузка видео{videoUploadBatch ? ` (${videoUploadBatch.i}/${videoUploadBatch.total})` : ""}...</span>
                 <div className="flex-1 rounded-full overflow-hidden h-1.5" style={{ background: "var(--brown-pale)", minWidth: 80 }}>
                   <div className="h-full rounded-full transition-all" style={{ width: `${videoUploadProgress}%`, background: "var(--gradient-primary)" }}/>
                 </div>
@@ -6017,7 +6040,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
               </>
             ) : (
               <>
-                <span style={{ color: "#166534" }}>Загрузка аудио...</span>
+                <span style={{ color: "#166534" }}>Загрузка аудио{audioUploadBatch ? ` (${audioUploadBatch.i}/${audioUploadBatch.total})` : ""}...</span>
                 <div className="flex-1 rounded-full overflow-hidden h-1.5" style={{ background: "#bbf7d0", minWidth: 80 }}>
                   <div className="h-full rounded-full transition-all" style={{ width: `${audioUploadProgress}%`, background: "#16a34a" }}/>
                 </div>
@@ -6441,16 +6464,16 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
               <label className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl border shrink-0 cursor-pointer"
                 style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
                 <span className="text-lg">🎬</span><span className="text-xs">Видео</span>
-                <input type="file" accept="video/*" className="hidden"
-                  onChange={e=>{const f=e.target.files?.[0];if(!f)return;e.target.value="";setShowMoreTools(false);uploadAndAddVideo(f);}}/>
+                <input type="file" accept="video/*" multiple className="hidden"
+                  onChange={e=>{const files=Array.from(e.target.files??[]);if(!files.length)return;e.target.value="";setShowMoreTools(false);uploadAndAddVideos(files);}}/>
               </label>
             )}
             {role==="tutor" && (
               <label className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl border shrink-0 cursor-pointer"
                 style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
                 <span className="text-lg">🎵</span><span className="text-xs">Аудио</span>
-                <input type="file" accept="audio/*" className="hidden"
-                  onChange={e=>{const f=e.target.files?.[0];if(!f)return;e.target.value="";setShowMoreTools(false);uploadAndAddAudio(f);}}/>
+                <input type="file" accept="audio/*" multiple className="hidden"
+                  onChange={e=>{const files=Array.from(e.target.files??[]);if(!files.length)return;e.target.value="";setShowMoreTools(false);uploadAndAddAudios(files);}}/>
               </label>
             )}
           </div>
