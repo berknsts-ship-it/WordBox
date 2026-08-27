@@ -503,6 +503,37 @@ function shiftItem(item: DrawItem, dx: number, dy: number): DrawItem {
   const ti = item as TextItem;
   return { ...ti, x: ti.x + dx, y: ti.y + dy };
 }
+// Scales an item relative to a fixed origin point (ox,oy) — used for group
+// resize, where every selected item scales together relative to the same
+// corner of the group's bounding box. Most item types are just an x/y/w/h
+// box; path points and shape endpoints need every point transformed
+// individually, and stroke width/font size scale too so they don't end up
+// looking disproportionate relative to their new size.
+function scaleItem(item: DrawItem, sx: number, sy: number, ox: number, oy: number): DrawItem {
+  const avg = (sx + sy) / 2;
+  if (item.type === "path") {
+    return { ...item,
+      points: item.points.map(p => ({ ...p, x: ox + (p.x - ox) * sx, y: oy + (p.y - oy) * sy })),
+      size: Math.max(0.5, item.size * avg) };
+  }
+  if (item.type === "shape") {
+    return { ...item,
+      x1: ox + (item.x1 - ox) * sx, y1: oy + (item.y1 - oy) * sy,
+      x2: ox + (item.x2 - ox) * sx, y2: oy + (item.y2 - oy) * sy,
+      size: Math.max(0.5, item.size * avg) };
+  }
+  if (item.type === "text") {
+    return { ...item,
+      x: ox + (item.x - ox) * sx, y: oy + (item.y - oy) * sy,
+      fontSize: Math.max(6, Math.round(item.fontSize * avg)) };
+  }
+  // Everything else (image/frame/video/dice/wheel/table/function/card/audio/
+  // grammar_exercise/flower) is an x/y/w/h box — scale the top-left corner
+  // relative to the origin, and the box dimensions by the same factors.
+  return { ...item,
+    x: ox + (item.x - ox) * sx, y: oy + (item.y - oy) * sy,
+    w: Math.max(8, item.w * sx), h: Math.max(8, item.h * sy) };
+}
 // World-space distance a card moved between drag-start and drag-end. Touch
 // taps almost never land at the exact same coordinate on lift as on touch
 // (finger jitter), unlike mouse clicks — so "did it move at all" (exact
@@ -1407,6 +1438,15 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   // multi-item drag
   type MultiDrag = { wx0: number; wy0: number; origItems: Map<string, DrawItem> };
   const multiDragRef = useRef<MultiDrag | null>(null);
+  // multi-item resize — scales every selected item relative to a fixed
+  // corner of the group's original bounding box (the corner opposite the
+  // one being dragged), same convention as a single item's own handles.
+  type MultiResize = {
+    corner: "nw" | "ne" | "sw" | "se";
+    origBounds: { x0: number; y0: number; x1: number; y1: number };
+    origItems: Map<string, DrawItem>;
+  };
+  const multiResizeRef = useRef<MultiResize | null>(null);
   // ── snapping (Miro/Figma-style alignment guides while dragging) ──────────
   // Candidates are collected ONCE when a drag starts (other items don't move
   // mid-drag), not rescanned every mousemove — the actual snap check per
@@ -2588,6 +2628,31 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
       setPanVer(v => v + 1); scheduleRender(); return;
     }
 
+    if (multiResizeRef.current) {
+      const { corner, origBounds, origItems } = multiResizeRef.current;
+      const origW = origBounds.x1 - origBounds.x0, origH = origBounds.y1 - origBounds.y0;
+      const MIN = 20;
+      let sx: number, sy: number, ox: number, oy: number;
+      if (corner === "se") {
+        sx = Math.max(MIN, w.x - origBounds.x0) / origW; sy = Math.max(MIN, w.y - origBounds.y0) / origH;
+        ox = origBounds.x0; oy = origBounds.y0;
+      } else if (corner === "sw") {
+        sx = Math.max(MIN, origBounds.x1 - w.x) / origW; sy = Math.max(MIN, w.y - origBounds.y0) / origH;
+        ox = origBounds.x1; oy = origBounds.y0;
+      } else if (corner === "ne") {
+        sx = Math.max(MIN, w.x - origBounds.x0) / origW; sy = Math.max(MIN, origBounds.y1 - w.y) / origH;
+        ox = origBounds.x0; oy = origBounds.y1;
+      } else {
+        sx = Math.max(MIN, origBounds.x1 - w.x) / origW; sy = Math.max(MIN, origBounds.y1 - w.y) / origH;
+        ox = origBounds.x1; oy = origBounds.y1;
+      }
+      for (const [id, orig] of origItems) {
+        const idx = itemsRef.current.findIndex(i => i.id === id);
+        if (idx >= 0) itemsRef.current[idx] = scaleItem(orig, sx, sy, ox, oy);
+      }
+      setPanVer(v => v + 1); scheduleRender(); return;
+    }
+
     if (selDragRef.current) {
       const drag = selDragRef.current;
       const idx = itemsRef.current.findIndex(i => i.id === drag.id);
@@ -2732,6 +2797,16 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
         if (item) send({ type:"update", item });
       }
       multiDragRef.current = null; return;
+    }
+
+    if (multiResizeRef.current) {
+      const { origItems } = multiResizeRef.current;
+      pushHistory({ type:"clear", saved: [...itemsRef.current].map(i => origItems.get(i.id) ?? i) }); // save pre-resize sizes
+      for (const id of origItems.keys()) {
+        const item = itemsRef.current.find(i => i.id === id);
+        if (item) send({ type:"update", item });
+      }
+      multiResizeRef.current = null; return;
     }
 
     if (selDragRef.current) {
@@ -4553,6 +4628,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           eraserActiveRef.current=false; setEraserPos(null);
           if (selBoxRef.current) { selBoxRef.current=null; setSelBoxVis(false); }
           if (multiDragRef.current) { multiDragRef.current=null; }
+          if (multiResizeRef.current) { multiResizeRef.current=null; }
         }}
         onDoubleClick={e => {
           // Double-click on empty canvas → create text (works in select & text tools).
@@ -5124,6 +5200,27 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
               })()}
               {/* Drag hint */}
               <div className="absolute inset-0 cursor-move" style={{ zIndex:1 }}/>
+              {/* Group resize handles — scale every selected item together,
+                  relative to the corner opposite the one being dragged.
+                  Disabled if anything in the selection is locked. */}
+              {!items.some(it => it.locked) && (["nw","ne","sw","se"] as const).map(corner => {
+                const isRight = corner.endsWith("e"), isBottom = corner.startsWith("s");
+                return (
+                  <div key={corner} className="absolute pointer-events-auto"
+                    style={{
+                      [isRight?"right":"left"]: -7, [isBottom?"bottom":"top"]: -7,
+                      width:18, height:18, cursor:`${corner}-resize`, zIndex:32,
+                      background:"white", border:"2px solid #4a80f0", borderRadius:3,
+                    }}
+                    onMouseDown={e => {
+                      e.stopPropagation();
+                      const origItems = new Map<string, DrawItem>();
+                      for (const it of items) origItems.set(it.id, { ...it });
+                      multiResizeRef.current = { corner, origBounds: { x0, y0, x1, y1 }, origItems };
+                    }}
+                  />
+                );
+              })}
             </div>
           );
         })()}
