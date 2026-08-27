@@ -150,6 +150,7 @@ type WsEvent =
   | { type: "path-pt"; id: string; x: number; y: number; t?: number; color: string; size: number; eraser: boolean; highlight: boolean }
   | { type: "path";    item: DrawItem }
   | { type: "update";  item: DrawItem }
+  | { type: "remove";  ids: string[] }
   | { type: "clear" }
   | { type: "laser";   x: number; y: number }
   | { type: "cursor";  x: number; y: number; name: string; senderId: string; color: string }
@@ -2056,9 +2057,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           itemsRef.current = itemsRef.current.filter(i => !toRemove.has(i.id));
           allowEmptySaveRef.current = true; // explicit user deletion — ok if this empties the board
           render();
-          // Broadcast: clear + re-send remaining
-          send({ type: "clear" });
-          itemsRef.current.forEach(item => send({ type: "path", item }));
+          send({ type: "remove", ids: [...toRemove] });
           setSelectedId(null);
           return new Set();
         });
@@ -2254,6 +2253,18 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           remotePathsRef.current.delete(payload.item.id);
           itemsRef.current.push(payload.item); render(); setPanVer(v => v + 1); return;
         }
+        if (payload.type === "remove") {
+          // Targeted removal — filters out just these ids, leaving every
+          // other item (and its DOM overlay, if it has one) untouched.
+          // Deleting/erasing used to broadcast a full "clear" + re-add every
+          // surviving item one at a time instead — on a board with a lot of
+          // content that meant the whole board visibly blanked out and
+          // flickered back in item by item on every single eraser stroke.
+          const idSet = new Set(payload.ids);
+          itemsRef.current = itemsRef.current.filter(it => !idSet.has(it.id));
+          render(); setPanVer(v => v + 1);
+          return;
+        }
         if (payload.type === "update") {
           remoteDraftsRef.current.delete(payload.item.id);
           const idx = itemsRef.current.findIndex(it => it.id === payload.item.id);
@@ -2380,8 +2391,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     allowEmptySaveRef.current = true;
     if (a.type === "add") {
       itemsRef.current = itemsRef.current.filter(i => i.id !== a.item.id);
-      send({ type: "clear" });
-      itemsRef.current.forEach(item => send({ type: "path", item }));
+      send({ type: "remove", ids: [a.item.id] });
     }
     if (a.type === "remove") {
       itemsRef.current.splice(a.idx, 0, a.item);
@@ -2412,8 +2422,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     }
     if (a.type === "remove") {
       itemsRef.current = itemsRef.current.filter(i => i.id !== a.item.id);
-      send({ type: "clear" });
-      itemsRef.current.forEach(item => send({ type: "path", item }));
+      send({ type: "remove", ids: [a.item.id] });
     }
     if (a.type === "update") {
       const idx = itemsRef.current.findIndex(i => i.id === a.next.id);
@@ -3513,27 +3522,31 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   const [eraserPos, setEraserPos] = useState<{ sx: number; sy: number } | null>(null);
   const eraseAt = (wx: number, wy: number) => {
     const r = eraserRadiusRef.current;
-    const before = itemsRef.current.length;
+    const removedIds: string[] = [];
     itemsRef.current = itemsRef.current.filter(item => {
       if (item.locked) return true;
+      let hit = false;
       if (item.type === "path") {
-        return !item.points.some(p => Math.hypot(p.x - wx, p.y - wy) <= r);
-      }
-      if (item.type === "shape") {
+        hit = item.points.some(p => Math.hypot(p.x - wx, p.y - wy) <= r);
+      } else if (item.type === "shape") {
         const b = itemBounds(item);
-        return !(wx >= b.x0 - r && wx <= b.x1 + r && wy >= b.y0 - r && wy <= b.y1 + r);
+        hit = wx >= b.x0 - r && wx <= b.x1 + r && wy >= b.y0 - r && wy <= b.y1 + r;
+      } else if (item.type === "function") {
+        hit = wx >= item.x - r && wx <= item.x + item.w + r && wy >= item.y - r && wy <= item.y + item.h + r;
       }
-      if (item.type === "function") {
-        return !(wx >= item.x - r && wx <= item.x + item.w + r && wy >= item.y - r && wy <= item.y + item.h + r);
-      }
-      return true;
+      if (hit) removedIds.push(item.id);
+      return !hit;
     });
-    if (itemsRef.current.length !== before) {
+    if (removedIds.length > 0) {
       allowEmptySaveRef.current = true; // explicit user eraser action — ok if this empties the board
       render();
-      // Broadcast clear+reload approach: just send an update for each removed item
-      send({ type: "clear" });
-      itemsRef.current.forEach(item => send({ type: "path", item }));
+      // Targeted removal, not clear+replay — eraseAt fires on every mousemove
+      // tick while dragging the eraser, so on a board with a lot of content
+      // the old "wipe everything, re-add every survivor one at a time"
+      // broadcast was doing that dozens of times a second on the remote
+      // side: the whole board visibly blanked and flickered back in on
+      // every stroke.
+      send({ type: "remove", ids: removedIds });
     }
   };
 
@@ -5186,8 +5199,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                           pushHistory({ type:"clear", saved:[...itemsRef.current] });
                           const toRemove = new Set(selectedIds);
                           itemsRef.current = itemsRef.current.filter(i => !toRemove.has(i.id));
-                          render(); send({ type:"clear" });
-                          itemsRef.current.forEach(item => send({ type:"path", item }));
+                          render(); send({ type:"remove", ids:[...toRemove] });
                           setSelectedIds(new Set()); setSelectedId(null);
                         }}
                         className="rounded-lg px-2 py-0.5 text-xs font-medium text-white flex items-center gap-1 hover:opacity-80"
@@ -5298,8 +5310,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                     const toRemove = new Set(selectedIds.size > 0 ? selectedIds : [selectedItem.id]);
                     pushHistory({ type:"clear", saved:[...itemsRef.current] });
                     itemsRef.current = itemsRef.current.filter(i => !toRemove.has(i.id));
-                    render(); send({ type:"clear" });
-                    itemsRef.current.forEach(item => send({ type:"path", item }));
+                    render(); send({ type:"remove", ids:[...toRemove] });
                     setSelectedId(null);
                     setSelectedIds(new Set());
                   }}
@@ -5638,8 +5649,15 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                       boxShadow:"0 -4px 24px rgba(0,0,0,0.15)",
                       transition:"bottom 0.15s ease",
                     }} onClick={e => e.stopPropagation()}>
-                      {/* Controls */}
-                      <div style={{ display:"flex", alignItems:"center", gap:6, padding:"10px 12px", borderBottom:"1px solid #e8ddd2", overflowX:"auto", touchAction:"pan-x" }}>
+                      {/* Formatting controls — its own scrollable row. Отмена/Готово used
+                          to share this row via a flex:1 spacer meant to push them to the
+                          far right, but once the fixed-width buttons alone were wider than
+                          a phone screen the spacer had nothing left to grow into and
+                          collapsed to ~0 — so Готово ended up sitting right next to the
+                          color swatch instead of clearly separated from it. Split into its
+                          own row below instead, which stays put regardless of how far the
+                          formatting row scrolls. */}
+                      <div style={{ display:"flex", alignItems:"center", gap:6, padding:"10px 12px 8px", borderBottom:"1px solid #e8ddd2", overflowX:"auto", touchAction:"pan-x" }}>
                         <button onMouseDown={e=>e.preventDefault()} onTouchEnd={e=>{e.preventDefault();e.stopPropagation();setFontSize(s=>Math.max(8,s-2));}} onClick={()=>setFontSize(s=>Math.max(8,s-2))}
                           style={{ minWidth:36, height:36, borderRadius:8, border:"1.5px solid #e8ddd2", fontSize:13, fontWeight:"bold", color:"#3A2117", background:"white", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>A−</button>
                         <span style={{ fontSize:13, color:"#3A2117", width:30, textAlign:"center", flexShrink:0 }}>{fontSize}</span>
@@ -5655,11 +5673,14 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                           <div style={{ width:20, height:3, borderRadius:2, background:color }}/>
                           <input type="color" value={color} onChange={e=>setColor(e.target.value)} style={{ position:"absolute", opacity:0, inset:0, cursor:"pointer" }}/>
                         </label>
-                        <div style={{ flex:1 }}/>
+                      </div>
+                      {/* Confirm row — always fully visible, never sharing scroll space
+                          (and so never crowding) with the formatting controls above. */}
+                      <div style={{ display:"flex", justifyContent:"flex-end", gap:8, padding:"8px 12px 10px" }}>
                         <button onMouseDown={e=>e.preventDefault()} onTouchEnd={e=>{e.preventDefault();e.stopPropagation();cancel();}} onClick={cancel}
-                          style={{ height:36, padding:"0 12px", borderRadius:10, border:"1.5px solid #e8ddd2", fontSize:13, color:"#3A2117", background:"white", flexShrink:0 }}>Отмена</button>
+                          style={{ height:40, padding:"0 16px", borderRadius:10, border:"1.5px solid #e8ddd2", fontSize:14, color:"#3A2117", background:"white", flexShrink:0 }}>Отмена</button>
                         <button onMouseDown={e=>e.preventDefault()} onTouchEnd={e=>{e.preventDefault();e.stopPropagation();commitText();}} onClick={commitText}
-                          style={{ height:36, padding:"0 14px", borderRadius:10, fontSize:13, fontWeight:600, color:"white", background:"linear-gradient(135deg,#74070E,#a01018)", border:"none", flexShrink:0 }}>Готово</button>
+                          style={{ height:40, padding:"0 18px", borderRadius:10, fontSize:14, fontWeight:600, color:"white", background:"linear-gradient(135deg,#74070E,#a01018)", border:"none", flexShrink:0 }}>Готово</button>
                       </div>
                       {/* Textarea — keyboard pushes this up naturally on mobile */}
                       <div style={{ padding:"10px 14px 24px" }}>
