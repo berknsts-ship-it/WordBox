@@ -1,0 +1,282 @@
+"use client";
+
+import { useState, useMemo } from "react";
+import { X } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
+import { STATUS_BG, STATUS_TEXT, STATUS_LABEL, initials, dateKey, type TimedLesson } from "./calendarUtils";
+
+type Lesson = TimedLesson & { price_rub?: number | null; subscription_id?: string | null };
+type Student     = { id: string; name: string; default_price_rub?: number | null };
+type Subscription = { id: string; student_id: string; balance: number; name: string; paid?: boolean };
+
+function pluralWeeks(n: number) {
+  if (n % 10 === 1 && n % 100 !== 11) return `${n} неделю`;
+  if ([2,3,4].includes(n % 10) && ![12,13,14].includes(n % 100)) return `${n} недели`;
+  return `${n} недель`;
+}
+function pluralLessons(n: number) {
+  if (n % 10 === 1 && n % 100 !== 11) return `${n} урок`;
+  if ([2,3,4].includes(n % 10) && ![12,13,14].includes(n % 100)) return `${n} урока`;
+  return `${n} уроков`;
+}
+
+export default function MonthView<T extends Lesson>({
+  year, month, lessons, students, subscriptions, onLessonClick, onDayClick,
+}: {
+  year: number; month: number; // month is 0-indexed
+  lessons: T[];
+  students: Student[];
+  subscriptions: Subscription[];
+  onLessonClick: (lesson: T) => void;
+  onDayClick: (date: Date) => void;
+}) {
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  // form
+  const [studentId,   setStudentId]   = useState("");
+  const [time,        setTime]        = useState("");
+  const [duration,    setDuration]    = useState("60");
+  const [price,       setPrice]       = useState("");
+  const [repeat,      setRepeat]      = useState(false);
+  const [repeatWeeks, setRepeatWeeks] = useState("4");
+  const [loading,     setLoading]     = useState(false);
+  const [error,       setError]       = useState<string | null>(null);
+  const router = useRouter();
+  const p2 = (n: number) => String(n).padStart(2, "0");
+
+  const { daysInMonth, firstDow } = useMemo(() => {
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const raw = new Date(year, month, 1).getDay();
+    const firstDow = raw === 0 ? 6 : raw - 1; // Mon=0
+    return { daysInMonth, firstDow };
+  }, [year, month]);
+
+  const lessonsByDate = useMemo(() => {
+    const map: Record<string, T[]> = {};
+    const monthPrefix = `${year}-${String(month + 1).padStart(2, "0")}`;
+    for (const l of lessons) {
+      const key = l.date.slice(0, 10);
+      if (key.startsWith(monthPrefix)) {
+        (map[key] ??= []).push(l);
+      }
+    }
+    return map;
+  }, [lessons, year, month]);
+
+  const activeSub = subscriptions.find(s => s.student_id === studentId) ?? null;
+
+  function handleStudentChange(id: string) {
+    setStudentId(id);
+    const s = students.find(s => s.id === id);
+    setPrice(s?.default_price_rub ? String(s.default_price_rub) : "");
+  }
+
+  function selectDay(dateStr: string) {
+    setSelectedDate(prev => prev === dateStr ? null : dateStr);
+    setError(null);
+  }
+
+  async function handleSubmit(e: { preventDefault(): void }) {
+    e.preventDefault();
+    if (!studentId || !selectedDate || !time) { setError("Выберите ученика и время"); return; }
+    setLoading(true); setError(null);
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setError("Не авторизован"); setLoading(false); return; }
+
+    const weeks = repeat ? Math.max(1, Math.min(12, parseInt(repeatWeeks) || 1)) : 1;
+    const rows = Array.from({ length: weeks }, (_, i) => {
+      const d = new Date(`${selectedDate}T${time}:00`);
+      d.setDate(d.getDate() + i * 7);
+      const naiveDate = `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`;
+      return {
+        tutor_id:        user.id,
+        student_id:      studentId,
+        date:    `${naiveDate}T${time}:00`,
+        duration_min:    duration ? parseInt(duration) : 60,
+        price_rub:       price ? parseInt(price) : null,
+        subscription_id: activeSub?.id ?? null,
+        ...(activeSub?.paid ? { payment_status: "paid" } : {}),
+      };
+    });
+
+    const { error: err } = await supabase.from("lessons").insert(rows);
+    setLoading(false);
+    if (err) { setError(err.message); return; }
+    setSelectedDate(null);
+    setStudentId(""); setTime(""); setPrice(""); setRepeat(false); setRepeatWeeks("4");
+    router.refresh();
+  }
+
+  const today = new Date();
+  const todayKey = dateKey(today);
+  const inputStyle = { borderColor: "var(--brown-pale)", background: "#fdf8f0", color: "var(--brown-dark)" };
+
+  const cells: (number | null)[] = [
+    ...Array(firstDow).fill(null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ];
+
+  const selectedLabel = selectedDate
+    ? (() => {
+        const [sy, sm, sd] = selectedDate.split('-').map(Number);
+        return new Date(Date.UTC(sy, sm - 1, sd)).toLocaleDateString("ru", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
+      })()
+    : "";
+
+  return (
+    <div>
+      {/* Заголовки дней недели */}
+      <div className="grid grid-cols-7 mb-1">
+        {["Пн","Вт","Ср","Чт","Пт","Сб","Вс"].map(d => (
+          <div key={d} className="text-center text-xs font-medium py-1"
+            style={{ color: "var(--brown-light)" }}>{d}</div>
+        ))}
+      </div>
+
+      {/* Сетка дней */}
+      <div className="grid grid-cols-7 gap-1">
+        {cells.map((day, i) => {
+          if (!day) return <div key={`e${i}`}/>;
+          const key       = `${year}-${String(month+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+          const dayLessons = lessonsByDate[key] ?? [];
+          const isToday   = key === todayKey;
+          const isSelected = key === selectedDate;
+          const isPast    = key < todayKey;
+
+          return (
+            <button key={key}
+              onClick={() => selectDay(key)}
+              onDoubleClick={() => onDayClick(new Date(`${key}T00:00:00`))}
+              title="Клик — добавить занятие · двойной клик — открыть день"
+              className="min-h-[62px] sm:min-h-[76px] p-1 rounded-xl border text-left flex flex-col transition-all hover:shadow-sm"
+              style={{
+                borderColor: isSelected ? "var(--brown-dark)" : isToday ? "var(--brown-mid)" : "var(--brown-pale)",
+                background:  isSelected ? "var(--brown-pale)" : "white",
+                opacity:     isPast ? 0.6 : 1,
+              }}>
+              <span className="text-xs font-semibold mb-0.5 leading-none"
+                style={{ color: isToday ? "var(--brown-dark)" : "var(--brown-light)" }}>
+                {day}
+              </span>
+              <div className="flex flex-col gap-0.5 w-full overflow-hidden">
+                {dayLessons.slice(0, 2).map(l => (
+                  <div key={l.id}
+                    onClick={e => { e.stopPropagation(); onLessonClick(l); }}
+                    className="text-xs rounded px-1 py-0.5 leading-tight truncate hover:opacity-80"
+                    style={{ background: STATUS_BG[l.status] ?? "#f1f5f9", color: STATUS_TEXT[l.status] ?? "#64748b" }}>
+                    {l.students ? initials(l.students.name) : "?"}
+                    <span className="hidden sm:inline ml-0.5">
+                      {l.date.slice(11,16)}
+                    </span>
+                  </div>
+                ))}
+                {dayLessons.length > 2 && (
+                  <button onClick={e => { e.stopPropagation(); onDayClick(new Date(`${key}T00:00:00`)); }}
+                    className="text-xs leading-none text-left hover:underline" style={{ color: "var(--brown-light)" }}>
+                    +{dayLessons.length - 2}
+                  </button>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Форма добавления при клике на день */}
+      {selectedDate && (
+        <div className="mt-4 rounded-2xl border p-4 space-y-3"
+          style={{ background: "white", borderColor: "var(--brown-pale)", boxShadow: "var(--shadow-card)" }}>
+          <div className="flex items-center justify-between">
+            <span className="font-semibold text-sm" style={{ color: "var(--brown-dark)" }}>
+              {selectedLabel.charAt(0).toUpperCase() + selectedLabel.slice(1)}
+            </span>
+            <div className="flex items-center gap-3">
+              <button onClick={() => onDayClick(new Date(`${selectedDate}T00:00:00`))}
+                className="text-xs font-medium hover:underline" style={{ color: "var(--brown-mid)" }}>
+                Открыть день
+              </button>
+              <button onClick={() => setSelectedDate(null)} className="hover:opacity-60 transition-all"
+                style={{ color: "var(--brown-light)" }}>
+                <X size={16}/>
+              </button>
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit} className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <select value={studentId} onChange={e => handleStudentChange(e.target.value)} required
+              className="col-span-2 px-3 py-2 rounded-xl border outline-none text-sm" style={inputStyle}>
+              <option value="">Ученик *</option>
+              {students.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+
+            <input type="time" value={time} onChange={e => setTime(e.target.value)} required
+              className="px-3 py-2 rounded-xl border outline-none text-sm" style={inputStyle}/>
+
+            <select value={duration} onChange={e => setDuration(e.target.value)}
+              className="px-3 py-2 rounded-xl border outline-none text-sm" style={inputStyle}>
+              <option value="30">30 мин</option>
+              <option value="45">45 мин</option>
+              <option value="60">1 час</option>
+              <option value="90">1.5 часа</option>
+              <option value="120">2 часа</option>
+            </select>
+
+            <input type="number" value={price} onChange={e => setPrice(e.target.value)}
+              placeholder="Цена, ₽" min="0" step="50"
+              className="col-span-2 px-3 py-2 rounded-xl border outline-none text-sm" style={inputStyle}/>
+
+            {activeSub && (
+              <p className="col-span-2 sm:col-span-4 text-xs px-3 py-1.5 rounded-lg"
+                style={{ background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0" }}>
+                Абонемент «{activeSub.name}» · остаток {activeSub.balance.toLocaleString("ru")} ₽ — спишется автоматически
+              </p>
+            )}
+
+            {/* Повторение */}
+            <div className="col-span-2 sm:col-span-4 flex items-center gap-3 flex-wrap">
+              <label className="flex items-center gap-2 cursor-pointer text-sm" style={{ color: "var(--brown-dark)" }}>
+                <input type="checkbox" checked={repeat} onChange={e => setRepeat(e.target.checked)}
+                  className="w-4 h-4 accent-amber-700"/>
+                Повторять каждую неделю
+              </label>
+              {repeat && (
+                <div className="flex items-center gap-1.5">
+                  <input type="number" value={repeatWeeks} onChange={e => setRepeatWeeks(e.target.value)}
+                    min="2" max="12"
+                    className="w-16 px-2 py-1.5 rounded-lg border outline-none text-sm text-center" style={inputStyle}/>
+                  <span className="text-sm" style={{ color: "var(--brown-mid)" }}>нед.</span>
+                </div>
+              )}
+            </div>
+
+            <div className="col-span-2 sm:col-span-4 flex gap-2">
+              <button type="submit" disabled={loading}
+                className="px-5 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
+                style={{ background: "var(--gradient-primary)" }}>
+                {loading ? "..." : repeat
+                  ? `Добавить ${pluralLessons(parseInt(repeatWeeks)||1)} на ${pluralWeeks(parseInt(repeatWeeks)||1)}`
+                  : "Добавить урок"}
+              </button>
+            </div>
+
+            {error && <p className="col-span-2 sm:col-span-4 text-xs text-red-600">{error}</p>}
+          </form>
+        </div>
+      )}
+
+      {/* Легенда */}
+      <div className="flex items-center gap-4 mt-3 flex-wrap">
+        {(["scheduled","completed","missed"] as const).map(s => (
+          <div key={s} className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded-sm" style={{ background: STATUS_BG[s] }}/>
+            <span className="text-xs" style={{ color: "var(--brown-light)" }}>
+              {STATUS_LABEL[s]}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

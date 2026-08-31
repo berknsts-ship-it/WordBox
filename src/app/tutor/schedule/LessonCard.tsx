@@ -30,7 +30,7 @@ interface Lesson {
   status: Status;
   date: string;
   rescheduled_to?: string | null;
-  duration_min?: number;
+  duration_min?: number | null;
   notes?: string | null;
   students?: { name: string } | null;
   payment_status?: PayStatus;
