@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { renewSubscription, cancelSubscription, deleteSubscription, toggleSubscriptionPaid, updateSubscriptionAmount } from "@/app/actions/subscriptions";
-import { Pencil, ChevronDown } from "lucide-react";
+import { Pencil } from "lucide-react";
+import LessonTable from "./LessonTable";
 
 interface Lesson {
   id: string;
@@ -14,6 +15,7 @@ interface Lesson {
   deducted_amount?: number | null;
   notes?: string | null;
   subscription_id?: string | null;
+  date_history?: string[] | null;
 }
 
 interface Sub {
@@ -30,8 +32,6 @@ interface Student {
   id: string;
   name: string;
 }
-
-const HISTORY_COLLAPSED_COUNT = 4;
 
 export default function SubscriptionCard({
   subscription: sub,
@@ -60,7 +60,6 @@ export default function SubscriptionCard({
   const [paid, setPaid] = useState(sub.paid ?? false);
   const [payLoading, setPayLoading] = useState(false);
   const [confirmUnpay, setConfirmUnpay] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(false);
 
   const all = allLessons as unknown as Lesson[];
   // Newest first — allLessons already comes pre-sorted from the page query,
@@ -180,7 +179,6 @@ export default function SubscriptionCard({
   }
 
   const card = { background: "white", borderColor: "var(--brown-pale)", boxShadow: "var(--shadow-card)" };
-  const visibleHistory = historyOpen ? subLessons : subLessons.slice(0, HISTORY_COLLAPSED_COUNT);
 
   return (
     <div className="rounded-2xl border p-5 space-y-4" style={card}>
@@ -304,47 +302,11 @@ export default function SubscriptionCard({
         <span><b style={{ color: "var(--brown-dark)" }}>{lifetimeMissed}</b> сгорело</span>
       </div>
 
-      {/* История уроков — свёрнута по умолчанию, свежие сверху */}
-      {subLessons.length > 0 && (
-        <div>
-          <div className="divide-y" style={{ borderColor: "var(--brown-pale)" }}>
-            {visibleHistory.map(l => {
-              const dt = new Date(l.date);
-              const dateStr = dt.toLocaleDateString("ru", { day: "numeric", month: "long" });
-              const isScheduled = l.status === "scheduled";
-              const isMissed    = l.status === "missed";
-              const amount      = l.deducted_amount ?? l.price_rub;
-
-              return (
-                <div key={l.id} className="flex items-center justify-between py-2.5 gap-2">
-                  <span className="text-sm" style={{ color: "var(--brown-dark)" }}>
-                    {dateStr}
-                    {l.duration_min ? ` · ${l.duration_min} мин` : ""}
-                    {isMissed && " · пропущено без предупреждения"}
-                    {isScheduled && " · запланировано"}
-                  </span>
-                  <span className="text-sm font-medium shrink-0"
-                    style={{ color: isMissed ? "#c0392b" : isScheduled ? "var(--brown-light)" : "var(--brown-dark)" }}>
-                    {amount ? `−${amount.toLocaleString("ru")} ₽` : "—"}
-                    {isMissed && " (сгорело)"}
-                    {isScheduled && amount ? " при проведении" : ""}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-          {subLessons.length > HISTORY_COLLAPSED_COUNT && (
-            <button onClick={() => setHistoryOpen(o => !o)}
-              className="flex items-center gap-1 text-xs font-medium mt-2 hover:opacity-70 transition-all"
-              style={{ color: "var(--brown-mid)" }}>
-              <ChevronDown size={13} style={{ transform: historyOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
-              {historyOpen ? "Свернуть" : `Показать ещё ${subLessons.length - HISTORY_COLLAPSED_COUNT}`}
-            </button>
-          )}
-        </div>
-      )}
-
-      {subLessons.length === 0 && (
+      {/* История уроков — настоящая таблица: дата, длительность, статус,
+          сумма, история переносов (если было). Свежие сверху. */}
+      {subLessons.length > 0 ? (
+        <LessonTable lessons={subLessons} title="История занятий" />
+      ) : (
         <p className="text-sm" style={{ color: "var(--brown-light)" }}>
           Уроков по этому абонементу ещё нет. Добавляйте уроки в расписании — они автоматически привяжутся.
         </p>

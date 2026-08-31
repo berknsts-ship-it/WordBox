@@ -13,7 +13,7 @@ type Lesson = {
   student_id: string;
   date: string;
   status: "scheduled" | "completed" | "cancelled" | "rescheduled" | "missed";
-  rescheduled_to?: string | null;
+  date_history?: string[] | null;
   duration_min?: number | null;
   price_rub?: number | null;
   subscription_id?: string | null;

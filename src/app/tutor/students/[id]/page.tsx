@@ -32,7 +32,7 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
   // subscription_id), и для общей статистики "всего проведено/отменено/
   // пропущено" за всё время, из одного запроса.
   const { data: allLessonsData } = await db.from("lessons")
-    .select("id, date, duration_min, price_rub, status, deducted_amount, notes, subscription_id")
+    .select("id, date, duration_min, price_rub, status, deducted_amount, notes, subscription_id, date_history")
     .eq("student_id", id)
     .order("date", { ascending: false });
   const allLessons = (allLessonsData as Record<string, unknown>[]) ?? [];

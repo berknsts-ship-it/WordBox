@@ -29,7 +29,7 @@ interface Lesson {
   student_id: string;
   status: Status;
   date: string;
-  rescheduled_to?: string | null;
+  date_history?: string[] | null;
   duration_min?: number | null;
   notes?: string | null;
   students?: { name: string } | null;
@@ -37,6 +37,10 @@ interface Lesson {
   price_rub?: number | null;
   subscription_id?: string | null;
   deducted_amount?: number | null;
+}
+
+function formatChainDate(iso: string) {
+  return new Date(iso).toLocaleDateString("ru", { day: "numeric", month: "short" });
 }
 
 interface Subscription { id: string; student_id: string; name: string }
@@ -53,7 +57,11 @@ export default function LessonCard({ lesson, subscriptions = [] }: { lesson: Les
   const [rescheduleDate, setRescheduleDate] = useState("");
   const [rescheduleTime, setRescheduleTime] = useState("");
   const [rescheduleLoading, setRescheduleLoading] = useState(false);
-  const [rescheduledTo, setRescheduledTo] = useState(lesson.rescheduled_to ?? null);
+  // The lesson's actual date can change (reschedule moves it, doesn't spawn
+  // a second row) — local state so the card reflects that immediately
+  // instead of still showing the date it was rendered with.
+  const [currentDate, setCurrentDate] = useState(lesson.date);
+  const [dateHistory, setDateHistory] = useState<string[]>(lesson.date_history ?? []);
 
   // edit form state — initialised from current lesson values (naive string slice, no tz conversion)
   const initDate = lesson.date.slice(0, 10);
@@ -61,6 +69,14 @@ export default function LessonCard({ lesson, subscriptions = [] }: { lesson: Les
 
   const [editDate,     setEditDate]     = useState(initDate);
   const [editTime,     setEditTime]     = useState(initTime);
+  const openEdit = () => {
+    // Re-sync from currentDate, not the original mount-time values — it may
+    // have moved since (reschedule, or a previous edit) and the form should
+    // start from where the lesson actually is now, not where it began.
+    setEditDate(currentDate.slice(0, 10));
+    setEditTime(currentDate.slice(11, 16));
+    setEditMode(m => !m);
+  };
   const [editDuration, setEditDuration] = useState(String(lesson.duration_min ?? 60));
   const [editPrice,    setEditPrice]    = useState(lesson.price_rub ? String(lesson.price_rub) : "");
   const [editNotes,    setEditNotes]    = useState(lesson.notes ?? "");
@@ -71,9 +87,9 @@ export default function LessonCard({ lesson, subscriptions = [] }: { lesson: Les
 
   const cfg  = STATUS_CONFIG[status] ?? STATUS_CONFIG.scheduled;
   // naive date parts — no timezone conversion
-  const [_y, _m, _d] = lesson.date.slice(0, 10).split('-').map(Number);
+  const [_y, _m, _d] = currentDate.slice(0, 10).split('-').map(Number);
   const dtLocal = new Date(Date.UTC(_y, _m - 1, _d));
-  const timeDisplay = lesson.date.slice(11, 16);
+  const timeDisplay = currentDate.slice(11, 16);
   const isCancelled = status === "cancelled";
   const DESTRUCTIVE: Status[] = ["cancelled", "missed"];
 
@@ -94,12 +110,17 @@ export default function LessonCard({ lesson, subscriptions = [] }: { lesson: Les
     if (!rescheduleDate || !rescheduleTime) return;
     setRescheduleLoading(true);
     const iso = `${rescheduleDate}T${rescheduleTime}:00`;
-    await rescheduleLesson(lesson.id, iso);
-    setRescheduledTo(iso);
-    setStatus("rescheduled");
-    setRescheduleMode(false);
+    const result = await rescheduleLesson(lesson.id, iso);
+    if (result?.error) {
+      showToast(result.error);
+    } else {
+      setDateHistory(h => [...h, currentDate]);
+      setCurrentDate(iso);
+      setStatus("scheduled");
+      setRescheduleMode(false);
+      showToast("Урок перенесён");
+    }
     setRescheduleLoading(false);
-    showToast("Урок перенесён");
   };
 
   const handleTogglePay = async () => {
@@ -123,14 +144,16 @@ export default function LessonCard({ lesson, subscriptions = [] }: { lesson: Les
   const submitEdit = async () => {
     if (!editDate || !editTime) return;
     setEditLoading(true);
+    const newDate = `${editDate}T${editTime}:00`;
     await updateLesson(lesson.id, {
-      date: `${editDate}T${editTime}:00`,
+      date: newDate,
       price_rub:    editPrice ? parseInt(editPrice) : null,
       notes:        editNotes.trim() || null,
     });
     if (editSubId !== (lesson.subscription_id ?? "")) {
       await setLessonSubscription(lesson.id, editSubId || null);
     }
+    setCurrentDate(newDate);
     setEditLoading(false);
     setEditMode(false);
     showToast("Урок сохранён");
@@ -172,11 +195,16 @@ export default function LessonCard({ lesson, subscriptions = [] }: { lesson: Les
               {lesson.notes}
             </div>
           )}
+          {dateHistory.length > 0 && (
+            <div className="text-xs mt-0.5" style={{ color: "#c07800" }}>
+              ⟳ Перенесено: {dateHistory.map(formatChainDate).join(" → ")} → {formatChainDate(currentDate)}
+            </div>
+          )}
         </div>
 
         {/* Редактировать / Удалить */}
         <button
-          onClick={() => setEditMode(m => !m)}
+          onClick={openEdit}
           title="Редактировать"
           className="shrink-0 p-1.5 rounded-lg border hover:opacity-70 transition-all"
           style={{ borderColor: editMode ? "var(--brown-dark)" : "var(--brown-pale)", color: "var(--brown-mid)" }}>
@@ -216,11 +244,6 @@ export default function LessonCard({ lesson, subscriptions = [] }: { lesson: Les
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all hover:opacity-80"
             style={{ background: cfg.bg, color: cfg.color }}>
             {loading ? "..." : cfg.label}
-            {status === "rescheduled" && rescheduledTo && (
-              <span className="ml-1 font-normal">
-                → {new Date(rescheduledTo).toLocaleDateString("ru", { day:"numeric", month:"short" })}
-              </span>
-            )}
             <ChevronDown size={12} style={{ opacity: 0.7 }} />
           </button>
 

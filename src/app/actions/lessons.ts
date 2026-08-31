@@ -31,13 +31,27 @@ export async function updateLessonStatus(id: string, status: string) {
   revalidatePath("/tutor/schedule");
 }
 
-export async function rescheduleLesson(id: string, rescheduledTo: string) {
+// Moves the SAME lesson to a new date instead of leaving the old row behind
+// marked "rescheduled" with nothing actually scheduled at the new date (the
+// previous behaviour — the old row just sat there, invisible as far as the
+// new date was concerned). date is always "when is this actually happening
+// now"; the date it moved from gets appended to date_history, so a lesson
+// rescheduled several times keeps the whole chain instead of only the
+// latest hop. Status resets to "scheduled" — it moved, it hasn't happened
+// yet at the new date.
+export async function rescheduleLesson(id: string, newDate: string) {
   const supabase = await createClient();
+  const { data: lesson, error: fetchErr } = await supabase.from("lessons")
+    .select("date, date_history").eq("id", id).single();
+  if (fetchErr || !lesson) return { error: "Урок не найден" };
+
+  const history = Array.isArray(lesson.date_history) ? lesson.date_history : [];
   const { error } = await supabase.from("lessons")
-    .update({ status: "rescheduled", rescheduled_to: rescheduledTo })
+    .update({ date: newDate, date_history: [...history, lesson.date], status: "scheduled" })
     .eq("id", id);
   if (error) return { error: error.message };
   revalidatePath("/tutor/schedule");
+  revalidatePath("/tutor/students");
 }
 
 export async function updateLesson(id: string, fields: {
