@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import SubscriptionCard from "@/components/tutor/SubscriptionCard";
 import CreateSubscriptionForm from "@/components/tutor/CreateSubscriptionForm";
+import LessonHistoryCard from "@/components/tutor/LessonHistoryCard";
 import { TextbookForm } from "@/components/tutor/TextbookForm";
 import { CanvasUrlForm } from "@/components/tutor/CanvasUrlForm";
 
@@ -64,7 +65,10 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
           studentId={id}
         />
       ) : (
-        <CreateSubscriptionForm studentId={id} studentName={student.name} />
+        <div className="space-y-6">
+          <CreateSubscriptionForm studentId={id} studentName={student.name} />
+          <LessonHistoryCard allLessons={allLessons} />
+        </div>
       )}
 
       {/* Учебник */}
