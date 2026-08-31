@@ -6,6 +6,7 @@ import { ChevronLeft } from "lucide-react";
 import SubscriptionCard from "@/components/tutor/SubscriptionCard";
 import CreateSubscriptionForm from "@/components/tutor/CreateSubscriptionForm";
 import LessonHistoryCard from "@/components/tutor/LessonHistoryCard";
+import DeleteSubscriptionButton from "@/components/tutor/DeleteSubscriptionButton";
 import { TextbookForm } from "@/components/tutor/TextbookForm";
 import { CanvasUrlForm } from "@/components/tutor/CanvasUrlForm";
 
@@ -92,12 +93,15 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
         <div className="mt-6">
           <p className="text-sm font-medium mb-2" style={{ color: "var(--brown-light)" }}>Закрытые абонементы</p>
           {subscriptions.filter(s => s.status === "cancelled").map(s => (
-            <div key={s.id} className="rounded-xl border px-4 py-3 mb-2 opacity-50"
+            <div key={s.id} className="rounded-xl border px-4 py-3 mb-2 flex items-center justify-between gap-2 opacity-50"
               style={{ borderColor: "var(--brown-pale)", background: "white" }}>
-              <span className="text-sm font-medium">{s.name}</span>
-              <span className="text-sm ml-3" style={{ color: "var(--brown-light)" }}>
-                {s.total_amount.toLocaleString("ru")} ₽ · остаток {s.balance.toLocaleString("ru")} ₽
-              </span>
+              <div>
+                <span className="text-sm font-medium">{s.name}</span>
+                <span className="text-sm ml-3" style={{ color: "var(--brown-light)" }}>
+                  {s.total_amount.toLocaleString("ru")} ₽ · остаток {s.balance.toLocaleString("ru")} ₽
+                </span>
+              </div>
+              <DeleteSubscriptionButton subscriptionId={s.id} studentId={id} subName={s.name} />
             </div>
           ))}
         </div>

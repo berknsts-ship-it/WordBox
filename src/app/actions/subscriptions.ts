@@ -185,3 +185,26 @@ export async function cancelSubscription(subscriptionId: string, studentId: stri
   if (error) return { error: error.message };
   revalidatePath(`/tutor/students/${studentId}`);
 }
+
+// Actually removes the subscription row — for a subscription that was a
+// mistake (wrong student/amount, created while testing), not a real one
+// that ran its course. cancelSubscription (above) is for the latter: a
+// real subscription that legitimately ended, kept around as a record.
+// Lessons that were linked to it aren't deleted — subscription_id just
+// goes back to null (ON DELETE SET NULL) — but any amount already
+// deducted from this subscription's balance is gone with it, so this
+// only makes sense for subscriptions with no real history yet.
+export async function deleteSubscription(subscriptionId: string, studentId: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Не авторизован" };
+
+  const db = createAdminClient();
+  const { error } = await db.from("student_subscriptions")
+    .delete()
+    .eq("id", subscriptionId)
+    .eq("tutor_id", user.id);
+
+  if (error) return { error: error.message };
+  revalidatePath(`/tutor/students/${studentId}`);
+}

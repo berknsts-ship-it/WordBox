@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { renewSubscription, cancelSubscription, toggleSubscriptionPaid, updateSubscriptionAmount } from "@/app/actions/subscriptions";
+import { renewSubscription, cancelSubscription, deleteSubscription, toggleSubscriptionPaid, updateSubscriptionAmount } from "@/app/actions/subscriptions";
 import { Pencil, ChevronDown } from "lucide-react";
 
 interface Lesson {
@@ -157,6 +157,23 @@ export default function SubscriptionCard({
       else router.refresh();
     } catch {
       setError("Не удалось отменить");
+    } finally {
+      setCancelling(false);
+    }
+  }
+
+  // Actually deletes the row — for "создала по ошибке", not a subscription
+  // that really ran its course (that's handleCancel above).
+  async function handleDelete() {
+    if (!window.confirm(`Удалить абонемент «${sub.name}» насовсем? Это нельзя отменить.`)) return;
+    setCancelling(true);
+    setError(null);
+    try {
+      const result = await deleteSubscription(sub.id, studentId);
+      if (result?.error) setError(result.error);
+      else router.refresh();
+    } catch {
+      setError("Не удалось удалить");
     } finally {
       setCancelling(false);
     }
@@ -402,16 +419,23 @@ export default function SubscriptionCard({
 
       {/* Кнопки */}
       {!renewMode && (
-        <div className="flex gap-2 pt-1">
-          <button onClick={() => setRenewMode(true)}
-            className="flex-1 py-2 rounded-xl border text-sm font-medium hover:opacity-80 transition-all"
-            style={{ borderColor: "var(--brown-pale)", color: "var(--brown-dark)" }}>
-            Продлить абонемент
-          </button>
-          <button onClick={handleCancel} disabled={cancelling}
-            className="flex-1 py-2 rounded-xl border text-sm font-medium hover:opacity-80 transition-all"
-            style={{ borderColor: "var(--brown-pale)", color: "var(--brown-mid)", opacity: cancelling ? 0.5 : 1 }}>
-            Перевести на разовую оплату
+        <div className="space-y-2 pt-1">
+          <div className="flex gap-2">
+            <button onClick={() => setRenewMode(true)}
+              className="flex-1 py-2 rounded-xl border text-sm font-medium hover:opacity-80 transition-all"
+              style={{ borderColor: "var(--brown-pale)", color: "var(--brown-dark)" }}>
+              Продлить абонемент
+            </button>
+            <button onClick={handleCancel} disabled={cancelling}
+              className="flex-1 py-2 rounded-xl border text-sm font-medium hover:opacity-80 transition-all"
+              style={{ borderColor: "var(--brown-pale)", color: "var(--brown-mid)", opacity: cancelling ? 0.5 : 1 }}>
+              Перевести на разовую оплату
+            </button>
+          </div>
+          <button onClick={handleDelete} disabled={cancelling}
+            className="w-full text-xs text-center hover:underline"
+            style={{ color: "#c0392b", opacity: cancelling ? 0.5 : 1 }}>
+            Удалить абонемент насовсем (если создан по ошибке)
           </button>
         </div>
       )}
