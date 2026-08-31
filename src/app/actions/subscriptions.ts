@@ -34,6 +34,10 @@ export async function createSubscription(studentId: string, formData: FormData) 
     total_amount: totalAmount,
     balance:      totalAmount,
     status:       "active",
+    // Persisted so the summary can show "6 из 8 занятий", not just money —
+    // previously this was only ever used transiently to auto-schedule the
+    // first batch of lessons below, never saved on the subscription itself.
+    lesson_count: lessonCount || null,
   }).select("id").single();
 
   if (error) return { error: error.message };
@@ -76,16 +80,30 @@ export async function renewSubscription(subscriptionId: string, studentId: strin
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Не авторизован" };
 
-  const addAmount = parseInt(formData.get("add_amount") as string);
-  if (!addAmount || addAmount <= 0) return { error: "Введите сумму пополнения" };
-
   const db = createAdminClient();
-  const { data: sub } = await db.from("student_subscriptions").select("total_amount, balance").eq("id", subscriptionId).eq("tutor_id", user.id).single();
+  const { data: sub } = await db.from("student_subscriptions").select("total_amount, balance, lesson_count").eq("id", subscriptionId).eq("tutor_id", user.id).single();
   if (!sub) return { error: "Абонемент не найден" };
+
+  // Renewing by lesson count (the normal case once a subscription has a
+  // known package size) derives the money from the existing package's
+  // average price per lesson — same "оплатил 8 → ходит 8" mental model as
+  // the summary itself, instead of asking for a ₽ figure every time.
+  // Falls back to a raw amount for subscriptions with no lesson_count set.
+  const addLessons = parseInt(formData.get("add_lessons") as string) || 0;
+  let addAmount = parseInt(formData.get("add_amount") as string) || 0;
+  let lessonCountDelta = 0;
+
+  if (addLessons > 0 && sub.lesson_count) {
+    const pricePerLesson = sub.total_amount / sub.lesson_count;
+    addAmount = Math.round(pricePerLesson * addLessons);
+    lessonCountDelta = addLessons;
+  }
+  if (!addAmount || addAmount <= 0) return { error: "Введите количество занятий или сумму пополнения" };
 
   const { error } = await db.from("student_subscriptions").update({
     total_amount: sub.total_amount + addAmount,
     balance:      sub.balance + addAmount,
+    ...(lessonCountDelta ? { lesson_count: (sub.lesson_count ?? 0) + lessonCountDelta } : {}),
   }).eq("id", subscriptionId).eq("tutor_id", user.id);
 
   if (error) return { error: error.message };
@@ -106,6 +124,11 @@ export async function updateSubscriptionAmount(subscriptionId: string, studentId
 
   const newTotal = parseInt(formData.get("total_amount") as string);
   if (!newTotal || newTotal <= 0) return { error: "Введите сумму абонемента" };
+  // Optional — lets the tutor correct/set the package size directly (e.g.
+  // for an older subscription that predates this field). Empty clears it
+  // back to unknown rather than forcing a value.
+  const lessonCountRaw = formData.get("lesson_count") as string | null;
+  const lessonCount = lessonCountRaw?.trim() ? parseInt(lessonCountRaw) : null;
 
   const db = createAdminClient();
   const { data: sub } = await db.from("student_subscriptions").select("total_amount, balance").eq("id", subscriptionId).eq("tutor_id", user.id).single();
@@ -115,6 +138,7 @@ export async function updateSubscriptionAmount(subscriptionId: string, studentId
   const { error } = await db.from("student_subscriptions").update({
     total_amount: newTotal,
     balance:      sub.balance + delta,
+    ...(lessonCountRaw !== null ? { lesson_count: lessonCount } : {}),
   }).eq("id", subscriptionId).eq("tutor_id", user.id);
 
   if (error) return { error: error.message };

@@ -25,15 +25,15 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
 
   const activeSub = subscriptions?.find(s => s.status === "active") ?? null;
 
-  // Уроки, привязанные к активному абонементу
-  let subLessons: Record<string, unknown>[] = [];
-  if (activeSub) {
-    const { data } = await db.from("lessons")
-      .select("id, date, price_rub, status, deducted_amount, notes")
-      .eq("subscription_id", activeSub.id)
-      .order("date");
-    subLessons = (data as Record<string, unknown>[]) ?? [];
-  }
+  // Все уроки ученика за всё время (не только по текущему абонементу) —
+  // сводка использует их и для истории активного абонемента (фильтруя по
+  // subscription_id), и для общей статистики "всего проведено/отменено/
+  // пропущено" за всё время, из одного запроса.
+  const { data: allLessonsData } = await db.from("lessons")
+    .select("id, date, duration_min, price_rub, status, deducted_amount, notes, subscription_id")
+    .eq("student_id", id)
+    .order("date", { ascending: false });
+  const allLessons = (allLessonsData as Record<string, unknown>[]) ?? [];
 
   return (
     <div className="max-w-2xl">
@@ -60,7 +60,7 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
         <SubscriptionCard
           subscription={activeSub}
           student={student}
-          lessons={subLessons}
+          allLessons={allLessons}
           studentId={id}
         />
       ) : (

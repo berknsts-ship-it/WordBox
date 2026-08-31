@@ -32,7 +32,10 @@ export default function CreateSubscriptionForm({ studentId, studentName }: { stu
   const [error, setError]     = useState<string | null>(null);
 
   const [scheduleNow, setScheduleNow] = useState(false);
-  const [lessonCount, setLessonCount] = useState("8");
+  // Package size — shown always (feeds "6 из 8 занятий" in the summary),
+  // not just when auto-scheduling; scheduleNow reuses the same value rather
+  // than asking for it twice.
+  const [lessonCount, setLessonCount] = useState("");
   const [firstDate,   setFirstDate]   = useState("");
   const [time,        setTime]        = useState("");
   const [duration,    setDuration]    = useState("60");
@@ -63,8 +66,8 @@ export default function CreateSubscriptionForm({ studentId, studentName }: { stu
       const fd = new FormData();
       fd.set("name", name || "Абонемент");
       fd.set("total_amount", amount);
+      if (lessonCount.trim()) fd.set("lesson_count", lessonCount);
       if (scheduleNow) {
-        fd.set("lesson_count", lessonCount);
         fd.set("first_date", firstDate);
         fd.set("time", time);
         fd.set("duration_min", duration);
@@ -131,6 +134,16 @@ export default function CreateSubscriptionForm({ studentId, studentName }: { stu
             className="w-full px-3 py-2 rounded-xl border outline-none text-sm"
             style={{ borderColor: "var(--brown-pale)", background: "#fdf8f0" }} />
         </div>
+        <div>
+          <label className="text-sm mb-1 block" style={{ color: "var(--brown-mid)" }}>Количество занятий (необязательно)</label>
+          <input type="number" value={lessonCount} onChange={e => setLessonCount(e.target.value)}
+            placeholder="Например: 8" min="1" max="52"
+            className="w-full px-3 py-2 rounded-xl border outline-none text-sm"
+            style={{ borderColor: "var(--brown-pale)", background: "#fdf8f0" }} />
+          <p className="text-xs mt-1" style={{ color: "var(--brown-light)" }}>
+            Если укажете — сводка будет показывать «6 из 8 занятий», а не только сумму.
+          </p>
+        </div>
 
         <label className="flex items-center gap-2 cursor-pointer text-sm" style={{ color: "var(--brown-dark)" }}>
           <input type="checkbox" checked={scheduleNow} onChange={e => setScheduleNow(e.target.checked)}
@@ -140,14 +153,7 @@ export default function CreateSubscriptionForm({ studentId, studentName }: { stu
 
         {scheduleNow && (
           <div className="grid grid-cols-2 gap-2 p-3 rounded-xl" style={{ background: "#fdf8f0", border: "1px solid var(--brown-pale)" }}>
-            <div className="col-span-2 sm:col-span-1">
-              <label className="text-xs mb-1 block" style={{ color: "var(--brown-mid)" }}>Количество занятий</label>
-              <input type="number" value={lessonCount} onChange={e => setLessonCount(e.target.value)}
-                min="1" max="52" required={scheduleNow}
-                className="w-full px-3 py-2 rounded-xl border outline-none text-sm"
-                style={{ borderColor: "var(--brown-pale)", background: "white" }} />
-            </div>
-            <div className="col-span-2 sm:col-span-1">
+            <div className="col-span-2">
               <label className="text-xs mb-1 block" style={{ color: "var(--brown-mid)" }}>Дата первого занятия</label>
               <input type="date" value={firstDate} onChange={e => handleFirstDateChange(e.target.value)}
                 required={scheduleNow}
@@ -192,7 +198,9 @@ export default function CreateSubscriptionForm({ studentId, studentName }: { stu
               </div>
             </div>
             <p className="col-span-2 text-xs" style={{ color: "var(--brown-mid)" }}>
-              {weekdays.length === 0
+              {!lessonCount.trim()
+                ? "Укажите количество занятий выше, чтобы расставить их по дням."
+                : weekdays.length === 0
                 ? "Выберите хотя бы один день недели."
                 : "Занятия встанут по выбранным дням, начиная с указанной даты."}
               {perLesson !== null && ` Цена одного занятия: ${perLesson.toLocaleString("ru")} ₽ (${amountNum.toLocaleString("ru")} ÷ ${countNum}).`}
@@ -202,7 +210,7 @@ export default function CreateSubscriptionForm({ studentId, studentName }: { stu
 
         {error && <p className="text-sm text-red-600">{error}</p>}
         <div className="flex gap-2 pt-1">
-          <button type="submit" disabled={loading || !amount || (scheduleNow && weekdays.length === 0)}
+          <button type="submit" disabled={loading || !amount || (scheduleNow && (weekdays.length === 0 || !lessonCount.trim()))}
             className="flex-1 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-40"
             style={{ background: "var(--gradient-primary)" }}>
             {loading ? "Создаём..." : "Создать абонемент"}
