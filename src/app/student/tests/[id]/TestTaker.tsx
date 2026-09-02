@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { startTest, submitTest, incrementPlayCount, saveAttempt } from "@/app/actions/tests";
 import { Clock, Volume2, ExternalLink } from "lucide-react";
 import TestRewardIcons from "@/components/student/TestRewardIcons";
+import { sayCorgi } from "@/lib/corgi-events";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -275,6 +276,7 @@ export default function TestTaker({
       autoScore: res?.autoScore ?? 0,
       grade: res?.grade,
     });
+    sayCorgi("Awesome! You're a star!");
   }, [answers, submitting, result, test.id, studentId]);
 
   const formatTime = (s: number) => {

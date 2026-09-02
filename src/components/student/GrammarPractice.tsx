@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { saveGrammarProgress, submitGrammarAttempt, type ExerciseType, type GrammarItemResult } from "@/app/actions/grammar";
 import { ItemInput, TYPE_LABELS } from "@/components/shared/GrammarItemInput";
+import { sayCorgi } from "@/lib/corgi-events";
 
 type Item = { id: string; points: number; options: string[] | null };
 type Block = { id: string; type: ExerciseType; instruction: string | null; items: Item[] };
@@ -51,6 +52,7 @@ export default function GrammarPractice({
     setSubmitting(false);
     if (res.error) return;
     setResult({ score: res.score!, maxScore: res.maxScore!, results: res.results! });
+    sayCorgi("Great job!");
   }
 
   const totalItems = exercises.reduce((a, b) => a + b.items.length, 0);

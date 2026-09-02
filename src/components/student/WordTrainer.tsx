@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useTransition, useMemo } from "react";
 import Link from "next/link";
 import { upsertWordProgress } from "@/app/actions/trainer";
+import { sayCorgi } from "@/lib/corgi-events";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -839,6 +840,7 @@ export default function WordTrainer({
   useEffect(() => {
     if (sessionPhase === "training" && queue.length === 0 && total > 0) {
       setSessionPhase("done");
+      sayCorgi("Great job!");
     }
   }, [queue.length, sessionPhase, total]);
 

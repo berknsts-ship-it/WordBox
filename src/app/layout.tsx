@@ -4,6 +4,7 @@ import "./globals.css";
 import BackgroundDecor from "@/components/BackgroundDecor";
 import ServiceWorkerRegister from "@/components/shared/ServiceWorkerRegister";
 import NetworkStatusBanner from "@/components/shared/NetworkStatusBanner";
+import CorgiMascotLoader from "@/components/student/CorgiMascotLoader";
 
 const lora = Lora({
   variable: "--font-lora",
@@ -53,6 +54,11 @@ export default function RootLayout({
         <NetworkStatusBanner />
         <BackgroundDecor />
         <div className="relative flex flex-col flex-1" style={{ zIndex: 1 }}>{children}</div>
+        {/* Sibling to the div above, not nested in it — that div's own
+            z-index makes it a stacking context, which would trap the mascot
+            underneath the whiteboard's document.body-portaled overlay
+            (z-50) no matter how high a z-index we gave it in here. */}
+        <CorgiMascotLoader />
       </body>
     </html>
   );
