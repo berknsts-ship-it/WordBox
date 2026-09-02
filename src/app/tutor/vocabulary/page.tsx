@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import Link from "next/link";
-import { Plus, BookOpen } from "lucide-react";
+import { Plus, BookOpen, Upload } from "lucide-react";
 import { deleteVocabularySet } from "@/app/actions/vocabulary";
 import SetAssignPanel from "@/components/tutor/SetAssignPanel";
 import SetFolderPicker from "@/components/tutor/SetFolderPicker";
@@ -133,6 +133,13 @@ export default async function VocabularyPage() {
         </div>
         <div className="flex items-center gap-2">
           <FolderCreateButton />
+          <Link
+            href="/tutor/vocabulary/import"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold hover:opacity-80 transition-all border"
+            style={{ borderColor: "var(--brown-pale)", color: "var(--brown-dark)", background: "white" }}
+          >
+            <Upload size={16} /> Импортировать
+          </Link>
           <Link
             href="/tutor/vocabulary/new"
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white hover:opacity-80 transition-all"

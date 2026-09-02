@@ -65,6 +65,64 @@ export async function createTopic(formData: FormData) {
   redirect(`/tutor/vocabulary/${newSet.id}`);
 }
 
+// ── Import a whole set from JSON ────────────────────────────────────────────────
+
+export type VocabularyWordInput = {
+  english: string;
+  russian: string;
+  example: string | null;
+  example_sentence: string | null;
+  bracket_sentence: string | null;
+  bracket_answer: string | null;
+  answer_variants: string[];
+};
+
+export type VocabularySetInput = {
+  title: string;
+  words: VocabularyWordInput[];
+};
+
+function validateVocabularySetInput(input: VocabularySetInput): string | null {
+  if (!input.title.trim()) return "Введите название набора";
+  if (input.words.length === 0) return "Добавьте хотя бы одно слово";
+  for (const w of input.words) {
+    if (!w.english.trim()) return "У каждого слова должно быть поле english";
+    if (!w.russian.trim()) return "У каждого слова должно быть поле russian";
+  }
+  return null;
+}
+
+export async function createVocabularySetImport(input: VocabularySetInput) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Не авторизован" };
+  const validationError = validateVocabularySetInput(input);
+  if (validationError) return { error: validationError };
+
+  const { data: newSet, error } = await supabase
+    .from("vocabulary_sets")
+    .insert({ tutor_id: user.id, name: input.title.trim() })
+    .select("id")
+    .single();
+  if (error || !newSet) return { error: error?.message ?? "Не удалось создать набор" };
+
+  const rows = input.words.map(w => ({
+    set_id: newSet.id,
+    english: w.english.trim(),
+    russian: w.russian.trim(),
+    example: w.example?.trim() || null,
+    example_sentence: w.example_sentence?.trim() || null,
+    bracket_sentence: w.bracket_sentence?.trim() || null,
+    bracket_answer: w.bracket_answer?.trim() || null,
+    answer_variants: w.answer_variants ?? [],
+  }));
+  const { error: wordsErr } = await supabase.from("vocabulary_words").insert(rows);
+  if (wordsErr) return { error: wordsErr.message };
+
+  revalidatePath("/tutor/vocabulary");
+  return { id: newSet.id as string };
+}
+
 // ── Set list ──────────────────────────────────────────────────────────────────
 
 export async function deleteVocabularySet(id: string) {
