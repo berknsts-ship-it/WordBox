@@ -192,12 +192,16 @@ export default function CorgiMascot() {
             </div>
           )}
 
-          <div className="relative pointer-events-auto w-[76px] h-[76px] sm:w-[108px] sm:h-[108px]">
+          <div className="relative pointer-events-auto w-[92px] h-[92px] sm:w-[128px] sm:h-[128px]">
+            {/* The video has a baked-in ground shadow and a plain white
+                background (mp4 can't carry real alpha) — mix-blend-mode
+                multiply drops the white out against whatever's behind it,
+                so the corgi sits directly on the page instead of inside a
+                card/circle. */}
             <button
               onClick={() => showBubble(pick(CLICK_PHRASES))}
               aria-label="Корги"
-              className="corgi-bob w-full h-full rounded-full overflow-hidden block"
-              style={{ boxShadow: "0 6px 18px rgba(0,0,0,.2)", border: "3px solid white" }}
+              className="corgi-bob w-full h-full block"
             >
               <video
                 ref={videoRef}
@@ -206,13 +210,14 @@ export default function CorgiMascot() {
                 loop
                 muted
                 playsInline
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain"
+                style={{ mixBlendMode: "multiply" }}
               />
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); toggleHidden(true); }}
               aria-label="Спрятать корги"
-              className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center"
+              className="absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center"
               style={{ background: "rgba(30,25,20,.65)" }}
             >
               <X size={11} color="white" />
