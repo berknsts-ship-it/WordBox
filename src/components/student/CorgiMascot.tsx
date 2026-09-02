@@ -165,7 +165,12 @@ export default function CorgiMascot() {
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [isStudentRoute, hidden]);
+    // loaded is the real trigger: the component renders null until it
+    // resolves, so canvas/video refs don't exist on this effect's first
+    // pass — without loaded here, the effect never reruns once they
+    // actually mount (hidden is false both before and after), so the
+    // draw loop silently never starts.
+  }, [isStudentRoute, hidden, loaded]);
 
   // Pause the video off-screen/off-tab so a looping mp4 doesn't burn cycles
   // in the background — this is the whole point of the perf ask.
@@ -197,9 +202,6 @@ export default function CorgiMascot() {
       }}
     >
       <style>{`
-        /* margin, not transform: a transform on any ancestor of the video
-           isolates mix-blend-mode from the real page behind it, which was
-           silently turning the white background back on. */
         @keyframes corgi-bob { 0%,100% { margin-top: 0; } 50% { margin-top: -6px; } }
         @keyframes corgi-bubble-in { from { opacity: 0; transform: translateY(6px) scale(.94); } to { opacity: 1; transform: translateY(0) scale(1); } }
         .corgi-bob { animation: corgi-bob 3.2s ease-in-out infinite; }
@@ -239,12 +241,12 @@ export default function CorgiMascot() {
           )}
 
           <div className="relative pointer-events-auto w-[92px] h-[92px] sm:w-[128px] sm:h-[128px]">
-            {/* Video plays off-screen purely to decode frames; the canvas
-                is what's actually shown, redrawn each frame with near-white
-                pixels keyed to transparent (see the effect above) — CSS
-                mix-blend-mode doesn't reliably strip a <video>'s background,
-                confirmed against real Chromium, so this reads real pixels
-                instead of trusting the compositor to blend it. */}
+            {/* Video decodes invisibly (opacity:0, real size — a tiny
+                offscreen video was confirmed via Playwright to freeze on
+                its first decoded frame instead of advancing); the canvas
+                is what's shown, redrawn each frame with near-white pixels
+                keyed to transparent, since mix-blend-mode doesn't reliably
+                strip a <video>'s background (also confirmed, not assumed). */}
             <video
               ref={videoRef}
               src="/mascot/corgi.mp4"
@@ -252,7 +254,7 @@ export default function CorgiMascot() {
               loop
               muted
               playsInline
-              style={{ position: "fixed", left: "-9999px", top: "-9999px", width: "1px", height: "1px" }}
+              style={{ position: "absolute", opacity: 0, pointerEvents: "none", width: "100%", height: "100%" }}
             />
             <button
               onClick={() => showBubble(pick(CLICK_PHRASES))}
