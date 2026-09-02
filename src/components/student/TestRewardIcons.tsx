@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 const ANIM_CSS = `
 @keyframes reward-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
@@ -9,26 +9,62 @@ const ANIM_CSS = `
 @keyframes reward-pop{0%{transform:scale(0) rotate(-15deg);opacity:0}70%{transform:scale(1.25) rotate(4deg);opacity:1}100%{transform:scale(1) rotate(0deg);opacity:1}}
 `;
 
-function Star({ size }: { size: number }) {
+function Star({ size, earned = true }: { size: number; earned?: boolean }) {
+  const gid = useId();
+  const cx = 20, cy = 20.5, Ro = 17, Ri = 6.6;
+  const pts = Array.from({ length: 10 }, (_, i) => {
+    const a = (-90 + i * 36) * Math.PI / 180;
+    const r = i % 2 === 0 ? Ro : Ri;
+    return `${(cx + r * Math.cos(a)).toFixed(2)},${(cy + r * Math.sin(a)).toFixed(2)}`;
+  }).join(" ");
   return (
     <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
-      <polygon
-        points="20,3 24,14 36,15 27,22 30,34 20,27 10,34 13,22 4,15 16,14"
-        fill="#f59e0b" stroke="#d97706" strokeWidth="0.8"
-      />
-      <polygon points="20,3 24,14 16,14" fill="#fcd34d" opacity=".6"/>
+      <defs>
+        <linearGradient id={`${gid}-fill`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#fff3c4"/>
+          <stop offset="45%" stopColor="#f7c948"/>
+          <stop offset="100%" stopColor="#c2760a"/>
+        </linearGradient>
+        <radialGradient id={`${gid}-glare`} cx="38%" cy="28%" r="45%">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity=".95"/>
+          <stop offset="100%" stopColor="#ffffff" stopOpacity="0"/>
+        </radialGradient>
+      </defs>
+      <ellipse cx={cx} cy="35.5" rx="8.5" ry="1.6" fill="#000" opacity={earned ? .16 : 0}/>
+      <polygon points={pts}
+        fill={earned ? `url(#${gid}-fill)` : "none"}
+        stroke={earned ? "#a15a06" : "#c2760a"}
+        strokeWidth={earned ? .9 : 1.4}
+        strokeLinejoin="round"/>
+      {earned && <polygon points={pts} fill={`url(#${gid}-glare)`}/>}
     </svg>
   );
 }
 
-function Crystal({ size }: { size: number }) {
+function Crystal({ size, earned = true }: { size: number; earned?: boolean }) {
+  const gid = useId();
+  const outer = "12,8 28,8 34,14 34,26 28,32 12,32 6,26 6,14";
+  const mid   = "14.2,11.4 25.8,11.4 30.1,15.7 30.1,24.3 25.8,28.6 14.2,28.6 9.9,24.3 9.9,15.7";
+  const inner = "16.6,15 23.4,15 25.9,17.5 25.9,22.5 23.4,25 16.6,25 14.1,22.5 14.1,17.5";
   return (
     <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
-      <polygon points="20,3 33,14 29,37 11,37 7,14" fill="#34d399" stroke="#059669" strokeWidth="1"/>
-      <polygon points="20,3 33,14 20,11" fill="#a7f3d0"/>
-      <polygon points="20,11 29,37 11,37" fill="#10b981" opacity=".6"/>
-      <line x1="20" y1="3" x2="20" y2="37" stroke="#059669" strokeWidth=".5" opacity=".4"/>
-      <ellipse cx="24" cy="9" rx="2" ry="5.5" fill="white" opacity=".4" transform="rotate(-22 24 9)"/>
+      <defs>
+        <radialGradient id={`${gid}-glare`} cx="35%" cy="30%" r="45%">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity=".9"/>
+          <stop offset="100%" stopColor="#ffffff" stopOpacity="0"/>
+        </radialGradient>
+      </defs>
+      <ellipse cx="20" cy="35.5" rx="9" ry="1.6" fill="#000" opacity={earned ? .16 : 0}/>
+      <polygon points={outer}
+        fill={earned ? "#065f46" : "none"}
+        stroke={earned ? "#043d2b" : "#059669"}
+        strokeWidth={earned ? .8 : 1.4}
+        strokeLinejoin="round"/>
+      {earned && <>
+        <polygon points={mid} fill="#10b981" stroke="#065f46" strokeWidth=".6" strokeLinejoin="round"/>
+        <polygon points={inner} fill="#6ee7b7" stroke="#10b981" strokeWidth=".5" strokeLinejoin="round"/>
+        <polygon points={inner} fill={`url(#${gid}-glare)`}/>
+      </>}
     </svg>
   );
 }
