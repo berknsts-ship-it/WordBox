@@ -104,17 +104,86 @@ function PixelAxe({ size }: { size: number }) {
   );
 }
 
+function Shell({ size }: { size: number }) {
+  const ridges = [-60, -30, 0, 30, 60];
+  return (
+    <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
+      <path d="M20 8 C9 8 4 19 4 29 L36 29 C36 19 31 8 20 8 Z" fill="#BFE3EC" stroke="#4A7FE0" strokeWidth="1"/>
+      {ridges.map((a, i) => (
+        <line key={i} x1="20" y1="8"
+          x2={20 + 15 * Math.sin(a * Math.PI / 180)}
+          y2={29 - 21 * Math.cos(a * Math.PI / 180)}
+          stroke="#4A7FE0" strokeWidth="1" opacity=".5"/>
+      ))}
+      <circle cx="20" cy="31" r="3.2" fill="#FFFFFF" stroke="#4A7FE0" strokeWidth="1"/>
+      <circle cx="19" cy="30" r=".9" fill="#DCEEF3"/>
+    </svg>
+  );
+}
+
+function Leaf({ size }: { size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
+      <path d="M20 4 C34 8 34 24 20 36 C6 24 6 8 20 4 Z" fill="#9ED1A0" stroke="#3FA66B" strokeWidth="1"/>
+      <path d="M20 6 L20 34" stroke="#3FA66B" strokeWidth="1" opacity=".6"/>
+      <path d="M20 12 L27 16 M20 18 L28 22 M20 24 L26 27" stroke="#3FA66B" strokeWidth=".8" opacity=".45"/>
+      <ellipse cx="15" cy="12" rx="2.4" ry="4" fill="white" opacity=".35" transform="rotate(-25 15 12)"/>
+    </svg>
+  );
+}
+
+function SunBurst({ size }: { size: number }) {
+  const rays = [0, 45, 90, 135, 180, 225, 270, 315];
+  return (
+    <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
+      {rays.map((a, i) => (
+        <rect key={i} x="18.5" y="1" width="3" height="8" rx="1.5" fill="#F5C04D"
+          transform={`rotate(${a} 20 20)`}/>
+      ))}
+      <circle cx="20" cy="20" r="10" fill="#FADE9E" stroke="#F5C04D" strokeWidth="1.3"/>
+      <circle cx="17" cy="17" r="2" fill="white" opacity=".5"/>
+    </svg>
+  );
+}
+
+function NeonBolt({ size }: { size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 40 40" fill="none"
+      style={{ filter: "drop-shadow(0 0 4px #9B7FE8) drop-shadow(0 0 8px #7C6BE0)" }}>
+      <polygon points="22,2 9,22 18,22 15,38 32,16 22,16"
+        fill="#9B7FE8" stroke="#E8E6FF" strokeWidth="1"/>
+    </svg>
+  );
+}
+
+function Facet({ size }: { size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
+      <polygon points="20,3 33,16 20,37 7,16" fill="none" stroke="#D4B896" strokeWidth="1.4"/>
+      <polygon points="20,3 27,16 13,16" fill="#B08D57" opacity=".5"/>
+      <line x1="7" y1="16" x2="33" y2="16" stroke="#D4B896" strokeWidth="1"/>
+      <line x1="20" y1="3" x2="20" y2="37" stroke="#D4B896" strokeWidth=".6" opacity=".5"/>
+    </svg>
+  );
+}
+
 const ICON_MAP: Record<string, (props: { size: number }) => React.JSX.Element> = {
   emerald: Crystal,
   kawaii: KawaiiFace,
   scene: Microphone,
   sunset: Sakura,
   craft: PixelAxe,
+  ocean: Shell,
+  forest: Leaf,
+  sun: SunBurst,
+  neon: NeonBolt,
+  graphite: Facet,
 };
 
 function getLoopAnim(themeId: string) {
   if (themeId === "kawaii") return "reward-bounce";
   if (themeId === "craft") return "reward-pulse";
+  if (themeId === "neon") return "reward-pulse";
   return "reward-float";
 }
 
