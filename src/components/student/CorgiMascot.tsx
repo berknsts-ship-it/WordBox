@@ -49,6 +49,8 @@ export default function CorgiMascot() {
   const [loaded, setLoaded] = useState(false);
   const [bubble, setBubble] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const rafRef = useRef<number | null>(null);
   const bubbleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevTabKey = useRef<string | null>(null);
 
@@ -124,6 +126,47 @@ export default function CorgiMascot() {
     return () => clearTimeout(timer);
   }, [isStudentRoute, hidden, showBubble]);
 
+  // The source video has a plain white background baked in (mp4 has no
+  // alpha channel) and CSS mix-blend-mode does not reliably apply to
+  // <video> — verified against real Chromium, not just spec-reading: the
+  // white box stayed even with a clean, non-isolated ancestor chain, so
+  // this isn't a stacking-context bug, video compositing just doesn't
+  // route through the blend pipeline the way it does for img/canvas.
+  // Redrawing each frame onto a small canvas and zeroing the alpha of
+  // near-white pixels keys the background out for real, at a resolution
+  // small enough (200x200) that the per-frame pixel loop costs nothing.
+  useEffect(() => {
+    if (!isStudentRoute || hidden) return;
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return;
+    const SIZE = 200;
+    canvas.width = SIZE;
+    canvas.height = SIZE;
+
+    function draw() {
+      if (video && video.readyState >= 2 && ctx) {
+        ctx.drawImage(video, 0, 0, SIZE, SIZE);
+        const frame = ctx.getImageData(0, 0, SIZE, SIZE);
+        const d = frame.data;
+        for (let i = 0; i < d.length; i += 4) {
+          const r = d[i], g = d[i + 1], b = d[i + 2];
+          const min = Math.min(r, g, b);
+          if (min > 248) d[i + 3] = 0;
+          else if (min > 230) d[i + 3] = Math.round(((248 - min) / 18) * 255);
+        }
+        ctx.putImageData(frame, 0, 0);
+      }
+      rafRef.current = requestAnimationFrame(draw);
+    }
+    rafRef.current = requestAnimationFrame(draw);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [isStudentRoute, hidden]);
+
   // Pause the video off-screen/off-tab so a looping mp4 doesn't burn cycles
   // in the background — this is the whole point of the perf ask.
   useEffect(() => {
@@ -196,26 +239,27 @@ export default function CorgiMascot() {
           )}
 
           <div className="relative pointer-events-auto w-[92px] h-[92px] sm:w-[128px] sm:h-[128px]">
-            {/* The video has a baked-in ground shadow and a plain white
-                background (mp4 can't carry real alpha) — mix-blend-mode
-                multiply drops the white out against whatever's behind it,
-                so the corgi sits directly on the page instead of inside a
-                card/circle. */}
+            {/* Video plays off-screen purely to decode frames; the canvas
+                is what's actually shown, redrawn each frame with near-white
+                pixels keyed to transparent (see the effect above) — CSS
+                mix-blend-mode doesn't reliably strip a <video>'s background,
+                confirmed against real Chromium, so this reads real pixels
+                instead of trusting the compositor to blend it. */}
+            <video
+              ref={videoRef}
+              src="/mascot/corgi.mp4"
+              autoPlay
+              loop
+              muted
+              playsInline
+              style={{ position: "fixed", left: "-9999px", top: "-9999px", width: "1px", height: "1px" }}
+            />
             <button
               onClick={() => showBubble(pick(CLICK_PHRASES))}
               aria-label="Корги"
               className="corgi-bob w-full h-full block"
             >
-              <video
-                ref={videoRef}
-                src="/mascot/corgi.mp4"
-                autoPlay
-                loop
-                muted
-                playsInline
-                className="w-full h-full object-contain"
-                style={{ mixBlendMode: "multiply" }}
-              />
+              <canvas ref={canvasRef} className="w-full h-full object-contain" />
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); toggleHidden(true); }}
