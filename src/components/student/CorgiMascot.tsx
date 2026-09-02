@@ -154,7 +154,10 @@ export default function CorgiMascot() {
       }}
     >
       <style>{`
-        @keyframes corgi-bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+        /* margin, not transform: a transform on any ancestor of the video
+           isolates mix-blend-mode from the real page behind it, which was
+           silently turning the white background back on. */
+        @keyframes corgi-bob { 0%,100% { margin-top: 0; } 50% { margin-top: -6px; } }
         @keyframes corgi-bubble-in { from { opacity: 0; transform: translateY(6px) scale(.94); } to { opacity: 1; transform: translateY(0) scale(1); } }
         .corgi-bob { animation: corgi-bob 3.2s ease-in-out infinite; }
         @media (prefers-reduced-motion: reduce) {
