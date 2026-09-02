@@ -104,19 +104,22 @@ function PixelAxe({ size }: { size: number }) {
   );
 }
 
-function Shell({ size }: { size: number }) {
-  const ridges = [-60, -30, 0, 30, 60];
+function Shell({ size, earned = true }: { size: number; earned?: boolean }) {
+  const stroke = "#4A7FE0";
   return (
     <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
-      <path d="M20 8 C9 8 4 19 4 29 L36 29 C36 19 31 8 20 8 Z" fill="#BFE3EC" stroke="#4A7FE0" strokeWidth="1"/>
-      {ridges.map((a, i) => (
-        <line key={i} x1="20" y1="8"
-          x2={20 + 15 * Math.sin(a * Math.PI / 180)}
-          y2={29 - 21 * Math.cos(a * Math.PI / 180)}
-          stroke="#4A7FE0" strokeWidth="1" opacity=".5"/>
+      <path d="M16.5 32 Q20 38 23.5 32 Z"
+        fill={earned ? "#EAF1FB" : "none"} stroke={stroke} strokeWidth="1"/>
+      <path d="M20 33 L6 14 A14 14 0 0 1 34 14 Z"
+        fill={earned ? "#7FC4D4" : "none"} stroke={stroke} strokeWidth={earned ? 1 : 1.6}/>
+      {earned && (
+        <path d="M20 33 L10 19.3 A10 10 0 0 1 30 19.3 Z" fill="#4A7FE0" opacity=".45"/>
+      )}
+      {([[10.1, 4.1], [20, 0], [29.9, 4.1]] as const).map(([x, y], i) => (
+        <line key={i} x1="20" y1="33" x2={x} y2={y}
+          stroke={earned ? "#EAF6FA" : stroke} strokeWidth="1" opacity={earned ? .8 : .5}/>
       ))}
-      <circle cx="20" cy="31" r="3.2" fill="#FFFFFF" stroke="#4A7FE0" strokeWidth="1"/>
-      <circle cx="19" cy="30" r=".9" fill="#DCEEF3"/>
+      {earned && <ellipse cx="13" cy="9" rx="2.4" ry="4.6" fill="white" opacity=".4" transform="rotate(-18 13 9)"/>}
     </svg>
   );
 }
