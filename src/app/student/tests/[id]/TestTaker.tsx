@@ -6,6 +6,7 @@ import { startTest, submitTest, incrementPlayCount, saveAttempt } from "@/app/ac
 import { Clock, Volume2, ExternalLink } from "lucide-react";
 import TestRewardIcons from "@/components/student/TestRewardIcons";
 import { sayCorgi } from "@/lib/corgi-events";
+import { logActivity } from "@/app/actions/activity";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -259,6 +260,7 @@ export default function TestTaker({
     await startTest(test.id, studentId);
     startedAt.current = new Date();
     setStarted(true);
+    logActivity(studentCode, "test_started", test.id);
   };
 
   const handleAnswer = (questionId: string, answer: Record<string, unknown>) => {
@@ -277,7 +279,8 @@ export default function TestTaker({
       grade: res?.grade,
     });
     sayCorgi("Awesome! You're a star!");
-  }, [answers, submitting, result, test.id, studentId]);
+    logActivity(studentCode, "test_submitted", test.id);
+  }, [answers, submitting, result, test.id, studentId, studentCode]);
 
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60);

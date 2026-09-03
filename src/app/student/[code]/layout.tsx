@@ -1,7 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import ThemeProvider from "@/components/student/ThemeProvider";
 import ThemePickerPopover from "@/components/student/ThemePickerPopover";
 import StudentHeaderLogo from "@/components/student/StudentHeaderLogo";
+import ActivityTracker from "@/components/student/ActivityTracker";
 import type { ThemeId } from "@/components/student/themes";
 import "../themes.css";
 
@@ -23,8 +25,16 @@ export default async function StudentLayout({
   const studentId    = data?.id    ?? "";
   const initialTheme = (data?.theme as ThemeId | null) ?? "classic";
 
+  // "Последний вход" для сводки у репетитора — трогаем на каждой загрузке
+  // кабинета, отдельно от точечных событий в activity_log (те льются
+  // только на значимые действия, не на каждый заход).
+  if (studentId) {
+    await createAdminClient().from("students").update({ last_seen_at: new Date().toISOString() }).eq("id", studentId);
+  }
+
   return (
     <ThemeProvider initialTheme={initialTheme} studentId={studentId}>
+      <ActivityTracker code={code} />
       <div className="flex min-h-full flex-col">
         {/* Фон — diary или тема */}
         <div className="diary-bg-fixed" />
