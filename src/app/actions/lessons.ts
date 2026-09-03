@@ -8,7 +8,7 @@ import { revalidatePath } from "next/cache";
 // deducted_amount), т.к. на статус completed/missed заводят несколько разных
 // action'ов (updateLessonStatus, updateLessonStatusForm, updateLessonForm,
 // markLessonCompleted).
-async function deductIfNeeded(lessonId: string) {
+export async function deductIfNeeded(lessonId: string) {
   const db = createAdminClient();
   const { data: lesson } = await db.from("lessons")
     .select("subscription_id, price_rub, deducted_amount")
@@ -22,12 +22,32 @@ async function deductIfNeeded(lessonId: string) {
   }
 }
 
+// Обратная операция: урок был проведён/сгорел и уже списан с абонемента, а
+// потом статус меняют обратно (отменили по ошибке, перенесли на другую
+// дату) — возвращаем сумму на баланс абонемента и снимаем deducted_amount,
+// иначе урок продолжает "съедать" абонемент навсегда, даже когда он больше
+// не считается проведённым.
+async function refundIfNeeded(lessonId: string) {
+  const db = createAdminClient();
+  const { data: lesson } = await db.from("lessons")
+    .select("subscription_id, deducted_amount")
+    .eq("id", lessonId)
+    .single();
+
+  if (lesson?.subscription_id && lesson?.deducted_amount) {
+    await db.from("lessons").update({ deducted_amount: null }).eq("id", lessonId);
+    await db.rpc("subscription_refund", { p_id: lesson.subscription_id, p_amount: lesson.deducted_amount });
+    revalidatePath("/tutor/students");
+  }
+}
+
 export async function updateLessonStatus(id: string, status: string) {
   const supabase = await createClient();
   const { error } = await supabase.from("lessons").update({ status }).eq("id", id);
   if (error) return { error: error.message };
 
   if (status === "completed" || status === "missed") await deductIfNeeded(id);
+  else await refundIfNeeded(id);
   revalidatePath("/tutor/schedule");
 }
 
@@ -50,6 +70,7 @@ export async function rescheduleLesson(id: string, newDate: string) {
     .update({ date: newDate, date_history: [...history, lesson.date], status: "scheduled" })
     .eq("id", id);
   if (error) return { error: error.message };
+  await refundIfNeeded(id);
   revalidatePath("/tutor/schedule");
   revalidatePath("/tutor/students");
 }
@@ -145,6 +166,7 @@ export async function updateLessonStatusForm(formData: FormData) {
   const studentId = formData.get("studentId") as string;
   await supabase.from("lessons").update({ status }).eq("id", id);
   if (status === "completed" || status === "missed") await deductIfNeeded(id);
+  else await refundIfNeeded(id);
   if (studentId) revalidatePath(`/tutor/students/${studentId}`);
   revalidatePath("/tutor/schedule");
 }
@@ -163,6 +185,7 @@ export async function updateLessonForm(formData: FormData) {
   }).eq("id", id);
   const newStatus = formData.get("status") as string;
   if (newStatus === "completed" || newStatus === "missed") await deductIfNeeded(id);
+  else await refundIfNeeded(id);
   if (studentId) revalidatePath(`/tutor/students/${studentId}`);
   revalidatePath("/tutor/schedule");
   revalidatePath("/tutor/dashboard");

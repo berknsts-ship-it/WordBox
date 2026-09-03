@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
+import { deductIfNeeded } from "./lessons";
 
 export async function createSubscription(studentId: string, formData: FormData) {
   const supabase = await createClient();
@@ -38,9 +39,37 @@ export async function createSubscription(studentId: string, formData: FormData) 
     // previously this was only ever used transiently to auto-schedule the
     // first batch of lessons below, never saved on the subscription itself.
     lesson_count: lessonCount || null,
-  }).select("id").single();
+  }).select("id, paid").single();
 
   if (error) return { error: error.message };
+
+  // She schedules lessons on the calendar before she gets paid — by the
+  // time the subscription exists, there are usually already-created
+  // lessons for this student sitting unlinked. Sweep them all in now
+  // instead of only auto-linking lessons created after this point.
+  // Deduction is skipped for a lesson that was already marked paid
+  // individually before any subscription existed (pay-per-lesson,
+  // already settled) — linking it is still useful for the history view,
+  // but charging it against the new balance too would double-count money
+  // she already received for it.
+  const { data: unlinked } = await db.from("lessons")
+    .select("id, status, deducted_amount, payment_status")
+    .eq("student_id", studentId)
+    .is("subscription_id", null);
+
+  if (unlinked && unlinked.length > 0) {
+    const linkUpdate: { subscription_id: string; payment_status?: string } = { subscription_id: sub.id };
+    if (sub.paid) linkUpdate.payment_status = "paid";
+    await db.from("lessons").update(linkUpdate).in("id", unlinked.map(l => l.id));
+
+    for (const l of unlinked) {
+      const alreadySettled = l.payment_status === "paid";
+      if ((l.status === "completed" || l.status === "missed") && !l.deducted_amount && !alreadySettled) {
+        await deductIfNeeded(l.id);
+      }
+    }
+    revalidatePath("/tutor/schedule");
+  }
 
   if (scheduleNow) {
     const priceRub = Math.round(totalAmount / lessonCount);
