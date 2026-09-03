@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import {
   LayoutDashboard, Users, CalendarDays, ClipboardList,
   BookOpen, LogOut, X, Menu, PenLine, Bell, FolderOpen, GraduationCap, Settings,
-  ChevronDown, PenSquare,
+  ChevronDown, PenSquare, TrendingUp,
 } from "lucide-react";
 import WBLogo from "@/components/WBLogo";
 
@@ -22,6 +22,7 @@ const PRIMARY_NAV = [
 ];
 
 const SECONDARY_NAV = [
+  { label: "Прогресс",         href: "/tutor/progress",      icon: TrendingUp },
   { label: "Уведомления",      href: "/tutor/notifications", icon: Bell },
   { label: "Материалы",        href: "/tutor/materials",     icon: FolderOpen },
   { label: "Словари",          href: "/tutor/vocabulary",    icon: BookOpen },
