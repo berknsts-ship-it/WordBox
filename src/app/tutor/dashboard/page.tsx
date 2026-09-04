@@ -2,27 +2,111 @@ import { createClient } from "@/lib/supabase/server";
 import {
   Users, CalendarDays, ClipboardList, CircleDollarSign,
   UserPlus, CalendarPlus, ClipboardPlus, FolderPlus,
+  Radio, AlertTriangle, BookOpen, PenSquare, GraduationCap, PenLine,
 } from "lucide-react";
 import WBLogo from "@/components/WBLogo";
 import Link from "next/link";
+import { formatLastSeen } from "@/lib/relativeTime";
+import { statusFromPct, statusFromStars } from "@/lib/scoreStatus";
+
+const FEED_EVENT_LABELS: Record<string, string> = {
+  trainer_completed: "прошёл(шла) набор лексики",
+  grammar_completed: "сдал(а) упражнение по грамматике",
+  board_open: "был(а) на доске",
+  test_started: "начал(а) тест",
+  test_submitted: "сдал(а) тест",
+};
+const FEED_EVENT_ICON: Record<string, React.ElementType> = {
+  trainer_completed: BookOpen,
+  grammar_completed: PenSquare,
+  board_open: PenLine,
+  test_started: GraduationCap,
+  test_submitted: GraduationCap,
+};
+
+const LOW_SCORE_WINDOW_DAYS = 14;
+const LESSONS_LEFT_ALERT = 2;
 
 export default async function DashboardPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  const tutorId = user!.id;
+  const since = new Date(Date.now() - LOW_SCORE_WINDOW_DAYS * 86400000).toISOString();
 
   const [
     { count: studentsCount },
     { count: homeworkCount },
     { count: lessonsCount },
     { data: unpaidLessons },
+    { data: students },
+    { data: recentActivity },
+    { data: recentGrammar },
+    { data: recentTests },
+    { data: lessonsForSubs },
+    { data: activeSubs },
   ] = await Promise.all([
-    supabase.from("students").select("*", { count: "exact", head: true }).eq("tutor_id", user!.id),
-    supabase.from("homework").select("*", { count: "exact", head: true }).eq("tutor_id", user!.id).eq("status", "pending"),
-    supabase.from("lessons").select("*", { count: "exact", head: true }).eq("tutor_id", user!.id).eq("status", "scheduled").gte("date", new Date().toISOString()),
-    supabase.from("lessons").select("price_rub").eq("tutor_id", user!.id).eq("payment_status", "unpaid").neq("status", "cancelled"),
+    supabase.from("students").select("*", { count: "exact", head: true }).eq("tutor_id", tutorId),
+    supabase.from("homework").select("*", { count: "exact", head: true }).eq("tutor_id", tutorId).eq("status", "pending"),
+    supabase.from("lessons").select("*", { count: "exact", head: true }).eq("tutor_id", tutorId).eq("status", "scheduled").gte("date", new Date().toISOString()),
+    supabase.from("lessons").select("price_rub").eq("tutor_id", tutorId).eq("payment_status", "unpaid").neq("status", "cancelled"),
+    supabase.from("students").select("id, name, last_seen_at").eq("tutor_id", tutorId).order("name"),
+    supabase.from("activity_log")
+      .select("student_id, event_type, created_at, students(name)")
+      .eq("tutor_id", tutorId)
+      .in("event_type", Object.keys(FEED_EVENT_LABELS))
+      .order("created_at", { ascending: false })
+      .limit(8),
+    supabase.from("grammar_assignments")
+      .select("student_id, score, max_score")
+      .eq("status", "completed")
+      .gte("updated_at", since),
+    supabase.from("tests")
+      .select("student_id, stars")
+      .eq("tutor_id", tutorId)
+      .eq("status", "graded")
+      .gte("submitted_at", since),
+    supabase.from("lessons").select("student_id, subscription_id, deducted_amount").eq("tutor_id", tutorId),
+    supabase.from("student_subscriptions").select("id, student_id, lesson_count").eq("tutor_id", tutorId).eq("status", "active"),
   ]);
 
   const totalDebt = (unpaidLessons ?? []).reduce((s, l) => s + (l.price_rub ?? 0), 0);
+
+  // ── «Требуют внимания»: давно не заходил / недавний низкий результат / абонемент почти кончился ──
+  const nameMap = new Map((students ?? []).map(s => [s.id, s.name]));
+  const reasonsByStudent = new Map<string, string[]>();
+  const flag = (id: string, reason: string) => {
+    if (!reasonsByStudent.has(id)) reasonsByStudent.set(id, []);
+    reasonsByStudent.get(id)!.push(reason);
+  };
+
+  for (const s of students ?? []) {
+    const seen = formatLastSeen(s.last_seen_at);
+    if (seen.tone === "warn" || seen.tone === "danger") flag(s.id, `давно не заходил(а) — ${seen.label}`);
+  }
+  for (const g of recentGrammar ?? []) {
+    if (!g.max_score) continue;
+    const pct = Math.round((g.score! / g.max_score) * 100);
+    if (statusFromPct(pct) === "critical") flag(g.student_id, `низкий результат по грамматике — ${pct}%`);
+  }
+  for (const t of recentTests ?? []) {
+    if (t.stars && statusFromStars(t.stars) === "critical") flag(t.student_id, `низкий результат теста — ★ ${t.stars}/5`);
+  }
+  const doneCountBySub: Record<string, number> = {};
+  for (const l of lessonsForSubs ?? []) {
+    if (l.subscription_id && l.deducted_amount) doneCountBySub[l.subscription_id] = (doneCountBySub[l.subscription_id] ?? 0) + 1;
+  }
+  for (const sub of activeSubs ?? []) {
+    if (sub.lesson_count == null) continue;
+    const left = sub.lesson_count - (doneCountBySub[sub.id] ?? 0);
+    if (left <= LESSONS_LEFT_ALERT) flag(sub.student_id, `абонемент заканчивается — осталось ${Math.max(0, left)}`);
+  }
+
+  const needsAttention = Array.from(reasonsByStudent.entries())
+    .map(([id, reasons]) => ({ id, name: nameMap.get(id) ?? "Ученик", reasons }))
+    .slice(0, 8);
+
+  type FeedRow = { student_id: string; event_type: string; created_at: string; students: { name: string } | { name: string }[] | null };
+  const feed = (recentActivity ?? []) as unknown as FeedRow[];
 
   return (
     <div>
@@ -179,6 +263,75 @@ export default async function DashboardPage() {
           <QuickAction icon={CalendarPlus} label="Запланировать урок"  href="/tutor/schedule" />
           <QuickAction icon={ClipboardPlus} label="Дать задание"       href="/tutor/homework/new" />
           <QuickAction icon={FolderPlus}   label="Добавить материал"   href="/tutor/materials/new" />
+        </div>
+      </div>
+
+      {/* ══════════════════════ АКТИВНОСТЬ / ТРЕБУЮТ ВНИМАНИЯ ══════════════════════ */}
+      <div className="grid sm:grid-cols-2 gap-4 mt-6">
+        <div
+          className="relative rounded-2xl p-6"
+          style={{
+            background: "rgba(253,248,242,0.85)",
+            backdropFilter: "blur(12px)",
+            boxShadow: "0 4px 28px rgba(28,10,11,0.07), inset 0 0 0 1px rgba(156,122,69,0.22)",
+          }}
+        >
+          <div className="flex items-center gap-3 mb-5">
+            <Radio size={14} style={{ color: "var(--brown-mid)" }} />
+            <p className="luxury-section-label">Активность</p>
+            <div className="flex-1 h-px" style={{ background: "rgba(156,122,69,0.18)" }} />
+            <Link href="/tutor/progress" className="text-xs font-medium hover:underline shrink-0" style={{ color: "var(--brown-mid)" }}>Прогресс →</Link>
+          </div>
+          {feed.length === 0 ? (
+            <p className="text-sm" style={{ color: "var(--brown-light)" }}>Пока не заходили.</p>
+          ) : (
+            <div className="space-y-2">
+              {feed.map((a, i) => {
+                const Icon = FEED_EVENT_ICON[a.event_type] ?? BookOpen;
+                const studentName = Array.isArray(a.students) ? a.students[0]?.name : a.students?.name;
+                const seen = formatLastSeen(a.created_at);
+                return (
+                  <div key={i} className="flex items-center gap-2.5 text-sm">
+                    <Icon size={14} className="shrink-0" style={{ color: "var(--brown-mid)" }} />
+                    <span className="font-semibold shrink-0" style={{ color: "var(--brown-dark)" }}>{studentName ?? "Ученик"}</span>
+                    <span className="flex-1 truncate" style={{ color: "var(--brown-light)" }}>{FEED_EVENT_LABELS[a.event_type] ?? a.event_type}</span>
+                    <span className="text-xs shrink-0" style={{ color: "var(--brown-light)" }}>{seen.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div
+          className="relative rounded-2xl p-6"
+          style={{
+            background: "rgba(253,248,242,0.85)",
+            backdropFilter: "blur(12px)",
+            boxShadow: "0 4px 28px rgba(28,10,11,0.07), inset 0 0 0 1px rgba(156,122,69,0.22)",
+          }}
+        >
+          <div className="flex items-center gap-3 mb-5">
+            <AlertTriangle size={14} style={{ color: "#c05a1a" }} />
+            <p className="luxury-section-label">Требуют внимания</p>
+            <div className="flex-1 h-px" style={{ background: "rgba(156,122,69,0.18)" }} />
+          </div>
+          {needsAttention.length === 0 ? (
+            <p className="text-sm" style={{ color: "var(--brown-light)" }}>Всё в порядке — никто не пропал, результаты в норме.</p>
+          ) : (
+            <div className="space-y-3">
+              {needsAttention.map(s => (
+                <Link key={s.id} href={`/tutor/progress/${s.id}`} className="block group">
+                  <p className="text-sm font-semibold group-hover:underline" style={{ color: "var(--brown-dark)" }}>{s.name}</p>
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                    {s.reasons.map((r, i) => (
+                      <span key={i} className="text-xs" style={{ color: "#c05a1a" }}>{r}</span>
+                    ))}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
