@@ -108,7 +108,7 @@ export default function ProgressTable({ rows }: { rows: ProgressRow[] }) {
               return (
                 <tr key={r.id} className="border-b last:border-0 hover:bg-black/[0.015] transition-colors" style={{ borderColor: "var(--brown-pale)" }}>
                   <td className="px-4 py-3">
-                    <Link href={`/tutor/students/${r.id}`} className="font-semibold hover:underline" style={{ color: "var(--brown-dark)" }}>
+                    <Link href={`/tutor/progress/${r.id}`} className="font-semibold hover:underline" style={{ color: "var(--brown-dark)" }}>
                       {r.name}
                     </Link>
                   </td>
