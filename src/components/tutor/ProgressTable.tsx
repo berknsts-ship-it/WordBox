@@ -12,6 +12,7 @@ export type ProgressRow = {
   lexiconDone: number;
   lexiconMasteryPct: number | null;
   grammarDone: number;
+  grammarAvgPct: number | null;
   testsDone: number;
   testsAvgStars: number | null;
   lessonsLeft: number | null;
@@ -120,6 +121,9 @@ export default function ProgressTable({ rows }: { rows: ProgressRow[] }) {
                   </td>
                   <td className="px-4 py-3" style={{ color: "var(--brown-dark)" }}>
                     {r.grammarDone} {r.grammarDone === 1 ? "набор" : "наборов"}
+                    {r.grammarAvgPct !== null && (
+                      <span className="ml-1.5 text-xs" style={{ color: "var(--brown-light)" }}>· {r.grammarAvgPct}%</span>
+                    )}
                   </td>
                   <td className="px-4 py-3" style={{ color: "var(--brown-dark)" }}>
                     {r.testsDone}

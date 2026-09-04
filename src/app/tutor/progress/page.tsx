@@ -29,7 +29,7 @@ export default async function ProgressPage() {
       .eq("tutor_id", tutorId)
       .in("event_type", ["trainer_completed", "grammar_completed"]),
     studentIds.length
-      ? supabase.from("grammar_assignments").select("student_id, status").in("student_id", studentIds)
+      ? supabase.from("grammar_assignments").select("student_id, status, score, max_score").in("student_id", studentIds)
       : Promise.resolve({ data: [] }),
     studentIds.length
       ? supabase.from("trainer_progress").select("student_id, status").in("student_id", studentIds)
@@ -59,8 +59,19 @@ export default async function ProgressPage() {
   // одно назначение = один результат, тогда как в лог могла бы попасть
   // повторная отправка.
   const grammarDoneMap: Record<string, number> = {};
+  const grammarScoreMap: Record<string, { scoreSum: number; maxSum: number }> = {};
   for (const g of grammarAssignments ?? []) {
-    if (g.status === "completed") grammarDoneMap[g.student_id] = (grammarDoneMap[g.student_id] ?? 0) + 1;
+    if (g.status !== "completed") continue;
+    grammarDoneMap[g.student_id] = (grammarDoneMap[g.student_id] ?? 0) + 1;
+    // score/max_score only exist going forward from migration_grammar_score.sql
+    // (plus a one-off backfill for whatever completed before it) — older rows
+    // that somehow still lack it just don't contribute to the percentage.
+    if (g.score != null && g.max_score) {
+      const m = grammarScoreMap[g.student_id] ?? { scoreSum: 0, maxSum: 0 };
+      m.scoreSum += g.score;
+      m.maxSum += g.max_score;
+      grammarScoreMap[g.student_id] = m;
+    }
   }
 
   // % освоенных слов в тренажёре — по всем словам, с которыми ученик
@@ -110,6 +121,9 @@ export default async function ProgressPage() {
       ? Math.round((masteryMap[s.id].mastered / masteryMap[s.id].total) * 100)
       : null,
     grammarDone: grammarDoneMap[s.id] ?? grammarDoneFromLogMap[s.id] ?? 0,
+    grammarAvgPct: grammarScoreMap[s.id] && grammarScoreMap[s.id].maxSum > 0
+      ? Math.round((grammarScoreMap[s.id].scoreSum / grammarScoreMap[s.id].maxSum) * 100)
+      : null,
     testsDone: testsMap[s.id]?.done ?? 0,
     testsAvgStars: testsMap[s.id] && testsMap[s.id].starsCount > 0
       ? testsMap[s.id].starsSum / testsMap[s.id].starsCount

@@ -202,7 +202,7 @@ export async function submitGrammarAttempt(assignmentId: string, answers: Record
   }
 
   const { error } = await db.from("grammar_assignments")
-    .update({ answers, status: "completed", updated_at: new Date().toISOString() })
+    .update({ answers, status: "completed", score, max_score: maxScore, updated_at: new Date().toISOString() })
     .eq("id", assignmentId);
   if (error) return { error: error.message };
 
