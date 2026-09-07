@@ -546,12 +546,154 @@ function GoGetter1({ o, toggle }: { o: (id: string) => boolean; toggle: (id: str
   );
 }
 
+function GoGetter2({ o, toggle }: { o: (id: string) => boolean; toggle: (id: string) => void }) {
+  return (
+    <>
+      <Section emoji="🏫" title="Present Simple, наречия частотности" unit="Unit 1 — Classmates" open={o("gg2_u1")} onToggle={() => toggle("gg2_u1")}>
+        <Tip>He/she/it добавляет -s (или -es, -ies): play→plays, watch→watches, study→studies. Отрицание: don't/doesn't. Вопросы: Do/Does…?</Tip>
+        <div className="space-y-1.5 mt-2">
+          <Ex en="She plays the piano. He doesn't like Maths." ru="Она играет на пианино. Ему не нравится математика." />
+          <Ex en="Do you play chess? Yes, I do." ru="Ты играешь в шахматы? Да." />
+        </div>
+        <Tip>Наречия частотности (always, usually, often, sometimes, never) — перед основным глаголом.</Tip>
+        <Ex en="I never listen to music at school. She is always happy." ru="Я никогда не слушаю музыку в школе. Она всегда счастлива." />
+      </Section>
+
+      <Section emoji="🍎" title="some/any, How much/How many, a lot of" unit="Unit 2 — Fun with food" open={o("gg2_u2")} onToggle={() => toggle("gg2_u2")}>
+        <Tip>Исчисляемые (an egg, two lemons) и неисчисляемые (sugar, milk) существительные. Some — в утверждении, any — в отрицании и вопросах.</Tip>
+        <div className="space-y-1.5 mt-2">
+          <Ex en="There are some sausages. There isn't any milk." ru="Есть сосиски. Молока нет." />
+          <Ex en="Are there any eggs? Yes, there are." ru="Есть яйца? Да." />
+        </div>
+        <Tip>How much + неисчисляемое, How many + исчисляемое. A lot of подходит к обоим.</Tip>
+        <Ex en="How much water is there? How many apples are there? There's a lot of juice." ru="Сколько воды? Сколько яблок? Сока много." />
+      </Section>
+
+      <Section emoji="💻" title="Present Continuous" unit="Unit 3 — Technology for all" open={o("gg2_u3")} onToggle={() => toggle("gg2_u3")}>
+        <Tip>am/is/are + глагол-ing — для действий, происходящих сейчас.</Tip>
+        <div className="space-y-1.5 mt-2">
+          <Ex en="She is chatting online. They aren't playing football." ru="Она общается онлайн. Они не играют в футбол." />
+          <Ex en="Are you doing your homework? Yes, I am." ru="Ты делаешь домашку? Да." />
+        </div>
+      </Section>
+
+      <Section emoji="🌍" title="Сравнительная и превосходная степень" unit="Unit 4 — Big world" open={o("gg2_u4")} onToggle={() => toggle("gg2_u4")}>
+        <Tip>Короткие прилагательные: +er/+est. Длинные: more/most. Исключения: good→better→best, bad→worse→worst.</Tip>
+        <div className="space-y-1.5 mt-2">
+          <Ex en="This mountain is higher than that one." ru="Эта гора выше той." />
+          <Ex en="Everest is the tallest mountain in the world." ru="Эверест — самая высокая гора в мире." />
+        </div>
+      </Section>
+
+      <Section emoji="🏙️" title="Past Simple глагола to be" unit="Unit 5 — Around town" open={o("gg2_u5")} onToggle={() => toggle("gg2_u5")}>
+        <Tip>was/were, отрицание wasn't/weren't, вопросы Was/Were…?</Tip>
+        <div className="space-y-1.5 mt-2">
+          <Ex en="There was a post office in 1900." ru="В 1900 году здесь была почта." />
+          <Ex en="The shops weren't big in the past. Was there a cinema?" ru="Магазины раньше не были большими. Было ли кино?" />
+        </div>
+      </Section>
+
+      <Section emoji="💼" title="Past Simple — правильные и неправильные глаголы" unit="Unit 6 — Just the job" open={o("gg2_u6")} onToggle={() => toggle("gg2_u6")}>
+        <Tip>Правильные глаголы: +ed (walk→walked). Неправильные меняются полностью (buy→bought, go→went) — их нужно запоминать.</Tip>
+        <div className="space-y-1.5 mt-2">
+          <Ex en="She walked the dog. I bought a new bag." ru="Она выгуляла собаку. Я купил новую сумку." />
+        </div>
+      </Section>
+
+      <Section emoji="🧳" title="Past Simple — отрицание и вопросы" unit="Unit 7 — Going places" open={o("gg2_u7")} onToggle={() => toggle("gg2_u7")}>
+        <Tip>Отрицание: didn't + глагол в начальной форме. Вопросы: Did…?</Tip>
+        <div className="space-y-1.5 mt-2">
+          <Ex en="I didn't take a tent." ru="Я не взял палатку." />
+          <Ex en="Did you go sightseeing? Yes, I did." ru="Ты осматривал достопримечательности? Да." />
+        </div>
+      </Section>
+
+      <Section emoji="🎉" title="be going to, повторение вопросов" unit="Unit 8 — Having fun" open={o("gg2_u8")} onToggle={() => toggle("gg2_u8")}>
+        <Tip>am/is/are + going to + глагол — для планов на будущее.</Tip>
+        <div className="space-y-1.5 mt-2">
+          <Ex en="We are going to go to a concert." ru="Мы собираемся пойти на концерт." />
+          <Ex en="She isn't going to visit her friend." ru="Она не собирается навещать подругу." />
+        </div>
+        <Tip>Повторение вопросов: Are you…? Does she…? Did you…? Have you got…? Can you…?</Tip>
+      </Section>
+    </>
+  );
+}
+
+function GoGetter3({ o, toggle }: { o: (id: string) => boolean; toggle: (id: string) => void }) {
+  return (
+    <>
+      <Section emoji="🏠" title="Present Continuous, глаголы состояния, Present Simple vs Continuous" unit="Unit 1 — Life at home" open={o("gg3_u1")} onToggle={() => toggle("gg3_u1")}>
+        <Tip>Глаголы состояния (like, know, want, understand) не используются в Continuous.</Tip>
+        <Ex en="I know the answer. (не am knowing)" ru="Я знаю ответ." />
+        <Tip>Present Simple — привычки и факты, Present Continuous — что происходит сейчас.</Tip>
+        <Ex en="I usually go to school by bus, but today I'm going with my dad." ru="Обычно я езжу в школу на автобусе, но сегодня еду с папой." />
+      </Section>
+
+      <Section emoji="🛍️" title="Сравнение: too, not enough, (not) as ... as" unit="Unit 2 — Shopping" open={o("gg3_u2")} onToggle={() => toggle("gg3_u2")}>
+        <Tip>too + прилагательное = «слишком» (плохо); not + прилагательное + enough = «недостаточно»; as + прилагательное + as = «такой же, как».</Tip>
+        <div className="space-y-1.5 mt-2">
+          <Ex en="These shoes are too small." ru="Эти туфли слишком малы." />
+          <Ex en="I haven't got enough money." ru="У меня недостаточно денег." />
+          <Ex en="This isn't as good as that one." ru="Это не такое хорошее, как то." />
+        </div>
+      </Section>
+
+      <Section emoji="✈️" title="Past Simple — утверждение, отрицание, вопросы" unit="Unit 3 — Going on holiday" open={o("gg3_u3")} onToggle={() => toggle("gg3_u3")}>
+        <div className="space-y-1.5 mt-2">
+          <Ex en="We went camping. She didn't enjoy the trip." ru="Мы ходили в поход. Ей не понравилась поездка." />
+          <Ex en="Did you go hiking? Yes, I did." ru="Ты ходил в поход? Да." />
+        </div>
+      </Section>
+
+      <Section emoji="📱" title="Past Continuous + when, наречия образа действия" unit="Unit 4 — Useful things" open={o("gg3_u4")} onToggle={() => toggle("gg3_u4")}>
+        <Tip>was/were + глагол-ing — действие в процессе в прошлом; when вводит другое, более короткое действие в Past Simple.</Tip>
+        <Ex en="I was using my phone when it broke." ru="Я пользовался телефоном, когда он сломался." />
+        <Tip>Наречия образа действия обычно образуются добавлением -ly: careful → carefully.</Tip>
+        <Ex en="She speaks English fluently." ru="Она бегло говорит по-английски." />
+      </Section>
+
+      <Section emoji="🏥" title="have to, should" unit="Unit 5 — Health matters" open={o("gg3_u5")} onToggle={() => toggle("gg3_u5")}>
+        <Tip>have to (has to для he/she/it) — необходимость. should — совет.</Tip>
+        <div className="space-y-1.5 mt-2">
+          <Ex en="I have to go to the doctor's." ru="Мне нужно к врачу." />
+          <Ex en="You should see a doctor." ru="Тебе стоит обратиться к врачу." />
+        </div>
+      </Section>
+
+      <Section emoji="🍳" title="Present Perfect, ever/never" unit="Unit 6 — Cooking and eating" open={o("gg3_u6")} onToggle={() => toggle("gg3_u6")}>
+        <Tip>have/has + причастие прошедшего времени — для жизненного опыта. Ever — в вопросах, never — в отрицании.</Tip>
+        <div className="space-y-1.5 mt-2">
+          <Ex en="I have tried sushi." ru="Я пробовал суши." />
+          <Ex en="Have you ever tried snails? She has never eaten sushi." ru="Ты когда-нибудь пробовал улиток? Она никогда не ела суши." />
+        </div>
+      </Section>
+
+      <Section emoji="🏡" title="Present Continuous для будущего, must/mustn't/can" unit="Unit 7 — Where I live" open={o("gg3_u7")} onToggle={() => toggle("gg3_u7")}>
+        <Tip>Present Continuous может выражать договорённость на будущее.</Tip>
+        <Ex en="We are moving house next week." ru="Мы переезжаем на следующей неделе." />
+        <Tip>must — обязанность, mustn't — запрет, can — разрешение.</Tip>
+        <Ex en="You mustn't drop litter. Can I use your phone?" ru="Нельзя мусорить. Можно воспользоваться твоим телефоном?" />
+      </Section>
+
+      <Section emoji="🙂" title="will для предсказаний, вопросительные слова" unit="Unit 8 — A happy life" open={o("gg3_u8")} onToggle={() => toggle("gg3_u8")}>
+        <Tip>will + глагол в начальной форме — предсказания о будущем.</Tip>
+        <Ex en="I think it will rain tomorrow. She won't be famous." ru="Думаю, завтра пойдёт дождь. Она не станет знаменитой." />
+        <Tip>Вопросительные слова: Where, Who, Why, How, When.</Tip>
+        <Ex en="Where do you live? Why do you want to be a doctor?" ru="Где ты живёшь? Почему ты хочешь стать врачом?" />
+      </Section>
+    </>
+  );
+}
+
 // ─── главный компонент ────────────────────────────────────────────────────────
 
 const TEXTBOOK_LABELS: Record<string, string> = {
   english_file_elementary: "English File Elementary",
   solutions_elementary:    "Solutions 3rd Ed. Elementary",
   go_getter_1:             "Go Getter 1",
+  go_getter_2:             "Go Getter 2",
+  go_getter_3:             "Go Getter 3",
 };
 
 export default function GrammarTab({ textbook }: { textbook: string | null }) {
@@ -577,6 +719,8 @@ export default function GrammarTab({ textbook }: { textbook: string | null }) {
       {textbook === "english_file_elementary" && <EnglishFileElementary o={o} toggle={toggle} />}
       {textbook === "solutions_elementary"    && <SolutionsElementary   o={o} toggle={toggle} />}
       {textbook === "go_getter_1"             && <GoGetter1            o={o} toggle={toggle} />}
+      {textbook === "go_getter_2"             && <GoGetter2            o={o} toggle={toggle} />}
+      {textbook === "go_getter_3"             && <GoGetter3            o={o} toggle={toggle} />}
     </div>
   );
 }

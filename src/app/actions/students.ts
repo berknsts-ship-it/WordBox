@@ -9,6 +9,50 @@ function generateCode(): string {
   return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
 }
 
+// Same folder names actually used in vocabulary_folders (see supabase table —
+// no migration file tracks these, they were created by hand/by earlier
+// scripts). Keep in sync with TextbookForm.tsx's dropdown values.
+const TEXTBOOK_FOLDER_NAMES: Record<string, string> = {
+  english_file_elementary: "English File Elementary",
+  solutions_elementary: "Solutions Elementary",
+  go_getter_1: "Go Getter 1",
+  go_getter_2: "Go Getter 2",
+  go_getter_3: "Go Getter 3",
+};
+
+// The textbook field is one dropdown, but three separate systems key off it
+// today: the static grammar reference (GrammarTab, matched purely by string —
+// unaffected by this), the vocabulary/trainer library, and (deliberately not
+// touched here) the grammar exercise library, which she wants to keep
+// assigned by hand per student regardless of textbook. This closes the vocab
+// side: picking a textbook auto-assigns that textbook's vocabulary sets. It
+// only ever adds — switching textbooks later never un-assigns the old sets,
+// so nothing already given to a student disappears.
+async function assignTextbookVocab(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  studentId: string,
+  tutorId: string,
+  textbook: string | null
+) {
+  if (!textbook) return;
+  const folderName = TEXTBOOK_FOLDER_NAMES[textbook];
+  if (!folderName) return;
+
+  const { data: folder } = await supabase.from("vocabulary_folders")
+    .select("id").eq("tutor_id", tutorId).eq("name", folderName).maybeSingle();
+  if (!folder) return;
+
+  const { data: sets } = await supabase.from("vocabulary_sets").select("id").eq("folder_id", folder.id);
+  if (!sets || sets.length === 0) return;
+
+  const { data: existing } = await supabase.from("set_assignments")
+    .select("set_id").eq("student_id", studentId).in("set_id", sets.map(s => s.id));
+  const existingIds = new Set((existing ?? []).map(r => r.set_id));
+
+  const toInsert = sets.filter(s => !existingIds.has(s.id)).map(s => ({ set_id: s.id, student_id: studentId }));
+  if (toInsert.length > 0) await supabase.from("set_assignments").insert(toInsert);
+}
+
 export async function createStudent(formData: FormData) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -56,6 +100,7 @@ export async function addStudent(formData: FormData) {
     .single();
 
   if (error) throw new Error(error.message);
+  await assignTextbookVocab(supabase, data.id, user.id, textbook);
   redirect(`/tutor/students/${data.id}`);
 }
 
@@ -68,8 +113,11 @@ export async function updateCanvasUrl(id: string, formData: FormData) {
 
 export async function updateTextbook(id: string, formData: FormData) {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
   const textbook = (formData.get("textbook") as string) || null;
   await supabase.from("students").update({ textbook }).eq("id", id);
+  await assignTextbookVocab(supabase, id, user.id, textbook);
   revalidatePath(`/tutor/students/${id}`);
 }
 

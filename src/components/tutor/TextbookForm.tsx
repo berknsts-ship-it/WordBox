@@ -8,6 +8,8 @@ const TEXTBOOKS = [
   { value: "english_file_elementary", label: "English File Elementary" },
   { value: "solutions_elementary",    label: "Solutions 3rd Ed. Elementary" },
   { value: "go_getter_1",             label: "Go Getter 1" },
+  { value: "go_getter_2",             label: "Go Getter 2" },
+  { value: "go_getter_3",             label: "Go Getter 3" },
 ];
 
 export function TextbookForm({ studentId, current }: { studentId: string; current: string | null }) {
@@ -23,26 +25,31 @@ export function TextbookForm({ studentId, current }: { studentId: string; curren
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex items-center gap-3">
-      <select
-        name="textbook"
-        defaultValue={current ?? ""}
-        className="flex-1 rounded-xl px-3 py-2 text-sm focus:outline-none"
-        style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
-      >
-        <option value="">— не выбран —</option>
-        {TEXTBOOKS.map(t => (
-          <option key={t.value} value={t.value}>{t.label}</option>
-        ))}
-      </select>
-      <button
-        type="submit"
-        disabled={pending}
-        className="px-4 py-2 rounded-xl text-sm font-semibold text-white shrink-0 hover:opacity-90 transition-all"
-        style={{ background: "var(--gradient-primary)", opacity: pending ? 0.65 : 1 }}
-      >
-        {pending ? "Сохраняем..." : "Сохранить"}
-      </button>
-    </form>
+    <div className="space-y-1.5">
+      <form onSubmit={handleSubmit} className="flex items-center gap-3">
+        <select
+          name="textbook"
+          defaultValue={current ?? ""}
+          className="flex-1 rounded-xl px-3 py-2 text-sm focus:outline-none"
+          style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
+        >
+          <option value="">— не выбран —</option>
+          {TEXTBOOKS.map(t => (
+            <option key={t.value} value={t.value}>{t.label}</option>
+          ))}
+        </select>
+        <button
+          type="submit"
+          disabled={pending}
+          className="px-4 py-2 rounded-xl text-sm font-semibold text-white shrink-0 hover:opacity-90 transition-all"
+          style={{ background: "var(--gradient-primary)", opacity: pending ? 0.65 : 1 }}
+        >
+          {pending ? "Сохраняем..." : "Сохранить"}
+        </button>
+      </form>
+      <p className="text-xs" style={{ color: "var(--brown-light)" }}>
+        Подключит справочник по грамматике и словарь этого учебника ученику — уже назначенное не убирается.
+      </p>
+    </div>
   );
 }
