@@ -4,15 +4,16 @@ import { useTransition } from "react";
 import { updateTextbook } from "@/app/actions/students";
 import { showToast } from "@/components/ui/toaster";
 
-const TEXTBOOKS = [
-  { value: "english_file_elementary", label: "English File Elementary" },
-  { value: "solutions_elementary",    label: "Solutions 3rd Ed. Elementary" },
-  { value: "go_getter_1",             label: "Go Getter 1" },
-  { value: "go_getter_2",             label: "Go Getter 2" },
-  { value: "go_getter_3",             label: "Go Getter 3" },
-];
+export type TextbookOption = { value: string; label: string };
 
-export function TextbookForm({ studentId, current }: { studentId: string; current: string | null }) {
+export function TextbookForm({ studentId, current, options }: {
+  studentId: string;
+  current: string | null;
+  // Derived from the tutor's actual vocabulary_folders (see students/[id]/page.tsx)
+  // rather than a hardcoded list — a new folder becomes selectable here with no
+  // code change.
+  options: TextbookOption[];
+}) {
   const [pending, startTransition] = useTransition();
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -34,7 +35,7 @@ export function TextbookForm({ studentId, current }: { studentId: string; curren
           style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
         >
           <option value="">— не выбран —</option>
-          {TEXTBOOKS.map(t => (
+          {options.map(t => (
             <option key={t.value} value={t.value}>{t.label}</option>
           ))}
         </select>

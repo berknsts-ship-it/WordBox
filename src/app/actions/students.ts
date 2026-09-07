@@ -3,22 +3,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { slugifyTextbookName } from "@/lib/textbookSlug";
 
 function generateCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
 }
-
-// Same folder names actually used in vocabulary_folders (see supabase table —
-// no migration file tracks these, they were created by hand/by earlier
-// scripts). Keep in sync with TextbookForm.tsx's dropdown values.
-const TEXTBOOK_FOLDER_NAMES: Record<string, string> = {
-  english_file_elementary: "English File Elementary",
-  solutions_elementary: "Solutions Elementary",
-  go_getter_1: "Go Getter 1",
-  go_getter_2: "Go Getter 2",
-  go_getter_3: "Go Getter 3",
-};
 
 // The textbook field is one dropdown, but three separate systems key off it
 // today: the static grammar reference (GrammarTab, matched purely by string —
@@ -28,6 +18,11 @@ const TEXTBOOK_FOLDER_NAMES: Record<string, string> = {
 // side: picking a textbook auto-assigns that textbook's vocabulary sets. It
 // only ever adds — switching textbooks later never un-assigns the old sets,
 // so nothing already given to a student disappears.
+//
+// The textbook code is just slugify(folder name) — no hardcoded name map to
+// maintain. A brand-new vocabulary folder becomes selectable the moment it's
+// created, with no code change; only its grammar reference page (GrammarTab)
+// still needs to be written by hand, since that's real authored content.
 async function assignTextbookVocab(
   supabase: Awaited<ReturnType<typeof createClient>>,
   studentId: string,
@@ -35,11 +30,8 @@ async function assignTextbookVocab(
   textbook: string | null
 ) {
   if (!textbook) return;
-  const folderName = TEXTBOOK_FOLDER_NAMES[textbook];
-  if (!folderName) return;
-
-  const { data: folder } = await supabase.from("vocabulary_folders")
-    .select("id").eq("tutor_id", tutorId).eq("name", folderName).maybeSingle();
+  const { data: folders } = await supabase.from("vocabulary_folders").select("id, name").eq("tutor_id", tutorId);
+  const folder = (folders ?? []).find(f => slugifyTextbookName(f.name) === textbook);
   if (!folder) return;
 
   const { data: sets } = await supabase.from("vocabulary_sets").select("id").eq("folder_id", folder.id);

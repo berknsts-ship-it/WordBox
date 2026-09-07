@@ -7,8 +7,9 @@ import SubscriptionCard from "@/components/tutor/SubscriptionCard";
 import CreateSubscriptionForm from "@/components/tutor/CreateSubscriptionForm";
 import LessonHistoryCard from "@/components/tutor/LessonHistoryCard";
 import DeleteSubscriptionButton from "@/components/tutor/DeleteSubscriptionButton";
-import { TextbookForm } from "@/components/tutor/TextbookForm";
+import { TextbookForm, type TextbookOption } from "@/components/tutor/TextbookForm";
 import { CanvasUrlForm } from "@/components/tutor/CanvasUrlForm";
+import { slugifyTextbookName } from "@/lib/textbookSlug";
 
 export default async function StudentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -18,12 +19,20 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
   const tutorId = user!.id;
   const db = createAdminClient();
 
-  const [{ data: student }, { data: subscriptions }] = await Promise.all([
+  const [{ data: student }, { data: subscriptions }, { data: vocabFolders }] = await Promise.all([
     db.from("students").select("*").eq("id", id).eq("tutor_id", tutorId).single(),
     db.from("student_subscriptions").select("*").eq("student_id", id).eq("tutor_id", tutorId).order("created_at", { ascending: false }),
+    db.from("vocabulary_folders").select("name").eq("tutor_id", tutorId).order("name"),
   ]);
 
   if (!student) redirect("/tutor/students");
+
+  // Textbook options come straight from whatever vocabulary folders actually
+  // exist — a new folder is selectable here immediately, no code change.
+  const textbookOptions: TextbookOption[] = (vocabFolders ?? []).map(f => ({
+    value: slugifyTextbookName(f.name),
+    label: f.name,
+  }));
 
   const activeSub = subscriptions?.find(s => s.status === "active") ?? null;
 
@@ -77,7 +86,7 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
         style={{ background: "white", borderColor: "var(--brown-pale)" }}>
         <p className="text-xs font-semibold uppercase tracking-wider mb-3"
           style={{ color: "var(--brown-light)" }}>Учебник</p>
-        <TextbookForm studentId={id} current={student.textbook ?? null} />
+        <TextbookForm studentId={id} current={student.textbook ?? null} options={textbookOptions} />
       </div>
 
       {/* Внешняя доска (Miro и т.п.) — ссылка появится кнопкой «Внешняя» на доске ученика */}
