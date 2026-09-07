@@ -9,7 +9,7 @@ const BoardTab = dynamic(
   { ssr: false, loading: () => <div className="flex-1 animate-pulse" style={{ background: "#e8e8e8" }} /> }
 );
 
-export default function BoardPageClient({ studentId, myName }: { studentId: string; myName?: string }) {
+export default function BoardPageClient({ studentId, myName, boardUrl }: { studentId: string; myName?: string; boardUrl?: string | null }) {
   // The student layout's <main> has position:relative + an explicit z-index,
   // which makes it its own stacking context — trapping this div's z-50
   // underneath the layout's sticky header (z-20) no matter how high a
@@ -23,7 +23,7 @@ export default function BoardPageClient({ studentId, myName }: { studentId: stri
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex flex-col" style={{ background: "#e8e8e8" }}>
-      <BoardTab studentId={studentId} role="student" myName={myName} />
+      <BoardTab studentId={studentId} role="student" myName={myName} boardUrl={boardUrl ?? null} />
     </div>,
     document.body
   );

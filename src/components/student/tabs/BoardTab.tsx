@@ -101,35 +101,40 @@ export default function BoardTab({
       "--brown-light": "#7A6050",
       "--brown-pale":  "rgba(156,122,69,0.22)",
     } as React.CSSProperties}>
-      {/* Toolbar */}
-      {role === "tutor" && (
+      {/* Toolbar — full editing bar for the tutor; students only ever get the
+          external-board link here (if one's set), never the save/history
+          controls, so the bar itself only renders for them when there's a
+          link to show. */}
+      {(role === "tutor" || boardUrl) && (
         <div className="flex items-center gap-2 px-3 py-2 border-b flex-wrap shrink-0"
           style={{ borderColor: "var(--brown-pale)", background: "white" }}>
-          {showSaveForm ? (
-            <div className="flex items-center gap-2">
-              <input value={saveTitle} onChange={e => setSaveTitle(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && handleSave()}
-                placeholder={new Date().toLocaleDateString("ru", { day: "numeric", month: "long" })}
-                autoFocus
-                className="text-sm px-3 py-1 rounded-lg border outline-none"
-                style={{ borderColor: "var(--brown-pale)", color: "var(--brown-dark)", width: 200 }} />
-              <button onClick={handleSave} disabled={saving}
-                className="flex items-center gap-1 text-sm px-3 py-1 rounded-lg font-medium text-white"
-                style={{ background: "var(--gradient-primary)", opacity: saving ? 0.6 : 1 }}>
-                <Save size={13}/> {saving ? "Сохраняю..." : "Сохранить"}
+          {role === "tutor" && (
+            showSaveForm ? (
+              <div className="flex items-center gap-2">
+                <input value={saveTitle} onChange={e => setSaveTitle(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && handleSave()}
+                  placeholder={new Date().toLocaleDateString("ru", { day: "numeric", month: "long" })}
+                  autoFocus
+                  className="text-sm px-3 py-1 rounded-lg border outline-none"
+                  style={{ borderColor: "var(--brown-pale)", color: "var(--brown-dark)", width: 200 }} />
+                <button onClick={handleSave} disabled={saving}
+                  className="flex items-center gap-1 text-sm px-3 py-1 rounded-lg font-medium text-white"
+                  style={{ background: "var(--gradient-primary)", opacity: saving ? 0.6 : 1 }}>
+                  <Save size={13}/> {saving ? "Сохраняю..." : "Сохранить"}
+                </button>
+                <button onClick={() => setShowSaveForm(false)}
+                  className="text-sm px-2 py-1 rounded-lg border"
+                  style={{ borderColor: "var(--brown-pale)", color: "var(--brown-light)" }}>
+                  Отмена
+                </button>
+              </div>
+            ) : (
+              <button onClick={() => setShowSaveForm(true)}
+                className="flex items-center gap-1.5 text-sm px-3 py-1 rounded-lg font-medium border-2 hover:opacity-80"
+                style={{ borderColor: "var(--brown-mid)", color: "var(--brown-mid)" }}>
+                <Save size={13}/> Сохранить конспект
               </button>
-              <button onClick={() => setShowSaveForm(false)}
-                className="text-sm px-2 py-1 rounded-lg border"
-                style={{ borderColor: "var(--brown-pale)", color: "var(--brown-light)" }}>
-                Отмена
-              </button>
-            </div>
-          ) : (
-            <button onClick={() => setShowSaveForm(true)}
-              className="flex items-center gap-1.5 text-sm px-3 py-1 rounded-lg font-medium border-2 hover:opacity-80"
-              style={{ borderColor: "var(--brown-mid)", color: "var(--brown-mid)" }}>
-              <Save size={13}/> Сохранить конспект
-            </button>
+            )
           )}
 
           <div className="flex items-center gap-2 ml-auto">
@@ -140,16 +145,18 @@ export default function BoardTab({
                 🔗 Внешняя
               </a>
             )}
-            <button onClick={() => setShowHistory(h => !h)}
-              className="flex items-center gap-1.5 text-sm px-3 py-1 rounded-lg font-medium border-2 hover:opacity-80"
-              style={{
-                borderColor: showHistory ? "var(--brown-dark)" : "var(--brown-pale)",
-                color: "var(--brown-dark)",
-                background: showHistory ? "var(--brown-pale)" : "transparent",
-              }}>
-              <BookOpen size={13}/> История {snapshots.length > 0 && `(${snapshots.length})`}
-              <ChevronRight size={12} style={{ transform: showHistory ? "rotate(90deg)" : "none", transition: "transform 0.2s" }} />
-            </button>
+            {role === "tutor" && (
+              <button onClick={() => setShowHistory(h => !h)}
+                className="flex items-center gap-1.5 text-sm px-3 py-1 rounded-lg font-medium border-2 hover:opacity-80"
+                style={{
+                  borderColor: showHistory ? "var(--brown-dark)" : "var(--brown-pale)",
+                  color: "var(--brown-dark)",
+                  background: showHistory ? "var(--brown-pale)" : "transparent",
+                }}>
+                <BookOpen size={13}/> История {snapshots.length > 0 && `(${snapshots.length})`}
+                <ChevronRight size={12} style={{ transform: showHistory ? "rotate(90deg)" : "none", transition: "transform 0.2s" }} />
+              </button>
+            )}
           </div>
         </div>
       )}

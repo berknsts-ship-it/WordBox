@@ -11,11 +11,11 @@ export default async function StudentBoardPage({
   const supabase = await createClient();
   const { data: student } = await supabase
     .from("students")
-    .select("id, name")
+    .select("id, name, canvas_url")
     .eq("access_code", code)
     .single();
 
   if (!student) notFound();
 
-  return <BoardPageClient studentId={student.id} myName={student.name} />;
+  return <BoardPageClient studentId={student.id} myName={student.name} boardUrl={student.canvas_url ?? null} />;
 }

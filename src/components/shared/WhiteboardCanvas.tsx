@@ -2076,7 +2076,11 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
             const wy = e.key==="ArrowUp"   ? -nudge : e.key==="ArrowDown"  ? nudge : 0;
             for (const id of ids) {
               const idx = itemsRef.current.findIndex(i => i.id === id);
-              if (idx >= 0) {
+              // Locked items don't budge — this was the actual hole a lock
+              // could be nudged through: grab-to-drag already checked
+              // .locked, but a selected-then-locked item could still be
+              // walked away with the arrow keys.
+              if (idx >= 0 && !itemsRef.current[idx].locked) {
                 const next = shiftItem(itemsRef.current[idx], wx, wy);
                 itemsRef.current[idx] = next;
                 send({ type:"update", item: next });
@@ -2456,6 +2460,23 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     inertiaRef.current = { vx, vy, rafId: requestAnimationFrame(step) };
   };
 
+  // Shared entry point for "open the text editor on this existing item" —
+  // used by the Text tool's click-to-edit, the selection's pencil button,
+  // and double-click. Was three near-identical copies; kept in one place.
+  const startTextEdit = (ti: TextItem) => {
+    editingIdRef.current = ti.id; setEditingId(ti.id); draftIdRef.current = ti.id;
+    setTextInput({ wx: ti.x, wy: ti.y }); setTextValue(ti.text);
+    setBold(ti.bold); setItalic(ti.italic); setAlign(ti.align); setFontSize(ti.fontSize);
+    const fi = FONTS.findIndex(f => f.family === ti.font); setFontIdx(fi >= 0 ? fi : 0);
+    render(); // hide original from canvas immediately
+    setTimeout(() => {
+      const ta = textRef.current; if (!ta) return;
+      ta.focus();
+      ta.dispatchEvent(new Event("input")); // trigger auto-size
+      ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px";
+    }, 30);
+  };
+
   // ── pointer down ─────────────────────────────────────────────────────────────
   const onMouseDown = (e: React.MouseEvent) => {
     if (textInput !== null) { commitText(); return; }
@@ -2486,7 +2507,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
       // Resize handle on single selected text
       if (selectedId && selectedIds.size <= 1) {
         const selItem = itemsRef.current.find(i => i.id === selectedId);
-        if (selItem?.type === "text") {
+        if (selItem?.type === "text" && !selItem.locked) {
           const tb = textBounds(selItem as TextItem);
           const hs = w2s(tb.x1, tb.y1);
           if (Math.hypot(cx - hs.x, cy - hs.y) < 14) {
@@ -2538,17 +2559,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
       for (let i = itemsRef.current.length - 1; i >= 0; i--) {
         const it = itemsRef.current[i];
         if (it.type === "text" && hitTest(it, w.x, w.y)) {
-          const ti = it as TextItem;
-          editingIdRef.current = ti.id; setEditingId(ti.id); draftIdRef.current = ti.id;
-          setTextInput({ wx: ti.x, wy: ti.y }); setTextValue(ti.text);
-          setBold(ti.bold); setItalic(ti.italic); setAlign(ti.align); setFontSize(ti.fontSize);
-          const fi = FONTS.findIndex(f => f.family === ti.font); setFontIdx(fi >= 0 ? fi : 0);
-          render(); // hide original from canvas immediately
-          setTimeout(() => {
-            const ta = textRef.current; if (!ta) return;
-            ta.focus();
-            ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px";
-          }, 30); return;
+          startTextEdit(it as TextItem); return;
         }
       }
       draftIdRef.current = uid(); setTextInput({ wx: w.x, wy: w.y }); setTextValue("");
@@ -2631,6 +2642,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
         }
       }
       for (const [id, orig] of origItems) {
+        if (orig.locked) continue; // group drag skips any locked member, same as a solo drag would
         const idx = itemsRef.current.findIndex(i => i.id === id);
         if (idx >= 0) itemsRef.current[idx] = shiftItem(orig, ddx, ddy);
       }
@@ -2781,7 +2793,12 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
       const minSize = 4;
       if (x1 - x0 > minSize || y1 - y0 > minSize) {
         const caught = itemsRef.current.filter(item => {
-          if (item.locked) return false;
+          // Students still can't box-select a locked item (matches the
+          // single-click rule below). Tutors can — otherwise a locked item
+          // that ends up fully covered by something else has no path back:
+          // a precise click always resolves to whatever's on top, and this
+          // was the only other way to reach an item regardless of z-order.
+          if (item.locked && role !== "tutor") return false;
           const b = itemBounds(item);
           // item must be fully inside or at least overlapping the selection box
           return b.x1 >= x0 && b.x0 <= x1 && b.y1 >= y0 && b.y0 <= y1;
@@ -4661,6 +4678,15 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           const { cx, cy } = clientXY(e as unknown as React.MouseEvent);
           const w = s2w(cx, cy);
           const hit = [...itemsRef.current].reverse().find(item => hitTest(item, w.x, w.y));
+          // Double-click an existing text item → edit it (previously this
+          // hit the plainCanvasTypes gate below and silently did nothing —
+          // editing a text item required the Text tool or hunting for the
+          // small pencil button on its selection box).
+          if (hit?.type === "text") {
+            if (hit.locked && role !== "tutor") return;
+            startTextEdit(hit as TextItem);
+            return;
+          }
           const plainCanvasTypes = new Set(["image", "frame", "shape", "path"]);
           if (hit && !plainCanvasTypes.has(hit.type)) return;
           draftIdRef.current = uid(); setTextInput({ wx: w.x, wy: w.y }); setTextValue("");
@@ -5327,20 +5353,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                   onMouseDown={e => e.stopPropagation()}
                   onTouchStart={e => e.stopPropagation()}
                   onTouchEnd={e=>{e.preventDefault();e.stopPropagation();(e.currentTarget as HTMLButtonElement).click();}}
-                  onClick={() => {
-                    const ti = selectedItem as TextItem;
-                    editingIdRef.current = ti.id; setEditingId(ti.id); draftIdRef.current = ti.id;
-                    setTextInput({ wx:ti.x, wy:ti.y }); setTextValue(ti.text);
-                    setBold(ti.bold); setItalic(ti.italic); setAlign(ti.align); setFontSize(ti.fontSize);
-                    const fi = FONTS.findIndex(f => f.family === ti.font); setFontIdx(fi>=0?fi:0);
-                    render(); // hide original from canvas immediately
-                    setTimeout(() => {
-                      const ta = textRef.current; if (!ta) return;
-                      ta.focus();
-                      ta.dispatchEvent(new Event("input")); // trigger auto-size
-                      ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px";
-                    }, 30);
-                  }}>
+                  onClick={() => startTextEdit(selectedItem as TextItem)}>
                   <Pencil size={14} color="white"/>
                 </button>
               )}
