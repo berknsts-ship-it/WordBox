@@ -1979,28 +1979,20 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
         const factor = Math.exp(-e.deltaY * 0.008);
         const clamped = Math.max(0.7, Math.min(1.4, factor));
         zoomAt(cx, cy, clamped);
-      } else {
-        // Trackpad two-finger swipe = pan; mouse wheel = zoom. Previously
-        // guessed this from deltaY's magnitude/deltaMode, which was
-        // unreliable — a plain mouse wheel notch can easily land under
-        // that threshold too, so it kept misfiring between pan and zoom
-        // depending on how hard/fast the wheel was spun. deltaX is a much
-        // more solid signal: a physical mouse wheel is mechanically
-        // vertical-only and can never report a nonzero deltaX, while a
-        // real two-finger swipe (or Shift+wheel, which browsers already
-        // remap to horizontal) always has at least a little.
-        const isTrackpad = e.deltaX !== 0;
-        if (isTrackpad) {
-          // Cancel any running inertia
-          if (inertiaRef.current) { cancelAnimationFrame(inertiaRef.current.rafId); inertiaRef.current = null; }
-          const { zoom, panX, panY } = viewRef.current;
-          applyView(zoom, panX - e.deltaX, panY - e.deltaY);
-        } else {
-          // Mouse wheel = zoom at cursor
-          const factor = e.deltaY < 0 ? 1.08 : 1 / 1.08;
-          zoomAt(cx, cy, factor);
-        }
+        return;
       }
+
+      // Plain wheel (any device) always pans — same convention as Figma/
+      // Miro/Excalidraw, and it sidesteps guessing "mouse or trackpad" at
+      // all. The previous guess (deltaX !== 0 => trackpad, else => zoom
+      // the mouse wheel) flipped mid-gesture: a near-vertical two-finger
+      // swipe still produces plenty of individual coalesced wheel samples
+      // with deltaX exactly 0, and each one of those briefly zoomed instead
+      // of panning — that's the "edging/zooming/jittering all at once"
+      // feeling on a trackpad, not a one-off glitch.
+      if (inertiaRef.current) { cancelAnimationFrame(inertiaRef.current.rafId); inertiaRef.current = null; }
+      const { zoom, panX, panY } = viewRef.current;
+      applyView(zoom, panX - e.deltaX, panY - e.deltaY);
     };
     el.addEventListener("wheel", h, { passive: false });
     return () => el.removeEventListener("wheel", h);
