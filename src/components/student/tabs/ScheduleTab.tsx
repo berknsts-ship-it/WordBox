@@ -6,7 +6,7 @@ export default async function ScheduleTab({ studentId }: { studentId: string }) 
   const supabase = await createClient();
   const { data: lessons } = await supabase
     .from("lessons")
-    .select("id, date, duration_minutes, topic, status")
+    .select("id, date, duration_min, topic, status")
     .eq("student_id", studentId)
     .eq("status", "scheduled")
     .gte("date", new Date().toISOString())
@@ -59,7 +59,7 @@ export default async function ScheduleTab({ studentId }: { studentId: string }) 
                 </span>
                 <span className="flex items-center gap-1 text-xs" style={{ color: "var(--brown-light)" }}>
                   <Clock size={11} />
-                  {lesson.duration_minutes} мин
+                  {lesson.duration_min ?? 60} мин
                 </span>
               </div>
             </div>

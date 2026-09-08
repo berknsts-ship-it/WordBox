@@ -5,7 +5,7 @@ export default async function JournalTab({ studentId }: { studentId: string }) {
   const supabase = await createClient();
   const { data: lessons } = await supabase
     .from("lessons")
-    .select("id, date, topic, notes, duration_minutes")
+    .select("id, date, topic, notes, duration_min")
     .eq("student_id", studentId)
     .eq("status", "completed")
     .order("date", { ascending: false });
@@ -60,7 +60,7 @@ export default async function JournalTab({ studentId }: { studentId: string }) {
                   </span>
                   <span className="flex items-center gap-1 text-xs" style={{ color: "var(--brown-light)" }}>
                     <Clock size={10} />
-                    {lesson.duration_minutes} мин
+                    {lesson.duration_min ?? 60} мин
                   </span>
                 </div>
               </div>
