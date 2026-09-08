@@ -439,7 +439,16 @@ function measureTextItem(item: TextItem) {
   cv.font = `${item.italic?"italic ":""}${item.bold?"bold ":""}${item.fontSize}px ${item.font}`;
   const lines = item.text.split("\n");
   const w = Math.max(40, ...lines.map(l => cv.measureText(l).width));
-  return { w, h: lines.length * item.fontSize * 1.4 };
+  // Each line's rendered box is fontSize*1.4 tall (matches renderText's own
+  // lineH, so internal multi-line spacing here still lines up with what's
+  // drawn) — except the last, which doesn't need that trailing leading below
+  // its own glyphs. Without this, a single-line item's hit/selection box
+  // reached noticeably below its visible text, so two separate text items
+  // stacked closer together than that padding (matching a worksheet's tight
+  // line spacing) had overlapping hitboxes — clicking the lower one would
+  // resolve to whichever was later in z-order instead, usually the one above.
+  const h = (lines.length - 1) * item.fontSize * 1.4 + item.fontSize * 1.15;
+  return { w, h };
 }
 function textBounds(item: TextItem) {
   const { w, h } = measureTextItem(item);
