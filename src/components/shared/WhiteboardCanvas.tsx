@@ -4174,6 +4174,13 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   // closes all sidebar popups (shape/frame/emoji panels)
   const closeSidePanels = () => { setShowShapeMenu(false); setShowFrameMenu(false); setShowEmojiPicker(false); };
   const pickTool = (t: Tool) => {
+    // Switching tools mid-edit (e.g. clicking Pen while a text box is open)
+    // never closed the text editor — its overlay is keyed off textInput,
+    // not the active tool, so the box (and its blue frame) stayed stuck on
+    // screen with no way to dismiss it. The mobile toolbar already guarded
+    // its own calls with commitText(); the desktop sidebar buttons below
+    // call pickTool() directly, so the guard belongs here instead.
+    commitText();
     liveShapeRef.current = null;
     livePathRef.current = null;
     eraserActiveRef.current = false;
