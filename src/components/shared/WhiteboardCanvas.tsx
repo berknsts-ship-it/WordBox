@@ -1514,6 +1514,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   const laserTimer        = useRef<ReturnType<typeof setTimeout>|null>(null);
   const ownLaserTimer     = useRef<ReturnType<typeof setTimeout>|null>(null);
   const remoteCursorTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const remoteDraftTimers  = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const cursorThrottle    = useRef(0);
 
   // pdf
@@ -2249,17 +2250,43 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
         if (payload.type === "text_typing") {
           const { id, x, y, text, font, fontSize, color, bold, italic, align } = payload;
           remoteDraftsRef.current.set(id, { x, y, text, font, fontSize, color, bold, italic, align });
+          // Safety net: normally this draft is cleared by a matching
+          // text_typing_cancel or path/update broadcast when the other
+          // person finishes. If that message never arrives — a dropped
+          // packet, a brief Realtime reconnect, their tab closing mid-edit —
+          // nothing else ever clears it, so it sat there as a translucent
+          // ghost at its old position forever. Once the real item later got
+          // moved, the ghost stayed put and looked exactly like a duplicate.
+          // Same expiry pattern already used for remote cursors below.
+          const existingTimer = remoteDraftTimers.current.get(id);
+          if (existingTimer) clearTimeout(existingTimer);
+          remoteDraftTimers.current.set(id, setTimeout(() => {
+            remoteDraftsRef.current.delete(id);
+            remoteDraftTimers.current.delete(id);
+            render();
+          }, 8000));
           render(); return;
         }
         if (payload.type === "text_typing_cancel") {
+          const t = remoteDraftTimers.current.get(payload.id);
+          if (t) { clearTimeout(t); remoteDraftTimers.current.delete(payload.id); }
           remoteDraftsRef.current.delete(payload.id);
           render(); return;
         }
         if (payload.type === "path") {
           if (payload.item.type === "image") console.log("[board] received image item", payload.item.id, "url-len:", (payload.item as {url:string}).url?.length ?? 0);
+          { const t = remoteDraftTimers.current.get(payload.item.id); if (t) { clearTimeout(t); remoteDraftTimers.current.delete(payload.item.id); } }
           remoteDraftsRef.current.delete(payload.item.id);
           remotePathsRef.current.delete(payload.item.id);
-          itemsRef.current.push(payload.item); render(); setPanVer(v => v + 1); return;
+          // Upsert, not a blind push — if this exact "new item" broadcast
+          // ever arrives twice (a Realtime redelivery, a double-send on the
+          // sender's end), pushing unconditionally would leave two entries
+          // sharing one id, rendered as an on-screen duplicate with no way
+          // to tell them apart or delete just one.
+          const existingIdx = itemsRef.current.findIndex(it => it.id === payload.item.id);
+          if (existingIdx >= 0) itemsRef.current[existingIdx] = payload.item;
+          else itemsRef.current.push(payload.item);
+          render(); setPanVer(v => v + 1); return;
         }
         if (payload.type === "remove") {
           // Targeted removal — filters out just these ids, leaving every
@@ -2274,6 +2301,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           return;
         }
         if (payload.type === "update") {
+          { const t = remoteDraftTimers.current.get(payload.item.id); if (t) { clearTimeout(t); remoteDraftTimers.current.delete(payload.item.id); } }
           remoteDraftsRef.current.delete(payload.item.id);
           const idx = itemsRef.current.findIndex(it => it.id === payload.item.id);
           if (idx >= 0) { itemsRef.current[idx] = payload.item; render(); setPanVer(v => v + 1); }
