@@ -1886,6 +1886,9 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
 
   // ── view helpers ─────────────────────────────────────────────────────────────
   const applyView = useCallback((zoom: number, panX: number, panY: number) => {
+    // TEMP DEBUG — every view change, to check for involuntary pan/zoom
+    // drift during a double-click-to-add-text gesture. Remove after use.
+    console.log("[VIEW-DEBUG]", { zoom, panX, panY, t: Date.now() });
     viewRef.current = { zoom, panX, panY };
     // setVpZoom alone doesn't reliably force a re-render during a pure pan
     // (zoom% unchanged ⇒ React bails out on the identical primitive), which
@@ -2495,6 +2498,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     stopInertia();
     if (e.button === 1 || e.button === 2 || spaceRef.current || tool === "hand") {
       const { cx, cy } = clientXY(e);
+      console.log("[CLICK-DEBUG] mousedown → PAN branch", { cx, cy, button: e.button, t: Date.now() });
       panning.current = true;
       panOrigin.current = { cx, cy, vx: viewRef.current.panX, vy: viewRef.current.panY };
       lastPanPt.current = { cx, cy, t: Date.now() };
@@ -2502,6 +2506,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     }
     if (e.button !== 0) return;
     const { cx, cy } = clientXY(e);
+    console.log("[CLICK-DEBUG] mousedown", { cx, cy, t: Date.now() });
     const w = s2w(cx, cy);
 
     if (tool === "select") {
@@ -2560,11 +2565,9 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
       for (let i = itemsRef.current.length - 1; i >= 0; i--) {
         const it = itemsRef.current[i];
         if (it.type === "text" && hitTest(it, w.x, w.y)) {
-          console.log("[TEXT-DEBUG] click tool matched EXISTING text item", { clickWorld: w, itemId: it.id, itemPos: { x: it.x, y: it.y }, itemText: (it as TextItem).text, itemFontSize: (it as TextItem).fontSize });
           startTextEdit(it as TextItem); return;
         }
       }
-      console.log("[TEXT-DEBUG] click tool created NEW text at", w);
       draftIdRef.current = uid(); setTextInput({ wx: w.x, wy: w.y }); setTextValue("");
       setTimeout(() => textRef.current?.focus(), 50); return;
     }
@@ -3956,28 +3959,6 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   const textScr   = textInput    ? w2s(textInput.wx,   textInput.wy)   : null;
   const { zoom }  = viewRef.current;
 
-  // TEMP DEBUG — remove after diagnosing the reported text-box position jump.
-  // Logs the click's world anchor, its computed screen position, and the
-  // textarea's actual rendered position a moment later, so a real mismatch
-  // (if one exists on some setup this session's testing hasn't reproduced)
-  // shows up directly as different numbers instead of more guessing.
-  useEffect(() => {
-    if (!textInput || !textScr) return;
-    const rect = containerRef.current?.getBoundingClientRect();
-    console.log("[TEXT-DEBUG] session start", {
-      textInput, textScr,
-      containerRect: rect ? { left: rect.left, top: rect.top, width: rect.width, height: rect.height } : null,
-      view: viewRef.current, role, isMobile,
-    });
-    const t = setTimeout(() => {
-      const ta = textRef.current;
-      const taRect = ta?.getBoundingClientRect();
-      console.log("[TEXT-DEBUG] +150ms actual textarea rect", taRect ? { left: taRect.left, top: taRect.top } : "no ref", "expected", { left: (containerRef.current?.getBoundingClientRect().left ?? 0) + textScr.x, top: (containerRef.current?.getBoundingClientRect().top ?? 0) + textScr.y });
-    }, 150);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [textInput]);
-
   // Show single-item overlay only when exactly one item is selected
   const selectedItem = (selectedId && selectedIds.size <= 1) ? itemsRef.current.find(i => i.id === selectedId) : null;
 
@@ -4709,6 +4690,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           if (textInput) return;
           const { cx, cy } = clientXY(e as unknown as React.MouseEvent);
           const w = s2w(cx, cy);
+          console.log("[CLICK-DEBUG] dblclick fired", { cx, cy, worldW: w, view: viewRef.current, t: Date.now() });
           const hit = [...itemsRef.current].reverse().find(item => hitTest(item, w.x, w.y));
           // Double-click an existing text item → edit it (previously this
           // hit the plainCanvasTypes gate below and silently did nothing —
@@ -4716,13 +4698,11 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           // small pencil button on its selection box).
           if (hit?.type === "text") {
             if (hit.locked && role !== "tutor") return;
-            console.log("[TEXT-DEBUG] dblclick matched EXISTING text item", { clickWorld: w, itemId: hit.id, itemPos: { x: hit.x, y: hit.y }, itemText: (hit as TextItem).text, itemFontSize: (hit as TextItem).fontSize });
             startTextEdit(hit as TextItem);
             return;
           }
           const plainCanvasTypes = new Set(["image", "frame", "shape", "path"]);
           if (hit && !plainCanvasTypes.has(hit.type)) return;
-          console.log("[TEXT-DEBUG] dblclick created NEW text at", w, "hit was:", hit?.type ?? "nothing");
           draftIdRef.current = uid(); setTextInput({ wx: w.x, wy: w.y }); setTextValue("");
           setTimeout(() => textRef.current?.focus(), 30);
         }}
