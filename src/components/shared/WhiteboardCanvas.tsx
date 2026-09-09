@@ -3954,6 +3954,28 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   const textScr   = textInput    ? w2s(textInput.wx,   textInput.wy)   : null;
   const { zoom }  = viewRef.current;
 
+  // TEMP DEBUG — remove after diagnosing the reported text-box position jump.
+  // Logs the click's world anchor, its computed screen position, and the
+  // textarea's actual rendered position a moment later, so a real mismatch
+  // (if one exists on some setup this session's testing hasn't reproduced)
+  // shows up directly as different numbers instead of more guessing.
+  useEffect(() => {
+    if (!textInput || !textScr) return;
+    const rect = containerRef.current?.getBoundingClientRect();
+    console.log("[TEXT-DEBUG] session start", {
+      textInput, textScr,
+      containerRect: rect ? { left: rect.left, top: rect.top, width: rect.width, height: rect.height } : null,
+      view: viewRef.current, role, isMobile,
+    });
+    const t = setTimeout(() => {
+      const ta = textRef.current;
+      const taRect = ta?.getBoundingClientRect();
+      console.log("[TEXT-DEBUG] +150ms actual textarea rect", taRect ? { left: taRect.left, top: taRect.top } : "no ref", "expected", { left: (containerRef.current?.getBoundingClientRect().left ?? 0) + textScr.x, top: (containerRef.current?.getBoundingClientRect().top ?? 0) + textScr.y });
+    }, 150);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [textInput]);
+
   // Show single-item overlay only when exactly one item is selected
   const selectedItem = (selectedId && selectedIds.size <= 1) ? itemsRef.current.find(i => i.id === selectedId) : null;
 
