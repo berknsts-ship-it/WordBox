@@ -2560,9 +2560,11 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
       for (let i = itemsRef.current.length - 1; i >= 0; i--) {
         const it = itemsRef.current[i];
         if (it.type === "text" && hitTest(it, w.x, w.y)) {
+          console.log("[TEXT-DEBUG] click tool matched EXISTING text item", { clickWorld: w, itemId: it.id, itemPos: { x: it.x, y: it.y }, itemText: (it as TextItem).text, itemFontSize: (it as TextItem).fontSize });
           startTextEdit(it as TextItem); return;
         }
       }
+      console.log("[TEXT-DEBUG] click tool created NEW text at", w);
       draftIdRef.current = uid(); setTextInput({ wx: w.x, wy: w.y }); setTextValue("");
       setTimeout(() => textRef.current?.focus(), 50); return;
     }
@@ -4714,11 +4716,13 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           // small pencil button on its selection box).
           if (hit?.type === "text") {
             if (hit.locked && role !== "tutor") return;
+            console.log("[TEXT-DEBUG] dblclick matched EXISTING text item", { clickWorld: w, itemId: hit.id, itemPos: { x: hit.x, y: hit.y }, itemText: (hit as TextItem).text, itemFontSize: (hit as TextItem).fontSize });
             startTextEdit(hit as TextItem);
             return;
           }
           const plainCanvasTypes = new Set(["image", "frame", "shape", "path"]);
           if (hit && !plainCanvasTypes.has(hit.type)) return;
+          console.log("[TEXT-DEBUG] dblclick created NEW text at", w, "hit was:", hit?.type ?? "nothing");
           draftIdRef.current = uid(); setTextInput({ wx: w.x, wy: w.y }); setTextValue("");
           setTimeout(() => textRef.current?.focus(), 30);
         }}
