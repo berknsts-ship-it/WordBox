@@ -5546,8 +5546,14 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
             ? textBgColor + Math.round(textBgOpacity * 2.55).toString(16).padStart(2,"0")
             : "transparent";
           const Sep2 = () => <div className="w-px h-4 mx-0.5 shrink-0" style={{ background:"#e5ded6" }}/>;
-          const TOOLBAR_H = 44;
-          const TOOLBAR_W = 380;
+          // Shrunk from 44/380 and given a shorter gap (8→4px) — at a tight
+          // zoom on a dense worksheet (short answers in small cells), the
+          // old size + gap alone was ~52px, almost exactly one whole
+          // exercise row, so it reliably covered the row right above
+          // whatever you were editing. Still readable/usable, just smaller.
+          const TOOLBAR_H = 34;
+          const TOOLBAR_W = 310;
+          const TOOLBAR_GAP = 4;
           const containerH = containerRef.current?.clientHeight ?? 600;
           const containerW = containerRef.current?.clientWidth ?? 800;
           // Prefer just above the text; if there isn't room (text near the
@@ -5555,18 +5561,24 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           // clamping in place — clamping was what let the toolbar land on
           // top of the very text you're writing.
           const textBoxH = textRef.current?.getBoundingClientRect().height ?? (fontSize * viewRef.current.zoom * 1.6 + 16);
-          const fitsAbove = textScr.y - 4 >= TOOLBAR_H + 8;
+          const fitsAbove = textScr.y - 4 >= TOOLBAR_H + TOOLBAR_GAP;
           const toolbarTop = fitsAbove
-            ? textScr.y - TOOLBAR_H - 8
-            : Math.min(textScr.y + textBoxH + 8, containerH - TOOLBAR_H - 4);
+            ? textScr.y - TOOLBAR_H - TOOLBAR_GAP
+            : Math.min(textScr.y + textBoxH + TOOLBAR_GAP, containerH - TOOLBAR_H - 4);
           const toolbarLeft = Math.max(4, Math.min(textScr.x - TOOLBAR_W / 2, containerW - TOOLBAR_W - 4));
-          const iconBtn = "w-8 h-8 rounded-full flex items-center justify-center transition-colors shrink-0";
+          const iconBtn = "w-6 h-6 rounded-full flex items-center justify-center transition-colors shrink-0";
           return (
             <>
-              {/* ── Floating toolbar — compact icon pill, desktop only (touch devices use bottom sheet) ── */}
-              {!isMobile && <div data-text-editor className="absolute pointer-events-auto hidden sm:flex items-center gap-0.5 px-1.5 py-1.5 rounded-full shadow-xl border"
-                style={{ top: toolbarTop, left: toolbarLeft, width: TOOLBAR_W,
-                  background:"white", borderColor:"#ece4da", zIndex:60 }}
+              {/* ── Floating toolbar — compact icon pill, desktop only (touch devices use bottom sheet).
+                  Translucent + blurred rather than solid white: on a dense
+                  worksheet it still sometimes lands over a neighboring line
+                  at tight zoom (nothing here knows where the printed text
+                  actually is), but that line stays legible through it
+                  instead of being fully blocked. ── */}
+              {!isMobile && <div data-text-editor className="absolute pointer-events-auto hidden sm:flex items-center gap-0.5 px-1 py-1 rounded-full shadow-xl border"
+                style={{ top: toolbarTop, left: toolbarLeft, width: TOOLBAR_W, height: TOOLBAR_H,
+                  background:"rgba(255,255,255,0.9)", backdropFilter:"blur(6px)", WebkitBackdropFilter:"blur(6px)",
+                  borderColor:"#ece4da", zIndex:60 }}
                 onMouseDown={e => { e.preventDefault(); e.stopPropagation(); }}>
                 {/* Font — compact, borderless trigger. Each option previews in its
                     own face so you can see what it looks like before picking it,
@@ -5575,7 +5587,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                 <select value={fontIdx} onChange={e=>setFontIdx(+e.target.value)} onMouseDown={e=>e.stopPropagation()}
                   title="Шрифт"
                   className="border-0 rounded-full outline-none cursor-pointer"
-                  style={{ color:"var(--brown-dark)", height:32, maxWidth:64, fontSize:11, background:"transparent", fontFamily: FONTS[fontIdx].family }}>
+                  style={{ color:"var(--brown-dark)", height:24, maxWidth:56, fontSize:10, background:"transparent", fontFamily: FONTS[fontIdx].family }}>
                   {FONTS.map((f,i)=><option key={i} value={i} style={{ fontFamily:f.family, fontSize:15 }}>{f.label}</option>)}
                 </select>
                 <Sep2/>
@@ -5613,14 +5625,14 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                 <Sep2/>
                 {/* Text color */}
                 <label className={`relative ${iconBtn} cursor-pointer`} title="Цвет текста">
-                  <span className="font-bold leading-none" style={{ color:"var(--brown-dark)", fontSize:13 }}>A</span>
-                  <div className="absolute rounded-full" style={{ bottom:5, left:9, width:14, height:3, background:color }}/>
+                  <span className="font-bold leading-none" style={{ color:"var(--brown-dark)", fontSize:11 }}>A</span>
+                  <div className="absolute rounded-full" style={{ bottom:4, left:6, width:11, height:2.5, background:color }}/>
                   <input type="color" value={color} onChange={e=>setColor(e.target.value)}
                     className="absolute opacity-0 inset-0 cursor-pointer" onMouseDown={e=>e.stopPropagation()}/>
                 </label>
                 {/* Bg color */}
                 <label className={`relative ${iconBtn} cursor-pointer`} title="Фон">
-                  <div className="w-4 h-4 rounded-full border" style={{ background:textBgOpacity>0?textBgColor:"transparent", borderColor:"#ccc" }}/>
+                  <div className="w-3.5 h-3.5 rounded-full border" style={{ background:textBgOpacity>0?textBgColor:"transparent", borderColor:"#ccc" }}/>
                   <input type="color" value={textBgColor}
                     onChange={e=>{setTextBgColor(e.target.value);if(textBgOpacity===0)setTextBgOpacity(90);}}
                     className="absolute opacity-0 inset-0 cursor-pointer" onMouseDown={e=>e.stopPropagation()}/>
@@ -5633,16 +5645,16 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                 )}
                 <div className="flex-1"/>
                 <button onMouseDown={e=>e.preventDefault()} onClick={commitText} title="Готово"
-                  className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+                  className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
                   style={{ background:"var(--gradient-primary)" }}>
-                  <svg width={15} height={15} viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="white" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  <svg width={12} height={12} viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="white" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"/></svg>
                 </button>
               </div>}
               {/* ── Inline textarea — Miro-style: desktop only ── */}
               {!isMobile && (() => {
                 const handleStyle: React.CSSProperties = {
-                  position:"absolute", width:10, height:10, borderRadius:"50%",
-                  background:"white", border:"2px solid #4a80f0", pointerEvents:"none",
+                  position:"absolute", width:7, height:7, borderRadius:"50%",
+                  background:"white", border:"1.5px solid #4a80f0", pointerEvents:"none",
                 };
                 return (
                   <div data-text-editor className="absolute" style={{ left:textScr.x, top:textScr.y, zIndex:50 }}
@@ -5687,11 +5699,13 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                         whiteSpace: "pre",
                         WebkitAppearance: "none",
                       } as React.CSSProperties} />
-                    {/* Corner handles — like Miro selection */}
-                    <div style={{ ...handleStyle, top:-5, left:-5 }}/>
-                    <div style={{ ...handleStyle, top:-5, right:-5 }}/>
-                    <div style={{ ...handleStyle, bottom:-5, left:-5 }}/>
-                    <div style={{ ...handleStyle, bottom:-5, right:-5 }}/>
+                    {/* Corner handles — like Miro selection, sized down along
+                        with the toolbar so short in-cell answers don't get a
+                        selection frame that visually outweighs the text. */}
+                    <div style={{ ...handleStyle, top:-3.5, left:-3.5 }}/>
+                    <div style={{ ...handleStyle, top:-3.5, right:-3.5 }}/>
+                    <div style={{ ...handleStyle, bottom:-3.5, left:-3.5 }}/>
+                    <div style={{ ...handleStyle, bottom:-3.5, right:-3.5 }}/>
                   </div>
                 );
               })()}
