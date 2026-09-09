@@ -24,8 +24,21 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }
   rescheduled: { label: "Перенесено",    color: "#c07800", bg: "#fff3cc" },
 };
 
+// Reads the date directly out of the stored string instead of going through
+// `new Date(iso)` + toLocaleDateString — that route re-interprets the
+// timestamp through the viewer's own browser timezone, which silently
+// shifted the day shown here by one whenever the browser's zone crossed a
+// day boundary relative to however the date was originally entered (already
+// fixed the same way for the schedule's own lesson card — see
+// app/tutor/schedule/LessonCard.tsx). Reconstructing via Date.UTC and
+// formatting with timeZone:"UTC" only uses Date for the Russian month name,
+// never for the actual day/month/year value.
+function dateFromIso(iso: string) {
+  const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
+}
 function formatChainDate(iso: string) {
-  return new Date(iso).toLocaleDateString("ru", { day: "numeric", month: "short" });
+  return dateFromIso(iso).toLocaleDateString("ru", { day: "numeric", month: "short", timeZone: "UTC" });
 }
 
 function toCSV(rows: LessonRow[]): string {
@@ -33,7 +46,7 @@ function toCSV(rows: LessonRow[]): string {
   const esc = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
   const lines = [header.map(esc).join(",")];
   for (const l of rows) {
-    const dateStr = new Date(l.date).toLocaleDateString("ru");
+    const dateStr = dateFromIso(l.date).toLocaleDateString("ru", { timeZone: "UTC" });
     const timeStr = l.date.slice(11, 16);
     const status = STATUS_CONFIG[l.status]?.label ?? l.status;
     const amount = l.deducted_amount ?? l.price_rub ?? "";
@@ -99,7 +112,7 @@ export default function LessonTable({
               const cfg = STATUS_CONFIG[l.status] ?? STATUS_CONFIG.scheduled;
               const amount = l.deducted_amount ?? l.price_rub;
               const chain = l.date_history?.length ? [...l.date_history, l.date] : null;
-              const dateStr = new Date(l.date).toLocaleDateString("ru", { day: "numeric", month: "long" });
+              const dateStr = dateFromIso(l.date).toLocaleDateString("ru", { day: "numeric", month: "long", timeZone: "UTC" });
               const timeStr = l.date.slice(11, 16);
               return (
                 <tr key={l.id} className="border-t" style={{ borderColor: "var(--brown-pale)" }}>

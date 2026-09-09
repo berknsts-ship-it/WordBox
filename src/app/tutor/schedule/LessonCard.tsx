@@ -39,8 +39,12 @@ interface Lesson {
   deducted_amount?: number | null;
 }
 
+// Same naive-parts approach as dtLocal below — a real Date() + local
+// toLocaleDateString would silently shift the day whenever the browser's
+// timezone crosses a day boundary relative to the stored value.
 function formatChainDate(iso: string) {
-  return new Date(iso).toLocaleDateString("ru", { day: "numeric", month: "short" });
+  const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("ru", { day: "numeric", month: "short", timeZone: "UTC" });
 }
 
 interface Subscription { id: string; student_id: string; name: string }
