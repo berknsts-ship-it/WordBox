@@ -254,7 +254,11 @@ export default function SubscriptionCard({
             }} />
         </div>
         {editMode ? (
-          <form action={handleEditAmount} className="flex flex-wrap items-center gap-2 mt-2">
+          <form action={handleEditAmount} className="flex flex-col gap-2 mt-2">
+            <p className="text-xs" style={{ color: "var(--brown-light)" }}>
+              Здесь вписываются итоговые цифры целиком (для исправления опечатки) — для обычного продления это не нужно, используйте «Продлить абонемент» ниже, там достаточно указать сколько занятий добавить.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm shrink-0" style={{ color: "var(--brown-mid)" }}>Сумма, ₽</span>
             <input
               name="total_amount" type="number" min="100" step="100" required
@@ -277,13 +281,14 @@ export default function SubscriptionCard({
               style={{ borderColor: "var(--brown-pale)", color: "var(--brown-mid)" }}>
               Отмена
             </button>
+            </div>
           </form>
         ) : (
         <p className="text-sm mt-1.5 flex items-center gap-1.5 flex-wrap" style={{ color: "var(--brown-mid)" }}>
           {lessonCount
             ? `Проведено ${doneCount} из ${lessonCount} занятий`
             : `Списано ${spent.toLocaleString("ru")} ₽ из ${sub.total_amount.toLocaleString("ru")} ₽`}
-          <button onClick={() => setEditMode(true)} title="Изменить сумму/количество занятий"
+          <button onClick={() => setEditMode(true)} title="Исправить ошибочно введённые цифры (не для продления — для этого кнопка «Продлить абонемент» ниже)"
             className="p-0.5 rounded hover:opacity-70 transition-opacity" style={{ color: "var(--brown-light)" }}>
             <Pencil size={12} />
           </button>
@@ -321,9 +326,23 @@ export default function SubscriptionCard({
             <div className="flex items-center gap-2 flex-wrap">
               {renewByLessons ? (
                 <>
-                  <input name="add_lessons" type="number" min="1" step="1" placeholder="Сколько занятий добавить"
+                  {/* Частые пакеты — один клик заполняет поле вместо ручного
+                      ввода; занятия по-прежнему прибавляются к уже
+                      оплаченным, не заменяют их. */}
+                  {[4, 8, 12].map(n => (
+                    <button key={n} type="button" onClick={() => setAddLessons(String(n))}
+                      className="px-3 py-2 rounded-xl text-sm font-medium border shrink-0 transition-all"
+                      style={{
+                        borderColor: addLessons === String(n) ? "var(--brown-dark)" : "var(--brown-pale)",
+                        background:  addLessons === String(n) ? "var(--brown-pale)" : "transparent",
+                        color: "var(--brown-dark)",
+                      }}>
+                      +{n}
+                    </button>
+                  ))}
+                  <input name="add_lessons" type="number" min="1" step="1" placeholder="Или своё число"
                     value={addLessons} onChange={e => setAddLessons(e.target.value)} required
-                    className="flex-1 min-w-[140px] px-3 py-2 rounded-xl border outline-none text-sm"
+                    className="flex-1 min-w-[100px] px-3 py-2 rounded-xl border outline-none text-sm"
                     style={{ borderColor: "var(--brown-pale)", background: "#fdf8f0" }} />
                   <button type="button" onClick={() => setRenewByLessons(false)}
                     className="text-xs underline shrink-0" style={{ color: "var(--brown-light)" }}>
