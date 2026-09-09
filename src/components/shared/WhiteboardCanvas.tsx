@@ -1846,7 +1846,13 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     document.body.appendChild(span);
     const maxW = Math.max(...lines.map(l => { span.textContent = l || "M"; return span.getBoundingClientRect().width; }));
     document.body.removeChild(span);
-    ta.style.width = Math.max(maxW + 24, Math.round(60 * viewRef.current.zoom)) + "px";
+    // Minimum width used to scale straight up with zoom (60×zoom) — at the
+    // high zoom this is actually meant to be used at (zoomed in for
+    // precision in a tight worksheet cell), that ballooned an empty box to
+    // 100-160px+ wide, dominating the very cell it was supposed to fit
+    // into. Capped instead of unbounded, since the point of a minimum here
+    // is just "big enough to see/click," not "grows forever with zoom."
+    ta.style.width = Math.max(maxW + 24, Math.max(24, Math.min(60, 20 * viewRef.current.zoom))) + "px";
     ta.style.height = "auto";
     ta.style.height = ta.scrollHeight + "px";
   }, [fontSize, textInput, textValue]);
@@ -5644,7 +5650,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                         document.body.appendChild(span);
                         const maxW = Math.max(...lines.map(l => { span.textContent = l||"M"; return span.getBoundingClientRect().width; }));
                         document.body.removeChild(span);
-                        el.style.width = Math.max(maxW + 24, Math.round(60 * zoom)) + "px";
+                        el.style.width = Math.max(maxW + 24, Math.max(24, Math.min(60, 20 * zoom))) + "px";
                         el.style.height = "auto";
                         el.style.height = el.scrollHeight + "px";
                         // No live broadcast per keystroke — everyone else just
@@ -5656,7 +5662,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                         if (e.key === "Escape") { e.preventDefault(); if(draftIdRef.current){send({type:"text_editing_end",id:draftIdRef.current});draftIdRef.current="";} setTextInput(null); editingIdRef.current=null; setEditingId(null); render(); }
                         if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commitText(); }
                       }}
-                      rows={1} placeholder="Текст..."
+                      rows={1} placeholder="…"
                       style={{ display:"block", fontSize:fontSize*zoom+"px", fontFamily:FONTS[fontIdx].family,
                         fontWeight:bold?"bold":"normal", fontStyle:italic?"italic":"normal", textAlign:align,
                         color, caretColor:color,
@@ -5665,7 +5671,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                         borderRadius: 3,
                         outline: "none",
                         padding: `${3*zoom}px ${6*zoom}px`,
-                        minWidth: Math.max(40, 60*zoom)+"px",
+                        minWidth: Math.max(24, Math.min(60, 20*zoom))+"px",
                         lineHeight: 1.5, resize: "none", overflow: "hidden",
                         whiteSpace: "pre",
                         WebkitAppearance: "none",
