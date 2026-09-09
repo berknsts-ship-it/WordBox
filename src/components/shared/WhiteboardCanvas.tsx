@@ -163,10 +163,11 @@ type WsEvent =
   | { type: "lock_all"; locked: boolean }
   | { type: "video_sync"; id: string; action: "play" | "pause" | "seek"; position: number; sentAt: number }
   | { type: "audio_sync"; id: string; action: "play" | "pause" | "seek"; position: number; sentAt: number }
-  | { type: "text_typing"; id: string; x: number; y: number; text: string; font: string; fontSize: number; color: string; bold: boolean; italic: boolean; align: TextAlign }
-  | { type: "text_typing_cancel"; id: string };
-
-type DraftTextEntry = { x: number; y: number; text: string; font: string; fontSize: number; color: string; bold: boolean; italic: boolean; align: TextAlign };
+  // While one person edits a text item, everyone else's view of it is just
+  // hidden — not a live-updating preview — until the edit ends. No per-
+  // keystroke traffic, no second copy ever rendered alongside the real one.
+  | { type: "text_editing_start"; id: string }
+  | { type: "text_editing_end"; id: string };
 
 // ── image cache ───────────────────────────────────────────────────────────────
 const imgCache = new Map<string, HTMLImageElement>();
@@ -1350,9 +1351,10 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   const itemsRef      = useRef<DrawItem[]>([]);
   const livePathRef   = useRef<PathItem | null>(null);
   const remotePathsRef= useRef<Map<string, PathItem>>(new Map());
-  const remoteDraftsRef = useRef<Map<string, DraftTextEntry>>(new Map());
+  // Ids someone ELSE is currently editing — hidden from render entirely
+  // (no ghost, no preview) until their edit ends.
+  const remoteHiddenIdsRef = useRef<Set<string>>(new Set());
   const draftIdRef    = useRef("");
-  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const viewRef       = useRef({ zoom: 1, panX: 0, panY: 0 });
   const remoteViewportsRef     = useRef<Map<string, { zoom: number; panX: number; panY: number }>>(new Map());
   const viewportThrottleRef    = useRef(0);
@@ -1514,7 +1516,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   const laserTimer        = useRef<ReturnType<typeof setTimeout>|null>(null);
   const ownLaserTimer     = useRef<ReturnType<typeof setTimeout>|null>(null);
   const remoteCursorTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
-  const remoteDraftTimers  = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const remoteHideTimers   = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const cursorThrottle    = useRef(0);
 
   // pdf
@@ -1651,7 +1653,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
       const vx0 = -panX / zoom, vy0 = -panY / zoom;
       const vx1 = (cssW - panX) / zoom, vy1 = (cssH - panY) / zoom;
       for (const item of itemsRef.current) {
-        if (item.id === editingIdRef.current) continue;
+        if (item.id === editingIdRef.current || remoteHiddenIdsRef.current.has(item.id)) continue;
         const itemPage = item.pdfPage;
         if (itemPage !== undefined && pdfPageRef.current !== null && itemPage !== pdfPageRef.current) continue;
         if (!itemInViewport(item, vx0, vy0, vx1, vy1)) continue;
@@ -1666,11 +1668,6 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     ctx.save(); ctx.setTransform(zoom * dpr, 0, 0, zoom * dpr, panX * dpr, panY * dpr);
     if (livePathRef.current) renderPath(ctx, livePathRef.current);
     for (const [, rp] of remotePathsRef.current) renderPath(ctx, rp);
-    for (const [, draft] of remoteDraftsRef.current) {
-      ctx.save(); ctx.globalAlpha = 0.6;
-      renderText(ctx, { type:"text", id:"__draft__", x:draft.x, y:draft.y, text:draft.text||"▍", font:draft.font, fontSize:draft.fontSize, color:draft.color, bold:draft.bold, italic:draft.italic, align:draft.align });
-      ctx.restore();
-    }
     if (liveShapeRef.current) {
       const ls = liveShapeRef.current;
       renderShape(ctx, {
@@ -2247,36 +2244,35 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           skipSaveRef.current = true; render(); skipSaveRef.current = false;
           return;
         }
-        if (payload.type === "text_typing") {
-          const { id, x, y, text, font, fontSize, color, bold, italic, align } = payload;
-          remoteDraftsRef.current.set(id, { x, y, text, font, fontSize, color, bold, italic, align });
-          // Safety net: normally this draft is cleared by a matching
-          // text_typing_cancel or path/update broadcast when the other
-          // person finishes. If that message never arrives — a dropped
-          // packet, a brief Realtime reconnect, their tab closing mid-edit —
-          // nothing else ever clears it, so it sat there as a translucent
-          // ghost at its old position forever. Once the real item later got
-          // moved, the ghost stayed put and looked exactly like a duplicate.
-          // Same expiry pattern already used for remote cursors below.
-          const existingTimer = remoteDraftTimers.current.get(id);
+        if (payload.type === "text_editing_start") {
+          const id = payload.id;
+          remoteHiddenIdsRef.current.add(id);
+          // Safety net: normally this hide is lifted by a matching
+          // text_editing_end or the eventual path/update broadcast when the
+          // other person finishes. If that message never arrives — a
+          // dropped packet, a brief Realtime reconnect, their tab closing
+          // mid-edit — nothing else would ever un-hide it, leaving the item
+          // invisible forever instead of just reappearing on its own. Same
+          // expiry pattern already used for remote cursors below.
+          const existingTimer = remoteHideTimers.current.get(id);
           if (existingTimer) clearTimeout(existingTimer);
-          remoteDraftTimers.current.set(id, setTimeout(() => {
-            remoteDraftsRef.current.delete(id);
-            remoteDraftTimers.current.delete(id);
+          remoteHideTimers.current.set(id, setTimeout(() => {
+            remoteHiddenIdsRef.current.delete(id);
+            remoteHideTimers.current.delete(id);
             render();
           }, 8000));
           render(); return;
         }
-        if (payload.type === "text_typing_cancel") {
-          const t = remoteDraftTimers.current.get(payload.id);
-          if (t) { clearTimeout(t); remoteDraftTimers.current.delete(payload.id); }
-          remoteDraftsRef.current.delete(payload.id);
+        if (payload.type === "text_editing_end") {
+          const t = remoteHideTimers.current.get(payload.id);
+          if (t) { clearTimeout(t); remoteHideTimers.current.delete(payload.id); }
+          remoteHiddenIdsRef.current.delete(payload.id);
           render(); return;
         }
         if (payload.type === "path") {
           if (payload.item.type === "image") console.log("[board] received image item", payload.item.id, "url-len:", (payload.item as {url:string}).url?.length ?? 0);
-          { const t = remoteDraftTimers.current.get(payload.item.id); if (t) { clearTimeout(t); remoteDraftTimers.current.delete(payload.item.id); } }
-          remoteDraftsRef.current.delete(payload.item.id);
+          { const t = remoteHideTimers.current.get(payload.item.id); if (t) { clearTimeout(t); remoteHideTimers.current.delete(payload.item.id); } }
+          remoteHiddenIdsRef.current.delete(payload.item.id);
           remotePathsRef.current.delete(payload.item.id);
           // Upsert, not a blind push — if this exact "new item" broadcast
           // ever arrives twice (a Realtime redelivery, a double-send on the
@@ -2301,8 +2297,8 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           return;
         }
         if (payload.type === "update") {
-          { const t = remoteDraftTimers.current.get(payload.item.id); if (t) { clearTimeout(t); remoteDraftTimers.current.delete(payload.item.id); } }
-          remoteDraftsRef.current.delete(payload.item.id);
+          { const t = remoteHideTimers.current.get(payload.item.id); if (t) { clearTimeout(t); remoteHideTimers.current.delete(payload.item.id); } }
+          remoteHiddenIdsRef.current.delete(payload.item.id);
           const idx = itemsRef.current.findIndex(it => it.id === payload.item.id);
           if (idx >= 0) { itemsRef.current[idx] = payload.item; render(); setPanVer(v => v + 1); }
           return;
@@ -2500,6 +2496,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     setTextInput({ wx: ti.x, wy: ti.y }); setTextValue(ti.text);
     setBold(ti.bold); setItalic(ti.italic); setAlign(ti.align); setFontSize(ti.fontSize);
     const fi = FONTS.findIndex(f => f.family === ti.font); setFontIdx(fi >= 0 ? fi : 0);
+    send({ type: "text_editing_start", id: ti.id }); // hide it for everyone else while I edit
     render(); // hide original from canvas immediately
     setTimeout(() => {
       const ta = textRef.current; if (!ta) return;
@@ -3195,11 +3192,9 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   const commitText = () => {
     const eid = editingIdRef.current;
     if (!textInput || !textValue.trim()) {
-      if (typingTimerRef.current) { clearTimeout(typingTimerRef.current); typingTimerRef.current = null; }
-      if (draftIdRef.current) { send({ type:"text_typing_cancel", id: draftIdRef.current }); draftIdRef.current = ""; }
+      if (draftIdRef.current) { send({ type:"text_editing_end", id: draftIdRef.current }); draftIdRef.current = ""; }
       editingIdRef.current = null; setEditingId(null); setTextInput(null); render(); return;
     }
-    if (typingTimerRef.current) { clearTimeout(typingTimerRef.current); typingTimerRef.current = null; }
     const newItem: TextItem = {
       type:"text", id: eid ?? (draftIdRef.current || uid()),
       x: textInput.wx, y: textInput.wy, text: textValue,
@@ -3220,7 +3215,9 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
       pushHistory({ type:"add", item: newItem });
       setSelectedId(newItem.id); setSelectedIds(new Set([newItem.id]));
     }
-    send({ type:"path", item: newItem }); render(); setTextInput(null); setTextValue("");
+    send({ type:"path", item: newItem });
+    if (eid) send({ type:"text_editing_end", id: eid });
+    render(); setTextInput(null); setTextValue("");
     // Switch to select so text can be dragged immediately without tool change
     setTool("select");
   };
@@ -5662,10 +5659,13 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                         el.style.width = Math.max(maxW + 24, Math.round(60 * zoom)) + "px";
                         el.style.height = "auto";
                         el.style.height = el.scrollHeight + "px";
-                        if (textInput && draftIdRef.current) send({ type:"text_typing", id:draftIdRef.current, x:textInput.wx, y:textInput.wy, text:val, font:FONTS[fontIdx].family, fontSize, color, bold, italic, align });
+                        // No live broadcast per keystroke — everyone else just
+                        // sees this item hidden (via text_editing_start, sent
+                        // once when editing began) until commit sends the
+                        // final text in one shot.
                       }}
                       onKeyDown={e => {
-                        if (e.key === "Escape") { e.preventDefault(); if(typingTimerRef.current){clearTimeout(typingTimerRef.current);typingTimerRef.current=null;} if(draftIdRef.current){send({type:"text_typing_cancel",id:draftIdRef.current});draftIdRef.current="";} setTextInput(null); editingIdRef.current=null; setEditingId(null); render(); }
+                        if (e.key === "Escape") { e.preventDefault(); if(draftIdRef.current){send({type:"text_editing_end",id:draftIdRef.current});draftIdRef.current="";} setTextInput(null); editingIdRef.current=null; setEditingId(null); render(); }
                         if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commitText(); }
                       }}
                       rows={1} placeholder="Текст..."
@@ -5693,7 +5693,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
 
               {/* ── Mobile bottom sheet — fixed, keyboard-aware, escapes overflow-hidden ── */}
               {isMobile && (() => {
-                const cancel = () => { if(typingTimerRef.current){clearTimeout(typingTimerRef.current);typingTimerRef.current=null;} if(draftIdRef.current){send({type:"text_typing_cancel",id:draftIdRef.current});draftIdRef.current="";} setTextInput(null); editingIdRef.current=null; setEditingId(null); render(); };
+                const cancel = () => { if(draftIdRef.current){send({type:"text_editing_end",id:draftIdRef.current});draftIdRef.current="";} setTextInput(null); editingIdRef.current=null; setEditingId(null); render(); };
                 return (
                   <div data-text-editor style={{ position:"fixed", inset:0, zIndex:300, touchAction:"auto" }} onClick={cancel}
                     onTouchStart={e=>e.stopPropagation()} onTouchMove={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()}>
@@ -5748,7 +5748,6 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                             const ta = e.target;
                             ta.style.height = "auto";
                             ta.style.height = ta.scrollHeight + "px";
-                            if (textInput && draftIdRef.current) send({ type:"text_typing", id:draftIdRef.current, x:textInput.wx, y:textInput.wy, text:val, font:FONTS[fontIdx].family, fontSize, color, bold, italic, align });
                           }}
                           placeholder="Введите текст..."
                           autoFocus
