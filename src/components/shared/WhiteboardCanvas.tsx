@@ -5384,8 +5384,13 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                   <Trash2 size={12}/>
                 </button>
               </div>
-              {/* Edit button — text (mobile-friendly size) */}
-              {selectedItem.type === "text" && !selectedItem.isSymbol && !(selectedItem.align === "center" && [...selectedItem.text].every(c => c.codePointAt(0)! > 127)) && (
+              {/* Edit button — text. Desktop double-click is reliable now, so
+                  this is mobile-only: a double-TAP is synthesized by the
+                  browser from two taps and isn't as reliable (table cells
+                  hit the same issue and needed a manual tap-timing detector
+                  instead of relying on it — text doesn't have that, so this
+                  button stays as the dependable path on touch devices). */}
+              {isMobile && selectedItem.type === "text" && !selectedItem.isSymbol && !(selectedItem.align === "center" && [...selectedItem.text].every(c => c.codePointAt(0)! > 127)) && (
                 <button className="absolute pointer-events-auto flex items-center justify-center rounded-lg"
                   style={{ right:-14, top:-14, width:34, height:34, zIndex:31, cursor:"pointer",
                     background:"#4a80f0", border:"2px solid white", boxShadow:"0 2px 8px rgba(74,128,240,0.4)" }}
