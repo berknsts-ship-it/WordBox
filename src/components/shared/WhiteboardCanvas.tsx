@@ -2599,7 +2599,15 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           startTextEdit(it as TextItem); return;
         }
       }
-      draftIdRef.current = uid(); setTextInput({ wx: w.x, wy: w.y }); setTextValue("");
+      // Text draws from its top edge (textBaseline "top"), so anchoring a
+      // brand-new item at the raw click Y put the whole line below wherever
+      // you clicked/aimed — e.g. clicking "It's a ___" on a worksheet
+      // dropped the typed word visibly under that line, not on it. Shifting
+      // the stored y up by half the font size puts the click near the
+      // middle of the first line instead, like a normal text cursor — only
+      // for brand-new items; editing an existing one (startTextEdit, above)
+      // keeps its already-correct stored y untouched.
+      draftIdRef.current = uid(); setTextInput({ wx: w.x, wy: w.y - fontSize / 2 }); setTextValue("");
       setTimeout(() => textRef.current?.focus(), 50); return;
     }
 
@@ -2971,7 +2979,8 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     // Text tool always creates new text at the tap point — never selects/moves
     if (tool === "text") {
       setSelectedId(null); setSelectedIds(new Set());
-      draftIdRef.current = uid(); setTextInput({ wx: w.x, wy: w.y }); setTextValue("");
+      // See the desktop text-tool handler above for why this offsets y.
+      draftIdRef.current = uid(); setTextInput({ wx: w.x, wy: w.y - fontSize / 2 }); setTextValue("");
       setTimeout(() => textRef.current?.focus(), 50); return;
     }
 
@@ -4734,7 +4743,8 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           }
           const plainCanvasTypes = new Set(["image", "frame", "shape", "path"]);
           if (hit && !plainCanvasTypes.has(hit.type)) return;
-          draftIdRef.current = uid(); setTextInput({ wx: w.x, wy: w.y }); setTextValue("");
+          // See the desktop text-tool handler (onMouseDown) for why this offsets y.
+          draftIdRef.current = uid(); setTextInput({ wx: w.x, wy: w.y - fontSize / 2 }); setTextValue("");
           setTimeout(() => textRef.current?.focus(), 30);
         }}
         onTouchStart={onTouchStart}
