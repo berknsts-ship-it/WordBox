@@ -66,6 +66,7 @@ type ShapeItem = {
   type: "shape"; id: string;
   shape: ShapeKind; x1: number; y1: number; x2: number; y2: number;
   color: string; size: number; fill?: string;
+  label?: string; labelColor?: string; labelFontSize?: number;
   locked?: boolean; pdfPage?: number;
 };
 type VideoItem = {
@@ -867,7 +868,40 @@ function renderShape(ctx: CanvasRenderingContext2D, item: ShapeItem) {
     ctx.closePath();
     if (fill) ctx.fill(); ctx.stroke();
   }
+  if (item.label) {
+    const fs = item.labelFontSize ?? 16;
+    ctx.font = `${fs}px system-ui, sans-serif`;
+    ctx.fillStyle = item.labelColor ?? color;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    const maxW = Math.max(fs * 2, Math.abs(w) - fs);
+    const lines = wrapLabelLines(ctx, item.label, maxW);
+    const lineH = fs * 1.2;
+    let ly = cy - ((lines.length - 1) * lineH) / 2;
+    for (const line of lines) { ctx.fillText(line, cx, ly); ly += lineH; }
+  }
   ctx.restore();
+}
+// Greedy word-wrap for a shape's centered label — splits on existing
+// newlines first, then breaks each line on word boundaries to fit maxW,
+// falling back to a hard character break for a single word wider than the
+// whole box (e.g. a long URL with no spaces).
+function wrapLabelLines(ctx: CanvasRenderingContext2D, text: string, maxW: number): string[] {
+  const out: string[] = [];
+  for (const paragraph of text.split("\n")) {
+    const words = paragraph.split(" ");
+    let line = "";
+    for (const word of words) {
+      const test = line ? `${line} ${word}` : word;
+      if (ctx.measureText(test).width <= maxW || !line) {
+        line = test;
+      } else {
+        out.push(line);
+        line = word;
+      }
+    }
+    out.push(line);
+  }
+  return out;
 }
 function renderFunction(ctx: CanvasRenderingContext2D, item: FunctionItem, zoom: number) {
   const { x, y, w, h, formula, color, lineWidth } = item;
@@ -1483,6 +1517,14 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   const [,           setEditingId]  = useState<string | null>(null);
   const editingIdRef = useRef<string | null>(null);
   const textRef      = useRef<HTMLTextAreaElement>(null);
+
+  // Shape label editing (double-click a shape) — separate from the plain
+  // text tool above since a label has different anchoring rules (centered,
+  // wraps to the shape's width, follows resize) but reuses the same
+  // "native element does the layout, no manual Y math" principle.
+  const [shapeLabelEditId, setShapeLabelEditId] = useState<string | null>(null);
+  const shapeLabelRef      = useRef<HTMLDivElement>(null);
+  const shapeLabelOrigRef  = useRef<ShapeItem | null>(null);
 
   // tools & drawing
   const [tool,    setTool]    = useState<Tool>("select");
@@ -2512,8 +2554,62 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     }, 30);
   };
 
+  // Open the centered label editor on a shape. Unlike startTextEdit above,
+  // this doesn't hide the whole item via text_editing_start/remoteHiddenIds
+  // — that mechanism blanks the entire canvas item, but a shape's outline
+  // should stay visible (and visible to everyone else) while only its
+  // label text is being retyped. So the old label is blanked locally (by
+  // swapping in a copy with label:"" and forcing a static-cache rebuild)
+  // just so it doesn't render underneath the live contentEditable overlay
+  // — nothing is broadcast until commit, same as any other shape edit
+  // (move/resize already only sync on release, not per-frame).
+  const startShapeLabelEdit = (item: ShapeItem) => {
+    shapeLabelOrigRef.current = item;
+    const idx = itemsRef.current.findIndex(i => i.id === item.id);
+    if (idx >= 0) itemsRef.current[idx] = { ...item, label: "" };
+    staticValidRef.current = false; render();
+    setShapeLabelEditId(item.id);
+    setTool("select"); setSelectedId(item.id); setSelectedIds(new Set([item.id]));
+    setTimeout(() => {
+      const el = shapeLabelRef.current; if (!el) return;
+      el.innerText = item.label ?? "";
+      el.focus();
+      const range = document.createRange(); range.selectNodeContents(el); range.collapse(false);
+      const sel = window.getSelection(); sel?.removeAllRanges(); sel?.addRange(range);
+    }, 30);
+  };
+
+  const commitShapeLabelEdit = () => {
+    const id = shapeLabelEditId; if (!id) return;
+    const el = shapeLabelRef.current;
+    const value = (el?.innerText ?? "").replace(/\n+$/, "");
+    const idx = itemsRef.current.findIndex(i => i.id === id);
+    const prev = shapeLabelOrigRef.current;
+    if (idx >= 0 && prev) {
+      const next: ShapeItem = { ...prev, label: value, labelFontSize: fontSize, labelColor: color };
+      itemsRef.current[idx] = next;
+      if (value !== (prev.label ?? "")) pushHistory({ type: "update", idx, prev, next });
+      send({ type: "update", item: next });
+    }
+    shapeLabelOrigRef.current = null;
+    setShapeLabelEditId(null);
+    staticValidRef.current = false; render();
+  };
+
+  const cancelShapeLabelEdit = () => {
+    const id = shapeLabelEditId;
+    if (id) {
+      const idx = itemsRef.current.findIndex(i => i.id === id);
+      if (idx >= 0 && shapeLabelOrigRef.current) itemsRef.current[idx] = shapeLabelOrigRef.current;
+    }
+    shapeLabelOrigRef.current = null;
+    setShapeLabelEditId(null);
+    staticValidRef.current = false; render();
+  };
+
   // ── pointer down ─────────────────────────────────────────────────────────────
   const onMouseDown = (e: React.MouseEvent) => {
+    if (shapeLabelEditId) { commitShapeLabelEdit(); return; }
     if (textInput !== null) { commitText(); return; }
     // Pending symbol placement — place on click, cancel on right-click
     if (pendingSymbol) {
@@ -2914,7 +3010,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           borderWidth: frameBorderWidth,
           fontSize: frameFontSize, textColor: frameTextColor,
         };
-        itemsRef.current.push(item); render();
+        itemsRef.current.push(item); staticValidRef.current = false; render();
         send({ type:"path", item }); pushHistory({ type:"add", item });
         setTool("select"); setSelectedId(item.id); setSelectedIds(new Set([item.id]));
       } else { render(); }
@@ -2930,7 +3026,20 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           x1: ls.wx1, y1: ls.wy1, x2: ls.wx2, y2: ls.wy2,
           color, size, fill: shapeFill ? color + "33" : undefined,
         };
-        itemsRef.current.push(item); render();
+        // render() blits a cached offscreen "static" canvas and only
+        // rebuilds it when staticValidRef is false. During the drag,
+        // liveShapeRef stayed non-null, so render()'s own end-of-frame
+        // check (which flips that flag once every live-draw ref is null)
+        // never fired — the flag was still whatever it was before the drag
+        // started (usually true, i.e. "no rebuild needed"). So the very
+        // first render() call after pushing the new item was blitting the
+        // stale cache without it — the shape stayed invisible until some
+        // unrelated later render() call finally rebuilt the cache (a mouse
+        // move, a remote cursor update, anything). That's the "shows up
+        // eventually, whenever" delay — not a genuinely slow rebuild; the
+        // pen tool never had this because its own commit path already set
+        // this flag itself (see the path-commit code below).
+        itemsRef.current.push(item); staticValidRef.current = false; render();
         send({ type:"path", item }); pushHistory({ type:"add", item });
       } else { render(); }
       return;
@@ -3998,6 +4107,12 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   const ownLaserS = ownLaser     ? w2s(ownLaser.x,     ownLaser.y)     : null;
   const textScr   = textInput    ? w2s(textInput.wx,   textInput.wy)   : null;
   const { zoom }  = viewRef.current;
+  const shapeLabelItem = shapeLabelEditId
+    ? (itemsRef.current.find(i => i.id === shapeLabelEditId) as ShapeItem | undefined) : undefined;
+  const shapeLabelP1 = shapeLabelItem
+    ? w2s(Math.min(shapeLabelItem.x1, shapeLabelItem.x2), Math.min(shapeLabelItem.y1, shapeLabelItem.y2)) : null;
+  const shapeLabelP2 = shapeLabelItem
+    ? w2s(Math.max(shapeLabelItem.x1, shapeLabelItem.x2), Math.max(shapeLabelItem.y1, shapeLabelItem.y2)) : null;
 
   // Show single-item overlay only when exactly one item is selected
   const selectedItem = (selectedId && selectedIds.size <= 1) ? itemsRef.current.find(i => i.id === selectedId) : null;
@@ -4698,9 +4813,11 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           // open forever. Capture-phase runs before any of those handlers,
           // so this commits first regardless of what ends up getting clicked.
           if (textInput !== null && !(e.target as HTMLElement).closest("[data-text-editor]")) commitText();
+          if (shapeLabelEditId && !(e.target as HTMLElement).closest("[data-shape-label-editor]")) commitShapeLabelEdit();
         }}
         onTouchStartCapture={e => {
           if (textInput !== null && !(e.target as HTMLElement).closest("[data-text-editor]")) commitText();
+          if (shapeLabelEditId && !(e.target as HTMLElement).closest("[data-shape-label-editor]")) commitShapeLabelEdit();
         }}
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
@@ -4726,8 +4843,12 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           // fall through to here and drop a stray text box on the item.
           // Allowlisting the plain types instead of blocking just "text"
           // closes that gap for all of them at once.
-          if (tool !== "select" && tool !== "text") return;
-          if (textInput) return;
+          // "shape" is allowed through too — otherwise double-clicking a
+          // shape right after drawing it (still holding the Shapes tool,
+          // which unlike the frame tool doesn't auto-switch to "select" on
+          // release) couldn't open its label editor at all.
+          if (tool !== "select" && tool !== "text" && tool !== "shape") return;
+          if (textInput || shapeLabelEditId) return;
           const { cx, cy } = clientXY(e as unknown as React.MouseEvent);
           const w = s2w(cx, cy);
           console.log("[CLICK-DEBUG] dblclick fired", { cx, cy, worldW: w, view: viewRef.current, t: Date.now() });
@@ -4741,7 +4862,21 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
             startTextEdit(hit as TextItem);
             return;
           }
-          const plainCanvasTypes = new Set(["image", "frame", "shape", "path"]);
+          // Double-click a shape → edit its centered label (rectangle,
+          // rhombus, etc. used as a flowchart box/card). See
+          // startShapeLabelEdit for why this is a contentEditable div
+          // rather than the plain-text tool's <textarea>: a label has to
+          // stay vertically centered as you type and as the shape resizes,
+          // and a <textarea> can't center wrapped text vertically at all —
+          // a contentEditable block can, via ordinary flexbox, with the
+          // browser still doing all the real text layout (no manual
+          // baseline/Y math, same reasoning as the text-tool fix).
+          if (hit?.type === "shape") {
+            if (hit.locked && role !== "tutor") return;
+            startShapeLabelEdit(hit as ShapeItem);
+            return;
+          }
+          const plainCanvasTypes = new Set(["image", "frame", "path"]);
           if (hit && !plainCanvasTypes.has(hit.type)) return;
           // See the desktop text-tool handler (onMouseDown) for why this offsets y.
           draftIdRef.current = uid(); setTextInput({ wx: w.x, wy: w.y - fontSize / 2 }); setTextValue("");
@@ -5818,6 +5953,41 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                 );
               })()}
             </>
+          );
+        })()}
+
+        {/* ── Shape label editor — centered contentEditable overlay ──
+            A <textarea> can't vertically center wrapped text inside
+            itself, only ever grow down from its top — fine for free text,
+            wrong for a label that must stay centered in a shape and
+            re-center as it's resized. A flex-centered contentEditable div
+            gets real centering for free from the browser's own block
+            layout, while still never doing any manual Y/baseline math.
+            Deliberately NOT nested inside the {textInput && textScr &&...}
+            block above — that block (and everything in it) only exists
+            while the plain-text editor is open, which is never true here. */}
+        {shapeLabelEditId && shapeLabelItem && shapeLabelP1 && shapeLabelP2 && (() => {
+          const boxW = shapeLabelP2.x - shapeLabelP1.x, boxH = shapeLabelP2.y - shapeLabelP1.y;
+          const pad = Math.max(4, Math.min(boxW, boxH) * 0.1);
+          return (
+            <div data-shape-label-editor className="absolute flex items-center justify-center"
+              style={{ left:shapeLabelP1.x, top:shapeLabelP1.y, width:boxW, height:boxH, zIndex:50, padding:pad }}
+              onMouseDown={e => e.stopPropagation()}>
+              <div ref={shapeLabelRef} contentEditable suppressContentEditableWarning
+                onKeyDown={e => {
+                  if (e.key === "Escape") { e.preventDefault(); cancelShapeLabelEdit(); }
+                  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); commitShapeLabelEdit(); }
+                }}
+                onBlur={commitShapeLabelEdit}
+                style={{
+                  outline:"none", width:"100%", maxHeight:"100%", overflow:"hidden",
+                  textAlign:"center", color, whiteSpace:"pre-wrap", wordBreak:"break-word",
+                  fontSize:fontSize*zoom+"px", fontFamily:FONTS[fontIdx].family,
+                  fontWeight:bold?"bold":"normal", fontStyle:italic?"italic":"normal",
+                  lineHeight:1.2, cursor:"text",
+                }}
+              />
+            </div>
           );
         })()}
 
