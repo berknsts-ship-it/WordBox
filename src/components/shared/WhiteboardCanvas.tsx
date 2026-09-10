@@ -5699,9 +5699,22 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                         border: "1.5px solid #4a80f0",
                         borderRadius: 3,
                         outline: "none",
-                        padding: `${3*zoom}px ${6*zoom}px`,
+                        // The container's own top-left lands exactly on the
+                        // click point (verified directly) — but the visible
+                        // glyphs inside it didn't: line-height:1.5 splits its
+                        // extra leading above AND below each line, and
+                        // padding-top added on top of that, while the
+                        // committed canvas rendering (renderText, textBaseline
+                        // "top") draws glyphs starting flush at item.y with
+                        // neither. That gap between "where you're typing" and
+                        // "where the letters end up" is what read as the text
+                        // landing a line lower on a tightly-spaced worksheet.
+                        // Tightened both so the glyph top sits close to the
+                        // container's top edge, matching the final render.
+                        paddingTop: `${1*zoom}px`, paddingBottom: `${2*zoom}px`,
+                        paddingLeft: `${6*zoom}px`, paddingRight: `${6*zoom}px`,
                         minWidth: Math.max(24, Math.min(60, 20*zoom))+"px",
-                        lineHeight: 1.5, resize: "none", overflow: "hidden",
+                        lineHeight: 1.15, resize: "none", overflow: "hidden",
                         whiteSpace: "pre",
                         WebkitAppearance: "none",
                       } as React.CSSProperties} />
