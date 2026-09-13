@@ -48,11 +48,20 @@ export default function CorgiMascot() {
   const [hidden, setHidden] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [bubble, setBubble] = useState<string | null>(null);
+  // null = default corner (bottom-left, chosen specifically so the corgi
+  // never starts on top of the board's minimap, which docks bottom-right).
+  // Once dragged, an explicit {x,y} in viewport px takes over.
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
   const bubbleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevTabKey = useRef<string | null>(null);
+  const posRef = useRef(pos);
+  posRef.current = pos;
+  const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number; moved: boolean } | null>(null);
+  const justDraggedRef = useRef(false);
 
   const showBubble = useCallback((text: string) => {
     setBubble(text);
@@ -60,13 +69,74 @@ export default function CorgiMascot() {
     bubbleTimer.current = setTimeout(() => setBubble(null), BUBBLE_MS);
   }, []);
 
-  // Load hidden preference once we know which student this is.
+  // Load hidden preference + dragged position once we know which student this is.
   useEffect(() => {
     if (!isStudentRoute) return;
     const stored = localStorage.getItem(`wb_corgi_hidden_${studentCode}`);
     setHidden(stored === "1");
+    const storedPos = localStorage.getItem(`wb_corgi_pos_${studentCode}`);
+    if (storedPos) {
+      try {
+        const p = JSON.parse(storedPos);
+        if (typeof p?.x === "number" && typeof p?.y === "number") {
+          // Clamp against the CURRENT viewport — a position saved from a
+          // wider window (or a different device) could otherwise land
+          // off-screen or right back over the minimap after a resize.
+          const w = wrapRef.current?.offsetWidth ?? 128, h = wrapRef.current?.offsetHeight ?? 128;
+          setPos({
+            x: Math.min(Math.max(4, p.x), Math.max(4, window.innerWidth - w - 4)),
+            y: Math.min(Math.max(4, p.y), Math.max(4, window.innerHeight - h - 4)),
+          });
+        }
+      } catch { /* ignore malformed storage */ }
+    }
     setLoaded(true);
   }, [isStudentRoute, studentCode]);
+
+  // Keep the corgi on-screen if the viewport is resized (rotation, resize)
+  // after a manual drag — otherwise a saved position can strand it off the
+  // visible area with no way back short of clearing localStorage.
+  useEffect(() => {
+    function onResize() {
+      setPos(p => {
+        if (!p) return p;
+        const w = wrapRef.current?.offsetWidth ?? 128, h = wrapRef.current?.offsetHeight ?? 128;
+        return {
+          x: Math.min(Math.max(4, p.x), Math.max(4, window.innerWidth - w - 4)),
+          y: Math.min(Math.max(4, p.y), Math.max(4, window.innerHeight - h - 4)),
+        };
+      });
+    }
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  const onDragPointerDown = (e: React.PointerEvent) => {
+    if (e.button !== undefined && e.button !== 0) return;
+    const rect = wrapRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    dragRef.current = { startX: e.clientX, startY: e.clientY, origX: rect.left, origY: rect.top, moved: false };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onDragPointerMove = (e: React.PointerEvent) => {
+    const d = dragRef.current; if (!d) return;
+    const dx = e.clientX - d.startX, dy = e.clientY - d.startY;
+    if (!d.moved && Math.hypot(dx, dy) < 4) return;
+    d.moved = true;
+    const w = wrapRef.current?.offsetWidth ?? 128, h = wrapRef.current?.offsetHeight ?? 128;
+    setPos({
+      x: Math.min(Math.max(4, d.origX + dx), Math.max(4, window.innerWidth - w - 4)),
+      y: Math.min(Math.max(4, d.origY + dy), Math.max(4, window.innerHeight - h - 4)),
+    });
+  };
+  const onDragPointerUp = () => {
+    const d = dragRef.current; dragRef.current = null;
+    if (d?.moved) {
+      justDraggedRef.current = true;
+      setTimeout(() => { justDraggedRef.current = false; }, 0);
+      if (posRef.current) localStorage.setItem(`wb_corgi_pos_${codeRef.current}`, JSON.stringify(posRef.current));
+    }
+  };
 
   // Greeting / "missed you" — once per mount (root layout persists across
   // in-app navigation, so this fires roughly once per browser session).
@@ -193,13 +263,22 @@ export default function CorgiMascot() {
 
   if (!isStudentRoute || !loaded) return null;
 
+  // Default corner is bottom-LEFT, not bottom-right — the board's minimap
+  // ("Карта доски") docks bottom-right, and used to sit directly under the
+  // corgi with no way to move either one. Once dragged, pos (raw viewport
+  // px) takes over from either corner and pins the exact spot instead.
+  const posStyle: React.CSSProperties = pos
+    ? { left: pos.x, top: pos.y }
+    : {
+        left: "max(env(safe-area-inset-left, 0px), 12px)",
+        bottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)",
+      };
+
   return (
     <div
+      ref={wrapRef}
       className="fixed z-[999] pointer-events-none"
-      style={{
-        right: "max(env(safe-area-inset-right, 0px), 12px)",
-        bottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)",
-      }}
+      style={posStyle}
     >
       <style>{`
         @keyframes corgi-bob { 0%,100% { margin-top: 0; } 50% { margin-top: -6px; } }
@@ -213,10 +292,14 @@ export default function CorgiMascot() {
 
       {hidden ? (
         <button
-          onClick={() => toggleHidden(false)}
+          onClick={() => { if (!justDraggedRef.current) toggleHidden(false); }}
+          onPointerDown={onDragPointerDown}
+          onPointerMove={onDragPointerMove}
+          onPointerUp={onDragPointerUp}
+          onPointerCancel={onDragPointerUp}
           aria-label="Показать корги"
           className="pointer-events-auto w-8 h-8 rounded-full flex items-center justify-center text-base shadow-md hover:scale-105 transition-transform"
-          style={{ background: "white", border: "1px solid rgba(0,0,0,.08)" }}
+          style={{ background: "white", border: "1px solid rgba(0,0,0,.08)", touchAction: "none" }}
         >
           🐾
         </button>
@@ -240,7 +323,14 @@ export default function CorgiMascot() {
             </div>
           )}
 
-          <div className="relative pointer-events-auto w-[92px] h-[92px] sm:w-[128px] sm:h-[128px]">
+          <div
+            className="relative pointer-events-auto w-[92px] h-[92px] sm:w-[128px] sm:h-[128px]"
+            style={{ touchAction: "none" }}
+            onPointerDown={onDragPointerDown}
+            onPointerMove={onDragPointerMove}
+            onPointerUp={onDragPointerUp}
+            onPointerCancel={onDragPointerUp}
+          >
             {/* Video decodes invisibly (opacity:0, real size — a tiny
                 offscreen video was confirmed via Playwright to freeze on
                 its first decoded frame instead of advancing); the canvas
@@ -257,7 +347,7 @@ export default function CorgiMascot() {
               style={{ position: "absolute", opacity: 0, pointerEvents: "none", width: "100%", height: "100%" }}
             />
             <button
-              onClick={() => showBubble(pick(CLICK_PHRASES))}
+              onClick={() => { if (!justDraggedRef.current) showBubble(pick(CLICK_PHRASES)); }}
               aria-label="Корги"
               className="corgi-bob w-full h-full block"
             >
