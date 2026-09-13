@@ -1,8 +1,10 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { notifyStudent } from "@/lib/notifications/send";
+import { ensureGrammarAssignment, ensureVocabularyAssignment } from "@/lib/homework/link-set";
 
 export async function addHomework(formData: FormData) {
   const supabase = await createClient();
@@ -17,6 +19,26 @@ export async function addHomework(formData: FormData) {
   const title            = formData.get("title") as string;
   const due_date         = (formData.get("due_date") as string) || null;
 
+  // "Пройти набор X" — picking a grammar/vocabulary set here also assigns
+  // it to the student (if it wasn't already), so this one action replaces
+  // what used to be two separate, easy-to-forget-the-second-half steps.
+  // The link stored on the homework row is what lets completing that set
+  // later flip this homework's status automatically (see
+  // src/lib/homework/autocomplete.ts) instead of it sitting "не сдано"
+  // forever regardless of what the student actually did.
+  const pickGrammarSet    = (formData.get("pick_grammar_set") as string) || null;
+  const pickVocabularySet = (formData.get("pick_vocabulary_set") as string) || null;
+  let grammar_assignment_id: string | null = null;
+  let vocabulary_set_id: string | null = null;
+  if (pickGrammarSet) {
+    const db = createAdminClient();
+    grammar_assignment_id = await ensureGrammarAssignment(db, pickGrammarSet, student_id);
+  } else if (pickVocabularySet) {
+    const db = createAdminClient();
+    await ensureVocabularyAssignment(db, pickVocabularySet, student_id);
+    vocabulary_set_id = pickVocabularySet;
+  }
+
   await supabase.from("homework").insert({
     student_id,
     tutor_id: user.id,
@@ -26,6 +48,8 @@ export async function addHomework(formData: FormData) {
     material_url:   uploadedUrl || textUrl,
     material_label: uploadedFileName || textLabel,
     status: "pending",
+    grammar_assignment_id,
+    vocabulary_set_id,
   });
 
   notifyStudent(student_id, {

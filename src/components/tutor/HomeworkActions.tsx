@@ -18,7 +18,11 @@ export function HomeworkActions({
 
   const markChecked = () => {
     startMark(async () => {
-      await updateHomeworkStatus(id, studentId, "checked");
+      // updateHomeworkStatus(id, status, studentId) — this call had status
+      // and studentId swapped, so "Проверено" was writing the student's
+      // UUID into homework.status instead of "checked" and never actually
+      // marked anything checked.
+      await updateHomeworkStatus(id, "checked", studentId);
       showToast("Задание проверено ✓");
     });
   };

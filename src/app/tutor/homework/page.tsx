@@ -19,7 +19,10 @@ export default async function HomeworkPage({
 
   const query = supabase
     .from("homework")
-    .select("id, title, description, due_date, status, student_id, students(name)")
+    .select(`
+      id, title, description, due_date, status, student_id, students(name),
+      completed_late, vocabulary_set_id, grammar_assignments(score, max_score)
+    `)
     .eq("tutor_id", user!.id)
     .order("due_date", { ascending: true });
 
@@ -28,6 +31,29 @@ export default async function HomeworkPage({
   }
 
   const { data: homework } = await query;
+
+  const vocabSetIds = (homework ?? []).map(hw => hw.vocabulary_set_id).filter((id): id is string => !!id);
+  let vocabResults = new Map<string, { mastered: number; total: number }>();
+  if (vocabSetIds.length > 0) {
+    const { data: words } = await supabase.from("vocabulary_words").select("id, set_id").in("set_id", vocabSetIds);
+    const wordIds = (words ?? []).map(w => w.id);
+    const setStudent = new Map((homework ?? []).filter(hw => hw.vocabulary_set_id).map(hw => [hw.vocabulary_set_id as string, hw.student_id]));
+    const { data: progress } = wordIds.length > 0
+      ? await supabase.from("trainer_progress").select("word_id, student_id, status").in("word_id", wordIds)
+      : { data: [] as { word_id: string; student_id: string; status: string }[] };
+    const totals = new Map<string, number>(), mastered = new Map<string, number>();
+    for (const w of words ?? []) totals.set(w.set_id, (totals.get(w.set_id) ?? 0) + 1);
+    for (const p of progress ?? []) {
+      if (p.status !== "mastered") continue;
+      const w = (words ?? []).find(w => w.id === p.word_id);
+      if (!w) continue;
+      // Only count progress belonging to the student this homework/set is for —
+      // the same set can in principle be assigned to more than one student.
+      if (setStudent.get(w.set_id) !== p.student_id) continue;
+      mastered.set(w.set_id, (mastered.get(w.set_id) ?? 0) + 1);
+    }
+    vocabResults = new Map(vocabSetIds.map(id => [id, { mastered: mastered.get(id) ?? 0, total: totals.get(id) ?? 0 }]));
+  }
 
   const counts = await Promise.all(
     ["pending", "submitted", "checked"].map(async (s) => {
@@ -95,6 +121,14 @@ export default async function HomeworkPage({
             const statusCfg = STATUS_LABELS[hw.status] ?? STATUS_LABELS.pending;
             const dueDate = hw.due_date ? new Date(hw.due_date) : null;
             const isOverdue = dueDate && dueDate < new Date() && hw.status === "pending";
+            const gaRel = hw.grammar_assignments as { score: number; max_score: number } | { score: number; max_score: number }[] | null;
+            const ga = Array.isArray(gaRel) ? gaRel[0] : gaRel;
+            const vocabResult = hw.vocabulary_set_id ? vocabResults.get(hw.vocabulary_set_id) : undefined;
+            const resultPct = ga && ga.max_score > 0
+              ? Math.round((ga.score / ga.max_score) * 100)
+              : vocabResult && vocabResult.total > 0
+                ? Math.round((vocabResult.mastered / vocabResult.total) * 100)
+                : null;
 
             return (
               <div key={hw.id}
@@ -120,13 +154,14 @@ export default async function HomeworkPage({
                   <p className="text-xs" style={{ color: "var(--brown-light)" }}>
                     {studentName}
                     {dueDate && ` · до ${dueDate.toLocaleDateString("ru", { day: "numeric", month: "short" })}`}
+                    {resultPct !== null && ` · 🎯 ${resultPct}%`}
                   </p>
                 </div>
 
                 {/* Статус + кнопки */}
                 <div className="flex items-center gap-2 shrink-0">
                   <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${statusCfg.color}`}>
-                    {statusCfg.label}
+                    {statusCfg.label}{hw.status === "submitted" && hw.completed_late ? " (с опозданием)" : ""}
                   </span>
                   <HomeworkActions id={hw.id} studentId={hw.student_id} status={hw.status} />
                 </div>

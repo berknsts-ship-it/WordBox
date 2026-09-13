@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
+import { completeHomeworkForGrammarAssignment } from "@/lib/homework/autocomplete";
 
 export type ExerciseType = "bracket" | "mcq" | "true_false" | "fix_error" | "gap_fill" | "word_order";
 
@@ -205,6 +206,11 @@ export async function submitGrammarAttempt(assignmentId: string, answers: Record
     .update({ answers, status: "completed", score, max_score: maxScore, updated_at: new Date().toISOString() })
     .eq("id", assignmentId);
   if (error) return { error: error.message };
+
+  // Any homework that assigned this exact набор is now actually done —
+  // was previously left "не сдано" forever, since nothing tied the two
+  // together (see migration_homework_trainer_link.sql).
+  await completeHomeworkForGrammarAssignment(assignmentId);
 
   return { score, maxScore, results };
 }

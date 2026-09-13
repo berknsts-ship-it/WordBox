@@ -2,30 +2,11 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { FileUploadField } from "@/components/tutor/FileUploadField";
+import { addHomework as addHomeworkAction } from "@/app/actions/homework";
 
 async function addHomework(formData: FormData) {
   "use server";
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
-
-  const student_id = formData.get("student_id") as string;
-  const uploadedUrl = (formData.get("uploaded_url") as string) || null;
-  const uploadedFileName = (formData.get("uploaded_file_name") as string) || null;
-  const textUrl = (formData.get("material_url") as string) || null;
-  const textLabel = (formData.get("material_label") as string) || null;
-
-  await supabase.from("homework").insert({
-    student_id,
-    tutor_id: user.id,
-    title: formData.get("title") as string,
-    description: (formData.get("description") as string) || null,
-    due_date: (formData.get("due_date") as string) || null,
-    material_url: uploadedUrl || textUrl,
-    material_label: uploadedFileName || textLabel,
-    status: "pending",
-  });
-
+  await addHomeworkAction(formData);
   redirect("/tutor/homework");
 }
 
@@ -33,11 +14,11 @@ export default async function NewHomeworkPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const { data: students } = await supabase
-    .from("students")
-    .select("id, name")
-    .eq("tutor_id", user!.id)
-    .order("name");
+  const [{ data: students }, { data: grammarSets }, { data: vocabSets }] = await Promise.all([
+    supabase.from("students").select("id, name").eq("tutor_id", user!.id).order("name"),
+    supabase.from("grammar_sets").select("id, title").eq("tutor_id", user!.id).order("title"),
+    supabase.from("vocabulary_sets").select("id, name").eq("tutor_id", user!.id).order("name"),
+  ]);
 
   return (
     <div className="max-w-lg">
@@ -106,6 +87,51 @@ export default async function NewHomeworkPage() {
               style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
             />
           </div>
+
+          {(grammarSets && grammarSets.length > 0) || (vocabSets && vocabSets.length > 0) ? (
+            <div className="border-t pt-4 space-y-3" style={{ borderColor: "var(--brown-pale)" }}>
+              <p className="text-xs font-semibold" style={{ color: "var(--brown-light)" }}>
+                🎯 Связать с тренажёром (необязательно)
+              </p>
+              <p className="text-xs -mt-1" style={{ color: "var(--brown-light)" }}>
+                Выбери набор — когда ученик его пройдёт, задание само отметится «Сдано»
+              </p>
+              {grammarSets && grammarSets.length > 0 && (
+                <div>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: "var(--brown-mid)" }}>
+                    Набор грамматики
+                  </label>
+                  <select
+                    name="pick_grammar_set"
+                    className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+                    style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
+                  >
+                    <option value="">— не привязывать —</option>
+                    {grammarSets.map((s) => (
+                      <option key={s.id} value={s.id}>{s.title}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {vocabSets && vocabSets.length > 0 && (
+                <div>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: "var(--brown-mid)" }}>
+                    Набор словаря
+                  </label>
+                  <select
+                    name="pick_vocabulary_set"
+                    className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+                    style={{ background: "var(--cream)", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}
+                  >
+                    <option value="">— не привязывать —</option>
+                    {vocabSets.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+          ) : null}
 
           <div className="border-t pt-4 space-y-3" style={{ borderColor: "var(--brown-pale)" }}>
             <p className="text-xs font-semibold" style={{ color: "var(--brown-light)" }}>

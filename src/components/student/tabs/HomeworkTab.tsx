@@ -26,9 +26,29 @@ export default async function HomeworkTab({ studentId }: { studentId: string }) 
   const supabase = await createClient();
   const { data: homework } = await supabase
     .from("homework")
-    .select("id, title, description, due_date, status, material_url, material_label")
+    .select(`
+      id, title, description, due_date, status, material_url, material_label, completed_late,
+      vocabulary_set_id, grammar_assignments(score, max_score)
+    `)
     .eq("student_id", studentId)
     .order("due_date", { ascending: true });
+
+  const vocabSetIds = (homework ?? []).map(hw => hw.vocabulary_set_id).filter((id): id is string => !!id);
+  let vocabResults = new Map<string, { mastered: number; total: number }>();
+  if (vocabSetIds.length > 0) {
+    const { data: words } = await supabase.from("vocabulary_words").select("id, set_id").in("set_id", vocabSetIds);
+    const wordIds = (words ?? []).map(w => w.id);
+    const { data: progress } = wordIds.length > 0
+      ? await supabase.from("trainer_progress").select("word_id, status").eq("student_id", studentId).in("word_id", wordIds)
+      : { data: [] as { word_id: string; status: string }[] };
+    const masteredWordIds = new Set((progress ?? []).filter(p => p.status === "mastered").map(p => p.word_id));
+    const totals = new Map<string, number>(), mastered = new Map<string, number>();
+    for (const w of words ?? []) {
+      totals.set(w.set_id, (totals.get(w.set_id) ?? 0) + 1);
+      if (masteredWordIds.has(w.id)) mastered.set(w.set_id, (mastered.get(w.set_id) ?? 0) + 1);
+    }
+    vocabResults = new Map(vocabSetIds.map(id => [id, { mastered: mastered.get(id) ?? 0, total: totals.get(id) ?? 0 }]));
+  }
 
   if (!homework || homework.length === 0) {
     return (
@@ -47,6 +67,14 @@ export default async function HomeworkTab({ studentId }: { studentId: string }) 
       {homework.map((hw) => {
         const s = STATUS[hw.status] ?? STATUS.pending;
         const isOverdue = hw.due_date && hw.status === "pending" && new Date(hw.due_date) < new Date();
+        const gaRel = hw.grammar_assignments as { score: number; max_score: number } | { score: number; max_score: number }[] | null;
+        const ga = Array.isArray(gaRel) ? gaRel[0] : gaRel;
+        const vocabResult = hw.vocabulary_set_id ? vocabResults.get(hw.vocabulary_set_id) : undefined;
+        const resultPct = ga && ga.max_score > 0
+          ? Math.round((ga.score / ga.max_score) * 100)
+          : vocabResult && vocabResult.total > 0
+            ? Math.round((vocabResult.mastered / vocabResult.total) * 100)
+            : null;
 
         return (
           <div
@@ -92,10 +120,15 @@ export default async function HomeworkTab({ studentId }: { studentId: string }) 
                       {hw.material_label || "Открыть материал"}
                     </a>
                   )}
+                  {resultPct !== null && (
+                    <p className="text-xs mt-2 font-semibold" style={{ color: "var(--brown-mid)" }}>
+                      🎯 Результат: {resultPct}%
+                    </p>
+                  )}
                 </div>
                 <span className={`shrink-0 flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full ${s.color}`}>
                   {s.icon}
-                  {s.label}
+                  {s.label}{hw.status === "submitted" && hw.completed_late ? " (с опозданием)" : ""}
                 </span>
               </div>
             </div>
