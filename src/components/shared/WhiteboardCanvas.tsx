@@ -145,7 +145,36 @@ type FlowerItem = {
   petals: FlowerPetal[];
   locked?: boolean; pdfPage?: number;
 };
-type DrawItem = PathItem | TextItem | ImageItem | ShapeItem | FrameItem | VideoItem | DiceItem | WheelItem | TableItem | FunctionItem | CardItem | AudioItem | GrammarExerciseBoardItem | FlowerItem;
+export type ReadingExerciseMode = "build" | "read_aloud" | "fill_letter";
+export type ReadingWordConfig = {
+  word: string;
+  emoji: string;
+  // "build": the full shuffled letter pool (correct letters + distractors),
+  // fixed once at creation so both viewers solve the exact same puzzle —
+  // reshuffling on every render would let the pool silently rearrange
+  // itself mid-solve.
+  letters?: string[];
+  // "fill_letter": which letter is blanked, and the shuffled option set
+  // (also fixed at creation for the same reason).
+  blankIndex?: number;
+  blankOptions?: string[];
+};
+export type ReadingExerciseItem = {
+  type: "reading_exercise"; id: string;
+  x: number; y: number; w: number; h: number;
+  mode: ReadingExerciseMode;
+  words: ReadingWordConfig[];
+  currentIndex: number;
+  // Parallel to words[] — which ones are done. For "build"/"fill_letter"
+  // that means solved correctly; for "read_aloud" it means the reveal
+  // button was pressed (there's nothing to get wrong there).
+  solvedWords: boolean[];
+  // "build" only: letters currently sitting in each slot of the CURRENT
+  // word ("" = empty). Reset whenever currentIndex changes.
+  placed?: string[];
+  locked?: boolean; pdfPage?: number;
+};
+type DrawItem = PathItem | TextItem | ImageItem | ShapeItem | FrameItem | VideoItem | DiceItem | WheelItem | TableItem | FunctionItem | CardItem | AudioItem | GrammarExerciseBoardItem | FlowerItem | ReadingExerciseItem;
 
 type WsEvent =
   | { type: "path-pt"; id: string; x: number; y: number; t?: number; color: string; size: number; eraser: boolean; highlight: boolean }
@@ -193,6 +222,40 @@ export interface WhiteboardRef {
   loadItems(items: DrawItem[]): void;
   mergeItems(items: DrawItem[]): void;
 }
+
+// ── reading exercise word banks ────────────────────────────────────────────────
+// Starter sets for a first phonics lesson (CVC words) — a tutor building
+// their own list for a different student picks from these or types custom
+// ones in the same picker, so this isn't wired to any one student.
+type ReadingBuildWord = { word: string; emoji: string; distractors: string[] };
+const READING_BUILD_WORDS: ReadingBuildWord[] = [
+  { word: "cat", emoji: "🐱", distractors: ["o", "d"] },
+  { word: "dog", emoji: "🐶", distractors: ["a", "p"] },
+  { word: "pig", emoji: "🐷", distractors: ["e", "n"] },
+  { word: "hen", emoji: "🐔", distractors: ["t", "m"] },
+  { word: "bed", emoji: "🛏️", distractors: ["a", "k"] },
+  { word: "red", emoji: "🔴", distractors: ["o", "s"] },
+];
+type ReadingAloudWord = { word: string; emoji: string };
+const READING_ALOUD_WORDS: ReadingAloudWord[] = [
+  { word: "pin", emoji: "📌" },
+  { word: "ten", emoji: "🔟" },
+  { word: "map", emoji: "🗺️" },
+  { word: "hat", emoji: "🎩" },
+  { word: "pot", emoji: "🍲" },
+  { word: "bag", emoji: "🎒" },
+  { word: "cap", emoji: "🧢" },
+  { word: "net", emoji: "🥅" },
+];
+type ReadingFillWord = { word: string; emoji: string; blankIndex: number; wrongOptions: string[] };
+const READING_FILL_WORDS: ReadingFillWord[] = [
+  { word: "cat", emoji: "🐱", blankIndex: 1, wrongOptions: ["o", "e"] },
+  { word: "dog", emoji: "🐶", blankIndex: 1, wrongOptions: ["a", "i"] },
+  { word: "pig", emoji: "🐷", blankIndex: 1, wrongOptions: ["e", "a"] },
+  { word: "red", emoji: "🔴", blankIndex: 1, wrongOptions: ["a", "o"] },
+  { word: "bag", emoji: "🎒", blankIndex: 1, wrongOptions: ["o", "e"] },
+  { word: "ten", emoji: "🔟", blankIndex: 1, wrongOptions: ["a", "i"] },
+];
 
 // ── constants ─────────────────────────────────────────────────────────────────
 const COLORS           = ["#1a1a1a","#e03030","#2060d0","#20a040","#d07020","#9030b0","#ffffff"];
@@ -470,6 +533,7 @@ function itemBounds(item: DrawItem) {
   if (item.type === "audio")   return { x0: item.x, y0: item.y, x1: item.x + item.w, y1: item.y + item.h };
   if (item.type === "grammar_exercise") return { x0: item.x, y0: item.y, x1: item.x + item.w, y1: item.y + item.h };
   if (item.type === "flower") return { x0: item.x, y0: item.y, x1: item.x + item.w, y1: item.y + item.h };
+  if (item.type === "reading_exercise") return { x0: item.x, y0: item.y, x1: item.x + item.w, y1: item.y + item.h };
   return item.type === "path" ? pathBounds(item) : textBounds(item as TextItem);
 }
 const pathBboxCache = new WeakMap<PathItem, ReturnType<typeof pathBounds>>();
@@ -512,6 +576,7 @@ function shiftItem(item: DrawItem, dx: number, dy: number): DrawItem {
   if (item.type === "audio")   return { ...item, x: item.x + dx, y: item.y + dy };
   if (item.type === "grammar_exercise") return { ...item, x: item.x + dx, y: item.y + dy };
   if (item.type === "flower") return { ...item, x: item.x + dx, y: item.y + dy };
+  if (item.type === "reading_exercise") return { ...item, x: item.x + dx, y: item.y + dy };
   const ti = item as TextItem;
   return { ...ti, x: ti.x + dx, y: ti.y + dy };
 }
@@ -1172,6 +1237,11 @@ function renderItem(ctx: CanvasRenderingContext2D, item: DrawItem, zoom: number,
     ctx.strokeStyle = "#4a80f055"; ctx.lineWidth = 1;
     ctx.strokeRect(item.x, item.y, item.w, item.h);
     ctx.restore();
+  } else if (item.type === "reading_exercise") {
+    ctx.save();
+    ctx.strokeStyle = "#4a80f055"; ctx.lineWidth = 1;
+    ctx.strokeRect(item.x, item.y, item.w, item.h);
+    ctx.restore();
   } else {
     renderText(ctx, item as TextItem);
   }
@@ -1220,6 +1290,7 @@ function getItemBounds(item: DrawItem): { x: number; y: number; w: number; h: nu
     case "table":
     case "grammar_exercise":
     case "flower":
+    case "reading_exercise":
     case "card": return { x: item.x, y: item.y, w: item.w, h: item.h };
     default: return null;
   }
@@ -1662,6 +1733,15 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   // flip animation overlay
   type FlipOverlay = { id: string; sx: number; sy: number; sw: number; sh: number; rotation: number; word: string; translation: string; fromHidden: boolean; instanceId: number };
   const [flipOverlay, setFlipOverlay] = useState<FlipOverlay | null>(null);
+
+  // reading exercise panel
+  const [showReadingPanel, setShowReadingPanel] = useState(false);
+  const [readingMode,      setReadingMode]      = useState<ReadingExerciseMode>("build");
+  const [readingSelected,  setReadingSelected]  = useState<Set<number>>(new Set(READING_BUILD_WORDS.map((_, i) => i)));
+  const [readingCustom,    setReadingCustom]    = useState<{ word: string; emoji: string; extra: string }[]>([]);
+  const [readingCustomWord,   setReadingCustomWord]   = useState("");
+  const [readingCustomEmoji,  setReadingCustomEmoji]  = useState("");
+  const [readingCustomExtra,  setReadingCustomExtra]  = useState("");
 
   // ── render ──────────────────────────────────────────────────────────────────
   const render = useCallback(() => {
@@ -3795,11 +3875,61 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     send({ type:"path", item }); pushHistory({ type:"add", item });
   };
 
-  const speakWord = useCallback((word: string) => {
+  const addReadingExerciseToBoard = () => {
+    const parseExtraLetters = (extra: string) => extra.toLowerCase().replace(/[^a-z]/g, "").split("").slice(0, 2);
+
+    const words: ReadingWordConfig[] = [];
+    if (readingMode === "build") {
+      READING_BUILD_WORDS.forEach((w, i) => {
+        if (!readingSelected.has(i)) return;
+        words.push({ word: w.word, emoji: w.emoji, letters: shuffleWords([...w.word.split(""), ...w.distractors]) });
+      });
+      for (const c of readingCustom) {
+        const extra = parseExtraLetters(c.extra);
+        words.push({ word: c.word, emoji: c.emoji, letters: shuffleWords([...c.word.split(""), ...extra]) });
+      }
+    } else if (readingMode === "read_aloud") {
+      READING_ALOUD_WORDS.forEach((w, i) => { if (readingSelected.has(i)) words.push({ word: w.word, emoji: w.emoji }); });
+      for (const c of readingCustom) words.push({ word: c.word, emoji: c.emoji });
+    } else {
+      READING_FILL_WORDS.forEach((w, i) => {
+        if (!readingSelected.has(i)) return;
+        words.push({
+          word: w.word, emoji: w.emoji, blankIndex: w.blankIndex,
+          blankOptions: shuffleWords([w.word[w.blankIndex], ...w.wrongOptions]),
+        });
+      });
+      for (const c of readingCustom) {
+        const extra = parseExtraLetters(c.extra);
+        const blankIndex = Math.floor(c.word.length / 2);
+        words.push({ word: c.word, emoji: c.emoji, blankIndex, blankOptions: shuffleWords([c.word[blankIndex], ...extra]) });
+      }
+    }
+    if (words.length === 0) return;
+
+    const { zoom, panX, panY } = viewRef.current;
+    const cv = canvasRef.current; const dpr = window.devicePixelRatio || 1;
+    const cx = cv ? (cv.width / dpr / 2 - panX) / zoom : 400;
+    const cy = cv ? (cv.height / dpr / 2 - panY) / zoom : 300;
+    const W = 340, H = readingMode === "read_aloud" ? 280 : 340;
+    const item: ReadingExerciseItem = {
+      type: "reading_exercise", id: uid(), x: cx - W / 2, y: cy - H / 2, w: W, h: H,
+      mode: readingMode, words, currentIndex: 0,
+      solvedWords: words.map(() => false),
+      placed: readingMode === "build" ? words[0].word.split("").map(() => "") : undefined,
+    };
+    itemsRef.current.push(item); render();
+    send({ type: "path", item }); pushHistory({ type: "add", item });
+    setShowReadingPanel(false);
+    setReadingSelected(new Set());
+    setReadingCustom([]);
+  };
+
+  const speakWord = useCallback((word: string, rate = 0.85) => {
     if (!("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
     const utt = new SpeechSynthesisUtterance(word);
-    utt.lang = "en-GB"; utt.rate = 0.85;
+    utt.lang = "en-GB"; utt.rate = rate;
     window.speechSynthesis.speak(utt);
   }, []);
 
@@ -4528,6 +4658,14 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                       className="flex flex-col items-center gap-1 p-2 rounded-xl border hover:opacity-70"
                       style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
                       <span className="text-xl">✏️</span><span className="text-xs">Упражнение</span>
+                    </button>
+                  )}
+                  {role==="tutor" && (
+                    <button onClick={()=>{setShowReadingPanel(v=>!v);setShowMoreTools(false);}}
+                      onTouchEnd={e=>{e.preventDefault();e.stopPropagation();(e.currentTarget as HTMLButtonElement).click();}}
+                      className="flex flex-col items-center gap-1 p-2 rounded-xl border hover:opacity-70"
+                      style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
+                      <span className="text-xl">📖</span><span className="text-xs">Чтение</span>
                     </button>
                   )}
                   {role==="tutor" && (
@@ -5284,6 +5422,28 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                 snapCandidatesRef.current = collectSnapCandidates(itemsRef.current, new Set([fi.id]));
               }}
               onUndo={undo} canUndo={canUndo} />
+          );
+        })}
+
+        {/* Reading exercise overlays */}
+        {itemsRef.current.filter(it => it.type === "reading_exercise").map(it => {
+          const ri = it as ReadingExerciseItem;
+          const sp = w2s(ri.x, ri.y);
+          const ep = w2s(ri.x + ri.w, ri.y + ri.h);
+          const sw = ep.x - sp.x, sh = ep.y - sp.y;
+          const sel = selectedId === ri.id || selectedIds.has(ri.id);
+          return (
+            <ReadingExerciseOverlay key={ri.id} item={ri} sp={sp} sw={sw} sh={sh} selected={sel}
+              zoom={viewRef.current.zoom}
+              onUpdate={next => updateBoardItem(next)}
+              onSpeak={word => speakWord(word, 0.75)}
+              onResizeStart={(corner, clientX, clientY) => {
+                const rect = containerRef.current!.getBoundingClientRect();
+                const ww = (clientX - rect.left - viewRef.current.panX) / viewRef.current.zoom;
+                const wh = (clientY - rect.top  - viewRef.current.panY) / viewRef.current.zoom;
+                selDragRef.current = { mode:"resize-img", id: ri.id, corner, wx0: ww, wy0: wh, origItem: { ...ri } };
+                snapCandidatesRef.current = collectSnapCandidates(itemsRef.current, new Set([ri.id]));
+              }} />
           );
         })}
 
@@ -6589,6 +6749,118 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           </div>
         )}
 
+        {/* Reading exercise panel */}
+        {showReadingPanel && (() => {
+          const bank = readingMode === "build" ? READING_BUILD_WORDS : readingMode === "read_aloud" ? READING_ALOUD_WORDS : READING_FILL_WORDS;
+          const selectMode = (m: ReadingExerciseMode) => {
+            setReadingMode(m);
+            const b = m === "build" ? READING_BUILD_WORDS : m === "read_aloud" ? READING_ALOUD_WORDS : READING_FILL_WORDS;
+            setReadingSelected(new Set(b.map((_, i) => i)));
+          };
+          const totalCount = readingSelected.size + readingCustom.length;
+          return (
+            <div className="fixed inset-0 z-[250] flex items-start justify-center pt-16 px-4"
+              data-no-prevent style={{ background:"rgba(0,0,0,0.25)" }}
+              onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()}
+              onClick={e=>{ if(e.target===e.currentTarget) setShowReadingPanel(false); }}>
+              <div className="rounded-2xl shadow-xl p-5 w-full max-w-sm max-h-[80vh] overflow-y-auto"
+                style={{ background:"white", borderColor:"var(--brown-pale)", border:"1px solid" }}>
+                <div className="flex items-center justify-between mb-4">
+                  <span className="font-semibold text-base" style={{ color:"var(--brown-dark)" }}>Упражнение для чтения</span>
+                  <button onClick={()=>setShowReadingPanel(false)} style={{ color:"var(--brown-mid)" }}><X size={18}/></button>
+                </div>
+
+                <div className="mb-3">
+                  <label className="text-xs font-medium block mb-1.5" style={{ color:"var(--brown-mid)" }}>Тип упражнения</label>
+                  <div className="grid grid-cols-1 gap-1.5">
+                    {([
+                      { v:"build" as const,       label:"Собери слово",     hint:"картинка видна сразу, собери буквы по порядку" },
+                      { v:"read_aloud" as const,  label:"Прочитай вслух",   hint:"картинка появляется как проверка после чтения" },
+                      { v:"fill_letter" as const, label:"Вставь букву",     hint:"звук + картинка помогают выбрать букву" },
+                    ]).map(o => (
+                      <button key={o.v} onClick={()=>selectMode(o.v)}
+                        className="text-left px-3 py-2 rounded-xl border text-sm"
+                        style={readingMode===o.v
+                          ? { borderColor:"var(--brown-dark)", background:"var(--brown-pale)", color:"var(--brown-dark)" }
+                          : { borderColor:"var(--brown-pale)", color:"var(--brown-mid)" }}>
+                        <span className="font-semibold">{o.label}</span>
+                        <span className="block text-xs mt-0.5" style={{ color:"var(--brown-light)" }}>{o.hint}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mb-1 flex items-center justify-between">
+                  <span className="text-xs font-medium" style={{ color:"var(--brown-mid)" }}>Слова ({bank.length})</span>
+                  <button className="text-xs underline" style={{ color:"var(--brown-mid)" }}
+                    onClick={()=>setReadingSelected(readingSelected.size===bank.length ? new Set() : new Set(bank.map((_,i)=>i)))}>
+                    {readingSelected.size===bank.length ? "Снять все" : "Выбрать все"}
+                  </button>
+                </div>
+                <div className="overflow-y-auto max-h-40 flex flex-col gap-0.5 mb-3 pr-1">
+                  {bank.map((w, i) => (
+                    <label key={w.word} className="flex items-center gap-2 text-sm cursor-pointer px-2 py-1 rounded-lg hover:bg-[var(--brown-pale)]">
+                      <input type="checkbox" checked={readingSelected.has(i)}
+                        onChange={e=>{ const s=new Set(readingSelected); e.target.checked?s.add(i):s.delete(i); setReadingSelected(s); }}
+                        className="accent-[var(--brown-dark)]"/>
+                      <span>{w.emoji}</span>
+                      <span style={{ color:"var(--brown-dark)" }}>{w.word}</span>
+                    </label>
+                  ))}
+                </div>
+
+                <div className="border-t pt-3 mb-3" style={{ borderColor:"var(--brown-pale)" }}>
+                  <span className="text-xs font-medium block mb-1.5" style={{ color:"var(--brown-mid)" }}>
+                    Своё слово (для любого ученика)
+                  </span>
+                  <div className="flex gap-1.5 mb-1.5">
+                    <input value={readingCustomEmoji} onChange={e=>setReadingCustomEmoji(e.target.value)} placeholder="🐱"
+                      className="w-12 rounded-lg px-2 py-1.5 text-sm text-center"
+                      style={{ background:"var(--cream)", border:"1.5px solid var(--brown-pale)" }}/>
+                    <input value={readingCustomWord} onChange={e=>setReadingCustomWord(e.target.value.toLowerCase())} placeholder="слово"
+                      className="flex-1 rounded-lg px-2 py-1.5 text-sm"
+                      style={{ background:"var(--cream)", border:"1.5px solid var(--brown-pale)", color:"var(--brown-dark)" }}/>
+                  </div>
+                  {readingMode !== "read_aloud" && (
+                    <input value={readingCustomExtra} onChange={e=>setReadingCustomExtra(e.target.value)}
+                      placeholder={readingMode==="build" ? "2 буквы-отвлекалки, напр. o d" : "2 неверные буквы, напр. o e"}
+                      className="w-full rounded-lg px-2 py-1.5 text-sm mb-1.5"
+                      style={{ background:"var(--cream)", border:"1.5px solid var(--brown-pale)", color:"var(--brown-dark)" }}/>
+                  )}
+                  <button
+                    disabled={!readingCustomWord.trim() || !readingCustomEmoji.trim()}
+                    onClick={()=>{
+                      setReadingCustom([...readingCustom, { word:readingCustomWord.trim(), emoji:readingCustomEmoji.trim(), extra:readingCustomExtra }]);
+                      setReadingCustomWord(""); setReadingCustomEmoji(""); setReadingCustomExtra("");
+                    }}
+                    className="w-full py-1.5 rounded-lg text-xs font-semibold disabled:opacity-40"
+                    style={{ background:"var(--brown-pale)", color:"var(--brown-dark)" }}>
+                    + Добавить своё слово
+                  </button>
+                  {readingCustom.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {readingCustom.map((c, i) => (
+                        <span key={i} className="text-xs px-2 py-1 rounded-full flex items-center gap-1"
+                          style={{ background:"var(--brown-pale)", color:"var(--brown-dark)" }}>
+                          {c.emoji} {c.word}
+                          <button onClick={()=>setReadingCustom(readingCustom.filter((_,j)=>j!==i))} style={{ color:"var(--brown-mid)" }}>✕</button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <button onClick={addReadingExerciseToBoard}
+                  disabled={totalCount===0}
+                  className="w-full py-2 rounded-xl text-sm font-semibold disabled:opacity-40"
+                  style={{ background:"var(--gradient-primary)", color:"white" }}>
+                  Добавить на доску ({totalCount})
+                </button>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Wheel panel */}
         {showWheel && (
           <div className="fixed inset-0 z-[250] flex items-start justify-center pt-16 px-4"
@@ -6832,6 +7104,14 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                 className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl border shrink-0"
                 style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
                 <span className="text-lg">⊞</span><span className="text-xs">Таблица</span>
+              </button>
+            )}
+            {role==="tutor" && (
+              <button onClick={()=>{setShowReadingPanel(v=>!v);setShowMoreTools(false);}}
+                onTouchEnd={e=>{e.preventDefault();e.stopPropagation();(e.currentTarget as HTMLButtonElement).click();}}
+                className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl border shrink-0"
+                style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
+                <span className="text-lg">📖</span><span className="text-xs">Чтение</span>
               </button>
             )}
             {role==="tutor" && (
@@ -7473,6 +7753,237 @@ function GrammarExerciseOverlay({ item, sp, sw, sh, selected, onAnswer, onCheck,
               </div>
             );
           })}
+        </div>
+      </div>
+      {/* Resize handles */}
+      {selected && !locked && (["nw","ne","sw","se"] as const).map(corner => {
+        const isRight = corner.endsWith("e"), isBottom = corner.startsWith("s");
+        return (
+          <div key={corner} className="absolute pointer-events-auto"
+            style={{
+              [isRight?"right":"left"]: -7, [isBottom?"bottom":"top"]: -7,
+              width:18, height:18, cursor:`${corner}-resize`, zIndex:32,
+              background:"white", border:"2px solid #4a80f0", borderRadius:3,
+            }}
+            onMouseDown={e => { e.stopPropagation(); onResizeStart(corner, e.clientX, e.clientY); }}
+            onTouchStart={e => { e.stopPropagation(); e.preventDefault(); onResizeStart(corner, e.touches[0].clientX, e.touches[0].clientY); }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+// ── ReadingExerciseOverlay ────────────────────────────────────────────────────
+// Progress (currentIndex, solvedWords, placed) is the only thing broadcast —
+// every keystroke-equivalent (which pool letter is dragged where mid-attempt)
+// stays local React state, same reasoning as the text-editing fix: only sync
+// the outcome of a discrete action (a letter placed, a word solved, moving to
+// the next word), never a continuous gesture.
+const READING_MODE_LABEL: Record<ReadingExerciseMode, string> = {
+  build: "Собери слово", read_aloud: "Прочитай вслух", fill_letter: "Вставь букву",
+};
+
+function remainingLetterPool(letters: string[], placed: string[]): string[] {
+  const pool = [...letters];
+  for (const p of placed) {
+    if (!p) continue;
+    const idx = pool.indexOf(p);
+    if (idx >= 0) pool.splice(idx, 1);
+  }
+  return pool;
+}
+
+function ReadingExerciseOverlay({ item, sp, sw, sh, selected, zoom, onUpdate, onSpeak, onResizeStart }: {
+  item: ReadingExerciseItem; sp:{x:number;y:number}; sw:number; sh:number; selected:boolean; zoom:number;
+  onUpdate:(next:ReadingExerciseItem)=>void; onSpeak:(word:string)=>void;
+  onResizeStart:(corner:"se"|"sw"|"ne"|"nw", clientX:number, clientY:number)=>void;
+}) {
+  const locked = item.locked;
+  const stop = (e: React.SyntheticEvent) => e.stopPropagation();
+  // Everything below the (fixed-size) header is sized in CSS px, which
+  // does NOT shrink on its own when the board is zoomed out — only the
+  // outer box (sp/sw/sh) does, since those already come pre-multiplied by
+  // zoom. Without scaling these too, the letter tiles/buttons stayed their
+  // full on-screen size while the box around them shrank, so at anything
+  // below ~70% zoom the pool of letters (or the fill-in-the-blank options)
+  // silently got clipped by the box's own overflow:hidden. TableOverlay's
+  // fontSize already does this (fs = fontSize * zoom); same idea here.
+  const z = (px: number) => Math.max(1, px * zoom);
+  const [shake, setShake] = useState(false);
+  const [wrongOption, setWrongOption] = useState<string | null>(null);
+  const shakeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (shakeTimer.current) clearTimeout(shakeTimer.current); }, []);
+
+  const cur = item.words[item.currentIndex];
+  const solved = item.solvedWords[item.currentIndex];
+
+  const goTo = (idx: number) => {
+    if (idx < 0 || idx >= item.words.length) return;
+    const w = item.words[idx];
+    onUpdate({ ...item, currentIndex: idx, placed: item.mode === "build" ? w.word.split("").map(() => "") : item.placed });
+  };
+
+  // "build" — click a pool letter to place it in the next empty slot.
+  const placeLetter = (letter: string) => {
+    if (locked || solved || !cur.letters) return;
+    const placed = [...(item.placed ?? cur.word.split("").map(() => ""))];
+    const slot = placed.findIndex(p => !p);
+    if (slot < 0) return;
+    placed[slot] = letter;
+    if (placed.every(p => p)) {
+      if (placed.join("") === cur.word) {
+        onUpdate({ ...item, placed, solvedWords: item.solvedWords.map((s, i) => i === item.currentIndex ? true : s) });
+        onSpeak(cur.word);
+      } else {
+        onUpdate({ ...item, placed });
+        setShake(true);
+        shakeTimer.current = setTimeout(() => {
+          setShake(false);
+          onUpdate({ ...item, placed: cur.word.split("").map(() => "") });
+        }, 550);
+      }
+    } else {
+      onUpdate({ ...item, placed });
+    }
+  };
+  const unplaceSlot = (slotIdx: number) => {
+    if (locked || solved || !item.placed) return;
+    const placed = [...item.placed];
+    placed[slotIdx] = "";
+    onUpdate({ ...item, placed });
+  };
+
+  const pickFillOption = (opt: string) => {
+    if (locked || solved || cur.blankIndex === undefined) return;
+    if (opt === cur.word[cur.blankIndex]) {
+      onUpdate({ ...item, solvedWords: item.solvedWords.map((s, i) => i === item.currentIndex ? true : s) });
+      onSpeak(cur.word);
+    } else {
+      setWrongOption(opt);
+      shakeTimer.current = setTimeout(() => setWrongOption(null), 450);
+    }
+  };
+
+  const reveal = () => {
+    onUpdate({ ...item, solvedWords: item.solvedWords.map((s, i) => i === item.currentIndex ? true : s) });
+    onSpeak(cur.word);
+  };
+
+  return (
+    <div data-no-prevent className="absolute select-none" style={{ left:sp.x, top:sp.y, width:sw, height:sh, zIndex:20 }}>
+      <style>{`
+        @keyframes reading-shake { 0%,100%{transform:translateX(0);} 20%{transform:translateX(-8px);} 40%{transform:translateX(8px);} 60%{transform:translateX(-6px);} 80%{transform:translateX(6px);} }
+        .reading-shake { animation: reading-shake 0.4s ease-in-out; }
+      `}</style>
+      <div className="w-full h-full flex flex-col" style={{
+        outline: selected ? "2px solid #4a80f0" : "1px solid #c0b8b0",
+        borderRadius:14, background:"#fffdf8", boxShadow:"0 1px 6px rgba(0,0,0,0.08)", overflow:"hidden",
+      }}>
+        {/* Header — drag handle */}
+        <div className="flex items-center justify-between gap-2 px-3 py-2 shrink-0"
+          style={{ background:"#f8f4ee", borderBottom:"1px solid #e8ddd0", cursor: locked ? "default" : "move" }}>
+          <span className="text-xs font-semibold truncate" style={{ color:"var(--brown-dark)" }}>
+            📖 {READING_MODE_LABEL[item.mode]}
+          </span>
+          <div className="flex items-center gap-1.5 shrink-0" onMouseDown={stop} onTouchStart={stop}>
+            <button onClick={()=>goTo(item.currentIndex-1)} disabled={item.currentIndex===0}
+              className="w-6 h-6 rounded-full flex items-center justify-center disabled:opacity-30"
+              style={{ background:"white", border:"1px solid #e8ddd0" }}>‹</button>
+            <span className="text-xs font-medium tabular-nums" style={{ color:"var(--brown-mid)" }}>
+              {item.currentIndex+1}/{item.words.length}{solved ? " ✓" : ""}
+            </span>
+            <button onClick={()=>goTo(item.currentIndex+1)} disabled={item.currentIndex===item.words.length-1}
+              className="w-6 h-6 rounded-full flex items-center justify-center disabled:opacity-30"
+              style={{ background:"white", border:"1px solid #e8ddd0" }}>›</button>
+          </div>
+        </div>
+
+        {/* Body — overflow-y:auto is a safety net, not the primary fix: at
+            any zoom level content should already fit via the z()-scaled
+            sizes below, but a very long custom word list at a tiny zoom
+            still gets a scrollbar instead of silently clipping. */}
+        <div className="flex-1 flex flex-col items-center justify-center overflow-y-auto"
+          style={{ gap:z(16), padding:`${z(12)}px ${z(16)}px` }} onMouseDown={stop} onTouchStart={stop}>
+          {item.mode === "build" && (() => {
+            const placed = item.placed ?? cur.word.split("").map(() => "");
+            const pool = remainingLetterPool(cur.letters ?? [], placed);
+            return (
+              <>
+                <div style={{ fontSize:z(48) }}>{cur.emoji}</div>
+                <div className={shake ? "reading-shake" : ""} style={{ display:"flex", gap:z(6) }}>
+                  {placed.map((p, i) => (
+                    <button key={i} onClick={()=>p && unplaceSlot(i)}
+                      className="flex items-center justify-center rounded-lg font-bold uppercase"
+                      style={{
+                        width:z(36), height:z(40), fontSize:z(18), borderRadius:z(8),
+                        background: solved ? "#e6f5ea" : "white",
+                        border: `${z(2)}px solid ${solved ? "#6ea882" : "#c0b8b0"}`,
+                        color: solved ? "#2f6b45" : "var(--brown-dark)",
+                      }}>
+                      {p}
+                    </button>
+                  ))}
+                </div>
+                {!solved && (
+                  <div style={{ display:"flex", gap:z(6), flexWrap:"wrap", justifyContent:"center" }}>
+                    {pool.map((l, i) => (
+                      <button key={i} onClick={()=>placeLetter(l)}
+                        className="flex items-center justify-center rounded-lg font-bold uppercase hover:opacity-75"
+                        style={{ width:z(36), height:z(40), fontSize:z(18), borderRadius:z(8), background:"var(--brown-pale)", color:"var(--brown-dark)" }}>
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            );
+          })()}
+
+          {item.mode === "read_aloud" && (
+            <>
+              <div className="font-bold tracking-wide uppercase" style={{ color:"var(--brown-dark)", fontSize:z(30) }}>{cur.word}</div>
+              {!solved ? (
+                <button onClick={reveal}
+                  className="rounded-xl font-semibold text-white whitespace-nowrap"
+                  style={{ background:"var(--gradient-primary)", padding:`${z(8)}px ${z(16)}px`, fontSize:z(13), borderRadius:z(10) }}>
+                  Я прочитала! Показать
+                </button>
+              ) : (
+                <div className="flex flex-col items-center" style={{ gap:z(6), animation:"corgi-bubble-in .3s ease-out" }}>
+                  <div style={{ fontSize:z(52) }}>{cur.emoji}</div>
+                  <div className="font-semibold" style={{ color:"#2f6b45", fontSize:z(13) }}>
+                    Молодец! Это <span className="uppercase">{cur.word}</span>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {item.mode === "fill_letter" && cur.blankIndex !== undefined && (
+            <>
+              <div style={{ fontSize:z(44) }}>{cur.emoji}</div>
+              <div className="flex items-center" style={{ gap:z(10) }}>
+                <div className="font-bold tracking-widest uppercase" style={{ color: solved ? "#2f6b45" : "var(--brown-dark)", fontSize:z(22) }}>
+                  {cur.word.split("").map((ch, i) => i === cur.blankIndex && !solved ? "_" : ch).join("")}
+                </div>
+                <button onClick={()=>onSpeak(cur.word)}
+                  className="rounded-full flex items-center justify-center shrink-0"
+                  style={{ background:"var(--brown-pale)", width:z(30), height:z(30), fontSize:z(14) }}>🔊</button>
+              </div>
+              {!solved && (
+                <div style={{ display:"flex", gap:z(8) }}>
+                  {(cur.blankOptions ?? []).map((opt, i) => (
+                    <button key={i} onClick={()=>pickFillOption(opt)}
+                      className={`flex items-center justify-center rounded-lg font-bold uppercase hover:opacity-75 ${wrongOption===opt ? "reading-shake" : ""}`}
+                      style={{ width:z(38), height:z(38), fontSize:z(18), borderRadius:z(8), background:"var(--brown-pale)", color:"var(--brown-dark)" }}>
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
       {/* Resize handles */}
