@@ -102,7 +102,7 @@ export default async function StudentCabinetPage({
           <TabNav code={code} activeTab={activeTab} pendingHomework={pendingCount ?? 0} themeId={student.theme} />
           <div className="mt-5">
             {activeTab === "schedule"  && <ScheduleTab  studentId={student.id} />}
-            {activeTab === "homework"  && <HomeworkTab  studentId={student.id} />}
+            {activeTab === "homework"  && <HomeworkTab  studentId={student.id} code={code} />}
             {activeTab === "materials" && <MaterialsTab studentId={student.id} />}
             {activeTab === "journal"   && <JournalTab   studentId={student.id} />}
             {activeTab === "trainer"   && (

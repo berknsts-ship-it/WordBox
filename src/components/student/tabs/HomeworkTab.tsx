@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { ClipboardList, Paperclip, AlertCircle, CheckCircle2, Clock3 } from "lucide-react";
+import Link from "next/link";
+import { ClipboardList, Paperclip, AlertCircle, CheckCircle2, Clock3, Dumbbell } from "lucide-react";
 
 const STATUS: Record<string, { label: string; color: string; dot: string; icon: React.ReactNode }> = {
   pending:   {
@@ -22,13 +23,13 @@ const STATUS: Record<string, { label: string; color: string; dot: string; icon: 
   },
 };
 
-export default async function HomeworkTab({ studentId }: { studentId: string }) {
+export default async function HomeworkTab({ studentId, code }: { studentId: string; code: string }) {
   const supabase = await createClient();
   const { data: homework } = await supabase
     .from("homework")
     .select(`
       id, title, description, due_date, status, material_url, material_label, completed_late,
-      vocabulary_set_id, grammar_assignments(score, max_score)
+      grammar_assignment_id, vocabulary_set_id, grammar_assignments(score, max_score)
     `)
     .eq("student_id", studentId)
     .order("due_date", { ascending: true });
@@ -119,6 +120,26 @@ export default async function HomeworkTab({ studentId }: { studentId: string }) 
                       <Paperclip size={11} />
                       {hw.material_label || "Открыть материал"}
                     </a>
+                  )}
+                  {hw.grammar_assignment_id && (
+                    <Link
+                      href={`/student/${code}?tab=trainer&sub=exercises&assignment=${hw.grammar_assignment_id}`}
+                      className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-xl text-xs font-semibold transition-opacity hover:opacity-75"
+                      style={{ background: "var(--gradient-primary)", color: "#fff", boxShadow: "var(--shadow-button)" }}
+                    >
+                      <Dumbbell size={11} />
+                      {hw.status === "pending" ? "Пройти в тренажёре" : "Открыть в тренажёре"}
+                    </Link>
+                  )}
+                  {hw.vocabulary_set_id && (
+                    <Link
+                      href={`/student/${code}?tab=trainer&set=${hw.vocabulary_set_id}`}
+                      className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-xl text-xs font-semibold transition-opacity hover:opacity-75"
+                      style={{ background: "var(--gradient-primary)", color: "#fff", boxShadow: "var(--shadow-button)" }}
+                    >
+                      <Dumbbell size={11} />
+                      {hw.status === "pending" ? "Пройти в тренажёре" : "Открыть в тренажёре"}
+                    </Link>
                   )}
                   {resultPct !== null && (
                     <p className="text-xs mt-2 font-semibold" style={{ color: "var(--brown-mid)" }}>
