@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { X } from "lucide-react";
-import { CORGI_EVENT } from "@/lib/corgi-events";
+import { CORGI_EVENT, CORGI_HIDE_EVENT } from "@/lib/corgi-events";
 
 const GREETING = "Hello! Ready to learn?";
 const MISSED_YOU = "I missed you!";
@@ -48,6 +48,11 @@ export default function CorgiMascot() {
   const [hidden, setHidden] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [bubble, setBubble] = useState<string | null>(null);
+  // Set by the board while its own text editor is open — see CORGI_HIDE_EVENT.
+  // Separate from `hidden` (the user's own X-button preference): this is
+  // temporary and never touches localStorage, so the corgi reappears the
+  // moment editing ends regardless of the saved preference.
+  const [editingHidden, setEditingHidden] = useState(false);
   // null = default corner (bottom-left, chosen specifically so the corgi
   // never starts on top of the board's minimap, which docks bottom-right).
   // Once dragged, an explicit {x,y} in viewport px takes over.
@@ -181,6 +186,18 @@ export default function CorgiMascot() {
     return () => window.removeEventListener(CORGI_EVENT, handler);
   }, [showBubble]);
 
+  // The board's text editor — the mobile version especially, a full-width
+  // sheet sliding up from the bottom — used to sit right under the corgi's
+  // own default corner, covering the start of whatever was being typed.
+  useEffect(() => {
+    function handler(e: Event) {
+      const detail = (e as CustomEvent<{ hidden: boolean }>).detail;
+      setEditingHidden(!!detail?.hidden);
+    }
+    window.addEventListener(CORGI_HIDE_EVENT, handler);
+    return () => window.removeEventListener(CORGI_HIDE_EVENT, handler);
+  }, []);
+
   // Idle encouragement, only while the tab is actually visible.
   useEffect(() => {
     if (!isStudentRoute || hidden) return;
@@ -261,7 +278,7 @@ export default function CorgiMascot() {
     if (next) setBubble(null);
   };
 
-  if (!isStudentRoute || !loaded) return null;
+  if (!isStudentRoute || !loaded || editingHidden) return null;
 
   // Default corner is bottom-LEFT, not bottom-right — the board's minimap
   // ("Карта доски") docks bottom-right, and used to sit directly under the

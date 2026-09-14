@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { saveBoardState, loadBoardState, saveBoardRuling } from "@/app/actions/board";
 import { checkGrammarBoardItems, type ExerciseType } from "@/app/actions/grammar";
 import { ItemInput, TYPE_LABELS, type GrammarItem } from "@/components/shared/GrammarItemInput";
+import { setCorgiHiddenForEditing } from "@/lib/corgi-events";
 import {
   Pencil, Eraser, Trash2, Type, Highlighter, MousePointer2,
   BookOpen, ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut,
@@ -190,6 +191,11 @@ type WsEvent =
   | { type: "ruling";  ruling: Ruling }
   | { type: "ruling_size"; size: RulingSize }
   | { type: "follow_state"; active: boolean; leaderId: string; name: string; zoom: number; panX: number; panY: number }
+  // Sent by a student when they stop following (manually via "Отвязаться"
+  // or automatically the moment they touch their own board) — lets the
+  // tutor's "Ко мне" button reflect reality instead of staying lit after
+  // the student has already broken away to work on their own.
+  | { type: "follow_break"; leaderId: string }
   | { type: "lock_all"; locked: boolean }
   | { type: "video_sync"; id: string; action: "play" | "pause" | "seek"; position: number; sentAt: number }
   | { type: "audio_sync"; id: string; action: "play" | "pause" | "seek"; position: number; sentAt: number }
@@ -1583,6 +1589,17 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   const [textInput,  setTextInput]  = useState<{ wx: number; wy: number } | null>(null);
   const [textValue,  setTextValue]  = useState("");
   const [bold,       setBold]       = useState(false);
+
+  // The mobile text editor is a full-width sheet fixed to the bottom of the
+  // screen — the same corner the corgi mascot defaults to — and used to sit
+  // underneath it, covering the start of whatever was just typed. Rather
+  // than have the board reach into the mascot's own layout to dodge it,
+  // just ask it to duck out of the way for as long as editing is open.
+  useEffect(() => {
+    setCorgiHiddenForEditing(!!textInput);
+    return () => setCorgiHiddenForEditing(false);
+  }, [textInput]);
+
   const [italic,     setItalic]     = useState(false);
   const [align,      setAlign]      = useState<TextAlign>("left");
   const [,           setEditingId]  = useState<string | null>(null);
@@ -2338,6 +2355,13 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           }
           return;
         }
+        if (payload.type === "follow_break") {
+          if (role === "tutor" && payload.leaderId === mySenderIdRef.current && presentingRef.current) {
+            presentingRef.current = false;
+            setPresenting(false);
+          }
+          return;
+        }
         if (payload.type === "ruling")    {
           // Apply directly, not via setRuling — that would re-broadcast and
           // re-save what we just received right back out.
@@ -2511,7 +2535,14 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     send({ type: "follow_state", active: next, leaderId: mySenderIdRef.current, name, zoom, panX, panY });
   };
   // Student-side: stop following the current presenter, without affecting anyone else.
-  const unfollow = () => { followLeaderIdRef.current = null; setFollowInfo(null); };
+  // Tells the leader too (follow_break) — otherwise their "Ко мне" button stayed lit
+  // even after the student had already broken away, with no way for them to tell.
+  const unfollow = () => {
+    const leaderId = followLeaderIdRef.current;
+    if (!leaderId) return;
+    followLeaderIdRef.current = null; setFollowInfo(null);
+    send({ type: "follow_break", leaderId });
+  };
 
   // One-time smooth fly to a participant's last known viewport — not a leash,
   // just a single flight, then I'm free to move on my own again.
@@ -2689,6 +2720,12 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
 
   // ── pointer down ─────────────────────────────────────────────────────────────
   const onMouseDown = (e: React.MouseEvent) => {
+    // The moment a followed student touches their own board — draws,
+    // drags, pans, anything — the tutor's view is about to start fighting
+    // them for control (the next viewport broadcast, up to ~120ms away,
+    // would yank them back to wherever the tutor is looking). Auto-unfollow
+    // here instead of waiting for them to find and tap "Отвязаться" first.
+    if (role === "student" && followLeaderIdRef.current) unfollow();
     if (shapeLabelEditId) { commitShapeLabelEdit(); return; }
     if (textInput !== null) { commitText(); return; }
     // Pending symbol placement — place on click, cancel on right-click
@@ -3137,6 +3174,8 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   // ── touch ─────────────────────────────────────────────────────────────────────
   const onTouchStart = (e: React.TouchEvent) => {
     e.preventDefault();
+    // See the matching check in onMouseDown — same reasoning, touch side.
+    if (role === "student" && followLeaderIdRef.current) unfollow();
     if (textInput !== null) { textRef.current?.blur(); return; }
     if (e.touches.length > 1) {
       if (selDragRef.current) { selDragRef.current = null; setTouchDragging(false); }
