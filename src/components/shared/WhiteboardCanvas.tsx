@@ -199,11 +199,16 @@ type WsEvent =
   | { type: "lock_all"; locked: boolean }
   | { type: "video_sync"; id: string; action: "play" | "pause" | "seek"; position: number; sentAt: number }
   | { type: "audio_sync"; id: string; action: "play" | "pause" | "seek"; position: number; sentAt: number }
-  // While one person edits a text item, everyone else's view of it is just
-  // hidden — not a live-updating preview — until the edit ends. No per-
-  // keystroke traffic, no second copy ever rendered alongside the real one.
+  // text_editing_start/end bracket an edit — the item is hidden on the
+  // static layer for that whole span (see remoteHiddenIdsRef) so the real
+  // one and any in-progress draft never render on top of each other.
+  // text_typing carries what's actually being typed, live — sent on every
+  // change, drawn on the dynamic layer (like livePathRef) with the exact
+  // same renderText() the final commit uses, so there's no separate
+  // "preview style" to drift out of sync with the real thing.
   | { type: "text_editing_start"; id: string }
-  | { type: "text_editing_end"; id: string };
+  | { type: "text_editing_end"; id: string }
+  | { type: "text_typing"; item: TextItem; senderColor: string };
 
 // ── image cache ───────────────────────────────────────────────────────────────
 const imgCache = new Map<string, HTMLImageElement>();
@@ -1462,9 +1467,14 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   const itemsRef      = useRef<DrawItem[]>([]);
   const livePathRef   = useRef<PathItem | null>(null);
   const remotePathsRef= useRef<Map<string, PathItem>>(new Map());
-  // Ids someone ELSE is currently editing — hidden from render entirely
-  // (no ghost, no preview) until their edit ends.
+  // Ids someone ELSE is currently editing — hidden on the static layer for
+  // the span of the edit (see text_editing_start/end above) so the real
+  // item and its live draft (below) never render on top of each other.
   const remoteHiddenIdsRef = useRef<Set<string>>(new Set());
+  // What someone else is typing RIGHT NOW, live — drawn on the dynamic
+  // layer every frame, same as livePathRef/remotePathsRef, so it tracks
+  // text_typing broadcasts without waiting for a static-cache rebuild.
+  const remoteDraftsRef = useRef<Map<string, { item: TextItem; color: string }>>(new Map());
   const draftIdRef    = useRef("");
   const viewRef       = useRef({ zoom: 1, panX: 0, panY: 0 });
   const remoteViewportsRef     = useRef<Map<string, { zoom: number; panX: number; panY: number }>>(new Map());
@@ -1807,6 +1817,17 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     ctx.save(); ctx.setTransform(zoom * dpr, 0, 0, zoom * dpr, panX * dpr, panY * dpr);
     if (livePathRef.current) renderPath(ctx, livePathRef.current);
     for (const [, rp] of remotePathsRef.current) renderPath(ctx, rp);
+    for (const [, draft] of remoteDraftsRef.current) {
+      if (draft.item.text) renderText(ctx, draft.item);
+      // A thin colored bar at the left edge — just enough to say "someone
+      // else is actively typing this," not a name tag fighting for space
+      // on a small worksheet cell.
+      const tb = textBounds(draft.item);
+      ctx.save();
+      ctx.fillStyle = draft.color;
+      ctx.fillRect(tb.x0 - 3 / zoom, tb.y0, 1.5 / zoom, Math.max(tb.h, draft.item.fontSize));
+      ctx.restore();
+    }
     if (liveShapeRef.current) {
       const ls = liveShapeRef.current;
       renderShape(ctx, {
@@ -2411,20 +2432,27 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           remoteHideTimers.current.set(id, setTimeout(() => {
             remoteHiddenIdsRef.current.delete(id);
             remoteHideTimers.current.delete(id);
+            remoteDraftsRef.current.delete(id);
             render();
           }, 8000));
+          render(); return;
+        }
+        if (payload.type === "text_typing") {
+          remoteDraftsRef.current.set(payload.item.id, { item: payload.item, color: payload.senderColor });
           render(); return;
         }
         if (payload.type === "text_editing_end") {
           const t = remoteHideTimers.current.get(payload.id);
           if (t) { clearTimeout(t); remoteHideTimers.current.delete(payload.id); }
           remoteHiddenIdsRef.current.delete(payload.id);
+          remoteDraftsRef.current.delete(payload.id);
           render(); return;
         }
         if (payload.type === "path") {
           if (payload.item.type === "image") console.log("[board] received image item", payload.item.id, "url-len:", (payload.item as {url:string}).url?.length ?? 0);
           { const t = remoteHideTimers.current.get(payload.item.id); if (t) { clearTimeout(t); remoteHideTimers.current.delete(payload.item.id); } }
           remoteHiddenIdsRef.current.delete(payload.item.id);
+          remoteDraftsRef.current.delete(payload.item.id);
           remotePathsRef.current.delete(payload.item.id);
           // Upsert, not a blind push — if this exact "new item" broadcast
           // ever arrives twice (a Realtime redelivery, a double-send on the
@@ -2451,6 +2479,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
         if (payload.type === "update") {
           { const t = remoteHideTimers.current.get(payload.item.id); if (t) { clearTimeout(t); remoteHideTimers.current.delete(payload.item.id); } }
           remoteHiddenIdsRef.current.delete(payload.item.id);
+          remoteDraftsRef.current.delete(payload.item.id);
           const idx = itemsRef.current.findIndex(it => it.id === payload.item.id);
           if (idx >= 0) { itemsRef.current[idx] = payload.item; render(); setPanVer(v => v + 1); }
           return;
@@ -2664,6 +2693,25 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
       ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px";
     }, 30);
   };
+
+  // Broadcasts what's actually being typed, live — everyone else sees the
+  // real characters landing (Google-Docs style), not a translucent "draft"
+  // guess. Watches every field that affects how the text looks, not just
+  // the text itself, so toggling bold/color/alignment mid-edit shows up
+  // for them too. draftIdRef (not editingIdRef) covers both cases — it's
+  // set the same way for a brand-new text box as for editing an existing
+  // one, editingIdRef only for the latter.
+  useEffect(() => {
+    if (!textInput || !draftIdRef.current) return;
+    const item: TextItem = {
+      type: "text", id: draftIdRef.current,
+      x: textInput.wx, y: textInput.wy, text: textValue,
+      font: FONTS[fontIdx].family, color, fontSize, bold, italic, align,
+      ...(textBgOpacity > 0 ? { bgColor: textBgColor, bgOpacity: textBgOpacity } : {}),
+    };
+    send({ type: "text_typing", item, senderColor: myColor });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [textInput, textValue, fontIdx, color, fontSize, bold, italic, align, textBgColor, textBgOpacity]);
 
   // Open the centered label editor on a shape. Unlike startTextEdit above,
   // this doesn't hide the whole item via text_editing_start/remoteHiddenIds
@@ -6026,10 +6074,9 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                         el.style.width = Math.max(maxW + 24, Math.max(24, Math.min(60, 20 * zoom))) + "px";
                         el.style.height = "auto";
                         el.style.height = el.scrollHeight + "px";
-                        // No live broadcast per keystroke — everyone else just
-                        // sees this item hidden (via text_editing_start, sent
-                        // once when editing began) until commit sends the
-                        // final text in one shot.
+                        // setTextValue above is what everyone else's view
+                        // updates from too — see the text_typing effect
+                        // right after startTextEdit.
                       }}
                       onKeyDown={e => {
                         if (e.key === "Escape") { e.preventDefault(); if(draftIdRef.current){send({type:"text_editing_end",id:draftIdRef.current});draftIdRef.current="";} setTextInput(null); editingIdRef.current=null; setEditingId(null); render(); }
