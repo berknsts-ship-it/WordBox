@@ -29,7 +29,14 @@ export default async function NewHomeworkPage() {
         </Link>
       </div>
 
-      <h1 className="text-2xl mb-6">Новое задание</h1>
+      <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
+        <h1 className="text-2xl">Новое задание</h1>
+        <Link href="/tutor/homework/new-interactive"
+          className="text-sm font-semibold px-3 py-1.5 rounded-xl hover:opacity-80 transition-opacity"
+          style={{ background: "var(--brown-pale)", color: "var(--brown-dark)" }}>
+          🧩 Интерактивное задание (картинки + автопроверка) →
+        </Link>
+      </div>
 
       <div className="bg-white/80 rounded-3xl border p-6" style={{ borderColor: "var(--brown-pale)" }}>
         <form action={addHomework} className="space-y-4">
