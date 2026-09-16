@@ -3680,7 +3680,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   // its dependency array can reference that function without a temporal-
   // dead-zone error; otherwise unrelated to image upload specifically.
   useEffect(() => {
-    const onPasteEvent = (e: ClipboardEvent) => {
+    const onPasteEvent = async (e: ClipboardEvent) => {
       const tag = document.activeElement?.tagName;
       const inInput = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT"
         || !!(document.activeElement as HTMLElement | null)?.isContentEditable;
@@ -3689,6 +3689,30 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
       const cd = e.clipboardData;
       if (!cd) return;
 
+      // Read everything off the event synchronously, before any await below
+      // — clipboardData isn't guaranteed to stay valid past this tick.
+      const text = cd.getData("text/plain");
+      let imageFile: File | null = null;
+      for (const dtItem of cd.items ?? []) {
+        if (dtItem.kind === "file" && dtItem.type.startsWith("image/")) { imageFile = dtItem.getAsFile(); break; }
+      }
+      if (text.startsWith(WORDBOX_CLIP_PREFIX) || imageFile || text.trim()) e.preventDefault();
+
+      // Switching to a different student clears itemsRef immediately and
+      // only refills it once that board's own saved data has actually
+      // loaded (isLoadedRef) — pasting into the gap between those two
+      // moments (a fast switch-then-paste from the tutor's sidebar,
+      // entirely plausible) would either land in an itemsRef that's about
+      // to be wiped by the incoming load, or silently vanish once it
+      // resolves. Wait it out instead of racing it.
+      if (!isLoadedRef.current) {
+        const start = Date.now();
+        while (!isLoadedRef.current && Date.now() - start < 3000) {
+          await new Promise(r => setTimeout(r, 50));
+        }
+        if (!isLoadedRef.current) return; // board never finished loading — give up quietly
+      }
+
       const { zoom, panX, panY } = viewRef.current;
       const cv = canvasRef.current; const dpr = window.devicePixelRatio || 1;
       const cx = cv ? (cv.width / dpr / 2 - panX) / zoom : 400;
@@ -3696,9 +3720,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
 
       // 1) Board items — copied here or on a different board entirely; the
       // OS clipboard doesn't care which tab wrote it.
-      const text = cd.getData("text/plain");
       if (text.startsWith(WORDBOX_CLIP_PREFIX)) {
-        e.preventDefault();
         try {
           const items = JSON.parse(text.slice(WORDBOX_CLIP_PREFIX.length)) as DrawItem[];
           if (items.length === 0) return;
@@ -3716,19 +3738,13 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
       }
 
       // 2) An image copied from a document, a webpage, a screenshot tool.
-      for (const dtItem of cd.items ?? []) {
-        if (dtItem.kind === "file" && dtItem.type.startsWith("image/")) {
-          const file = dtItem.getAsFile();
-          if (file) { e.preventDefault(); uploadAndAddImage(file); return; }
-        }
-      }
+      if (imageFile) { uploadAndAddImage(imageFile); return; }
 
       // 3) Plain text copied from a document — dropped on the board as a
       // text item, at the same click-anchor offset new text always uses
       // (see the Text tool's own handlers) so it doesn't land a line below
       // where it visually appears to paste.
       if (text.trim()) {
-        e.preventDefault();
         const item: TextItem = {
           type: "text", id: uid(), x: cx, y: cy - fontSize / 2, text,
           font: FONTS[fontIdx].family, color, fontSize, bold, italic, align,
