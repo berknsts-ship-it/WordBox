@@ -6062,11 +6062,28 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                   at tight zoom (nothing here knows where the printed text
                   actually is), but that line stays legible through it
                   instead of being fully blocked. ── */}
-              {!isMobile && <div data-text-editor className="absolute pointer-events-auto hidden sm:flex items-center gap-0.5 px-1 py-1 rounded-full shadow-xl border"
+              {!isMobile && <div data-text-editor className="absolute pointer-events-auto hidden sm:flex items-center gap-1 px-1 py-1 rounded-full shadow-xl border"
                 style={{ top: toolbarTop, left: toolbarLeft, width: TOOLBAR_W, height: TOOLBAR_H,
                   background:"rgba(255,255,255,0.9)", backdropFilter:"blur(6px)", WebkitBackdropFilter:"blur(6px)",
                   borderColor:"#ece4da", zIndex:60 }}
                 onMouseDown={e => { e.preventDefault(); e.stopPropagation(); }}>
+                {/* Everything except Готово lives in its own scrollable strip,
+                    width-capped by minWidth:0 (flex children default to their
+                    content's natural width otherwise, which defeats overflow
+                    entirely) — the OLD layout instead relied on a flex-1
+                    spacer to push Готово to the end, which only works if the
+                    fixed-width buttons before it already fit; once "Фон"'s
+                    remove button made that untrue, the spacer collapsed to
+                    ~0 and Готово ended up sitting flush against the color
+                    swatch next to it — close enough that its invisible
+                    <input type="color"> hit target could swallow a click
+                    meant for Готово, leaving the box stuck open with no
+                    visible error. Same root cause the mobile sheet already
+                    had (see its own comment below) — same fix, just a
+                    scrollable sibling here instead of a whole extra row,
+                    since height is the one thing this floating pill can't
+                    spend more of. */}
+                <div className="flex items-center gap-0.5 overflow-x-auto" style={{ minWidth:0, flex:"1 1 auto" }}>
                 {/* Font — compact, borderless trigger. Each option previews in its
                     own face so you can see what it looks like before picking it,
                     not just read its name; the closed trigger does the same for
@@ -6130,7 +6147,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                     <span className="text-xs leading-none">×</span>
                   </button>
                 )}
-                <div className="flex-1"/>
+                </div>
                 <button onMouseDown={e=>e.preventDefault()} onClick={commitText} title="Готово"
                   className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
                   style={{ background:"var(--gradient-primary)" }}>
