@@ -1434,6 +1434,11 @@ function parseFormula(input: string): ((x: number) => number) | null {
 
 // ── component ─────────────────────────────────────────────────────────────────
 const PARTICIPANT_COLORS = ["#4a80f0","#e05050","#20a060","#e08020","#8060d0","#d04090","#20a0a0","#806030"];
+// Tags a copied selection's serialized JSON so paste can tell "board items,
+// possibly from a different board entirely" apart from plain text/an image
+// coming from somewhere else — same OS clipboard, three different things to
+// do with it.
+const WORDBOX_CLIP_PREFIX = "wordbox-board-items:";
 
 const WhiteboardCanvas = forwardRef<WhiteboardRef, { roomId: string; role?: "tutor" | "student"; materials?: BoardMaterial[]; myName?: string }>(
 function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, ref) {
@@ -1587,8 +1592,6 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   const snapCandidatesRef = useRef<{ xs: number[]; ys: number[] } | null>(null);
   const snapGuidesRef     = useRef<{ x: number | null; y: number | null }>({ x: null, y: null });
   const SNAP_THRESHOLD_PX = 7;
-  // clipboard
-  const clipboardRef = useRef<DrawItem[]>([]);
   const selectedIdRef = useRef<string | null>(null);
   const selectedIdsRef = useRef<ReadonlySet<string>>(new Set());
   // image crop
@@ -2189,21 +2192,21 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
       if ((e.ctrlKey||e.metaKey) && (e.key === "y" || (e.key==="z"&&e.shiftKey)) && !inInput)
         { e.preventDefault(); redo(); }
 
-      // Copy
+      // Copy — also written to the real OS clipboard (best-effort, a failed
+      // write here just means cross-tab/cross-board paste won't work, same
+      // as before this existed) so items copied on one student's board can
+      // be pasted onto a different one, not only within this same tab.
       if ((e.ctrlKey||e.metaKey) && e.key === "c" && !inInput) {
         e.preventDefault();
         const sel = itemsRef.current.filter(i => i.id === selectedIdRef.current || selectedIdsRef.current.has(i.id));
-        if (sel.length > 0) clipboardRef.current = sel.map(i => ({ ...i }));
+        if (sel.length > 0) {
+          navigator.clipboard?.writeText(WORDBOX_CLIP_PREFIX + JSON.stringify(sel)).catch(() => {});
+        }
       }
-      // Paste
-      if ((e.ctrlKey||e.metaKey) && e.key === "v" && !inInput) {
-        e.preventDefault();
-        if (clipboardRef.current.length === 0) return;
-        const OFFSET = 24;
-        const pasted = clipboardRef.current.map(i => ({ ...i, id: uid(), x: (i as ImageItem).x + OFFSET, y: (i as ImageItem).y + OFFSET } as DrawItem));
-        pasted.forEach(item => { itemsRef.current.push(item); send({ type:"path", item }); pushHistory({ type:"add", item }); });
-        render();
-      }
+      // Paste is handled entirely by the native "paste" event below — it
+      // sees the real OS clipboard (board items copied here or on another
+      // board, an image copied from elsewhere, or plain text from a
+      // document), which a synthetic Ctrl+V keydown can't read.
       // Duplicate
       if ((e.ctrlKey||e.metaKey) && e.key === "d" && !inInput) {
         e.preventDefault();
@@ -3668,6 +3671,76 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
       addImageToBoard(url);
     } finally { setImgUploading(false); }
   };
+
+  // ── paste ─────────────────────────────────────────────────────────────────────
+  // A native "paste" event (not a Ctrl+V keydown) is the only way to read
+  // what's actually on the clipboard without an extra permission prompt —
+  // it hands us clipboardData synchronously. Declared here (after
+  // uploadAndAddImage, not up with the other keyboard shortcuts) purely so
+  // its dependency array can reference that function without a temporal-
+  // dead-zone error; otherwise unrelated to image upload specifically.
+  useEffect(() => {
+    const onPasteEvent = (e: ClipboardEvent) => {
+      const tag = document.activeElement?.tagName;
+      const inInput = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT"
+        || !!(document.activeElement as HTMLElement | null)?.isContentEditable;
+      if (inInput) return; // let the browser's own paste-into-field behavior happen
+
+      const cd = e.clipboardData;
+      if (!cd) return;
+
+      const { zoom, panX, panY } = viewRef.current;
+      const cv = canvasRef.current; const dpr = window.devicePixelRatio || 1;
+      const cx = cv ? (cv.width / dpr / 2 - panX) / zoom : 400;
+      const cy = cv ? (cv.height / dpr / 2 - panY) / zoom : 300;
+
+      // 1) Board items — copied here or on a different board entirely; the
+      // OS clipboard doesn't care which tab wrote it.
+      const text = cd.getData("text/plain");
+      if (text.startsWith(WORDBOX_CLIP_PREFIX)) {
+        e.preventDefault();
+        try {
+          const items = JSON.parse(text.slice(WORDBOX_CLIP_PREFIX.length)) as DrawItem[];
+          if (items.length === 0) return;
+          const bounds = items.map(itemBounds);
+          const gx0 = Math.min(...bounds.map(b => b.x0)), gy0 = Math.min(...bounds.map(b => b.y0));
+          const gx1 = Math.max(...bounds.map(b => b.x1)), gy1 = Math.max(...bounds.map(b => b.y1));
+          const dx = cx - (gx0 + gx1) / 2, dy = cy - (gy0 + gy1) / 2;
+          const pastedIds: string[] = [];
+          const pasted = items.map(i => { const ni = shiftItem({ ...i, id: uid() }, dx, dy); pastedIds.push(ni.id); return ni; });
+          pasted.forEach(item => { itemsRef.current.push(item); send({ type: "path", item }); pushHistory({ type: "add", item }); });
+          setSelectedIds(new Set(pastedIds)); setSelectedId(pastedIds.length === 1 ? pastedIds[0] : null);
+          render();
+        } catch { /* malformed JSON on the clipboard — ignore rather than throw */ }
+        return;
+      }
+
+      // 2) An image copied from a document, a webpage, a screenshot tool.
+      for (const dtItem of cd.items ?? []) {
+        if (dtItem.kind === "file" && dtItem.type.startsWith("image/")) {
+          const file = dtItem.getAsFile();
+          if (file) { e.preventDefault(); uploadAndAddImage(file); return; }
+        }
+      }
+
+      // 3) Plain text copied from a document — dropped on the board as a
+      // text item, at the same click-anchor offset new text always uses
+      // (see the Text tool's own handlers) so it doesn't land a line below
+      // where it visually appears to paste.
+      if (text.trim()) {
+        e.preventDefault();
+        const item: TextItem = {
+          type: "text", id: uid(), x: cx, y: cy - fontSize / 2, text,
+          font: FONTS[fontIdx].family, color, fontSize, bold, italic, align,
+        };
+        itemsRef.current.push(item); render();
+        send({ type: "path", item }); pushHistory({ type: "add", item });
+        setSelectedId(item.id); setSelectedIds(new Set([item.id]));
+      }
+    };
+    window.addEventListener("paste", onPasteEvent);
+    return () => window.removeEventListener("paste", onPasteEvent);
+  }, [fontIdx, color, fontSize, bold, italic, align, uploadAndAddImage]);
 
   const uploadAndAddVideo = async (file: File, offsetIndex = 0) => {
     setVideoUploadProgress(0);
