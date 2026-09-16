@@ -5888,29 +5888,6 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                   <Pencil size={14} color="white"/>
                 </button>
               )}
-              {/* Text color panel — below the selection */}
-              {selectedItem.type === "text" && !locked && (
-                <div className="absolute pointer-events-auto flex items-center gap-1 px-2 py-1 rounded-xl border shadow-md"
-                  style={{ top: sh + 6, left: 0, background:"white", borderColor:"var(--brown-pale)", zIndex:35, whiteSpace:"nowrap" }}
-                  onMouseDown={e => e.stopPropagation()}
-                  onTouchStart={e => e.stopPropagation()}
-                  onTouchEnd={e => e.stopPropagation()}>
-                  {(["#1a1a1a","#e05030","#4a80f0","#2a9d5c","#e0a020","#9b59b6","#ffffff"] as const).map(c => (
-                    <button key={c}
-                      onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()} onTouchEnd={e=>{e.preventDefault();e.stopPropagation();(e.currentTarget as HTMLButtonElement).click();}}
-                      onClick={() => updateBoardItem({...selectedItem as TextItem, color: c})}
-                      className="w-5 h-5 rounded-full shrink-0 border-2"
-                      style={{ background: c, borderColor: (selectedItem as TextItem).color === c ? "#4a80f0" : "var(--brown-pale)" }}/>
-                  ))}
-                  <label className="relative w-5 h-5 rounded-full border-2 cursor-pointer overflow-hidden shrink-0"
-                    title="Другой цвет"
-                    style={{ borderColor:"var(--brown-pale)", background:(selectedItem as TextItem).color }}>
-                    <input type="color" value={(selectedItem as TextItem).color}
-                      onChange={e => updateBoardItem({...selectedItem as TextItem, color: e.target.value})}
-                      className="absolute opacity-0 inset-0 w-full h-full cursor-pointer"/>
-                  </label>
-                </div>
-              )}
               {/* Resize handle — text only */}
               {selectedItem.type === "text" && !locked && (
                 <div className="absolute pointer-events-auto"
