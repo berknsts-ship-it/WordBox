@@ -24,10 +24,10 @@ export default async function StudentCabinetPage({
   searchParams,
 }: {
   params: Promise<{ code: string }>;
-  searchParams: Promise<{ tab?: string; set?: string; sub?: string; assignment?: string }>;
+  searchParams: Promise<{ tab?: string; set?: string; sub?: string; assignment?: string; hw?: string }>;
 }) {
   const { code } = await params;
-  const { tab = "schedule", set, sub, assignment } = await searchParams;
+  const { tab = "schedule", set, sub, assignment, hw } = await searchParams;
   const activeTab = (VALID_TABS.includes(tab as Tab) ? tab : "schedule") as Tab;
 
   const supabase = await createClient();
@@ -102,7 +102,7 @@ export default async function StudentCabinetPage({
           <TabNav code={code} activeTab={activeTab} pendingHomework={pendingCount ?? 0} themeId={student.theme} />
           <div className="mt-5">
             {activeTab === "schedule"  && <ScheduleTab  studentId={student.id} />}
-            {activeTab === "homework"  && <HomeworkTab  studentId={student.id} code={code} />}
+            {activeTab === "homework"  && <HomeworkTab  studentId={student.id} code={code} activeHomeworkId={hw} />}
             {activeTab === "materials" && <MaterialsTab studentId={student.id} />}
             {activeTab === "journal"   && <JournalTab   studentId={student.id} />}
             {activeTab === "trainer"   && (

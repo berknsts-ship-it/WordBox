@@ -1,6 +1,27 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import Link from "next/link";
-import { ClipboardList, Paperclip, AlertCircle, CheckCircle2, Clock3, Dumbbell } from "lucide-react";
+import { ClipboardList, Paperclip, AlertCircle, CheckCircle2, Clock3, Dumbbell, Blocks } from "lucide-react";
+import HomeworkBlocksRunner, { type RunBlock } from "./HomeworkBlocksRunner";
+import type { AutoQuestionType } from "@/app/actions/homework-blocks";
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+type BlockItemRow = {
+  id: string; order_index: number; image_url: string | null; question: string | null;
+  auto_type: AutoQuestionType | null; options: string[] | null; correct_answer: string | null;
+};
+type BlockRow = {
+  id: string; order_index: number; type: RunBlock["type"]; instruction: string | null; words: string[] | null;
+  homework_block_items: BlockItemRow[];
+};
 
 const STATUS: Record<string, { label: string; color: string; dot: string; icon: React.ReactNode }> = {
   pending:   {
@@ -23,7 +44,68 @@ const STATUS: Record<string, { label: string; color: string; dot: string; icon: 
   },
 };
 
-export default async function HomeworkTab({ studentId, code }: { studentId: string; code: string }) {
+export default async function HomeworkTab({ studentId, code, activeHomeworkId }: { studentId: string; code: string; activeHomeworkId?: string }) {
+  if (activeHomeworkId) {
+    const db = createAdminClient();
+    const { data: hw } = await db
+      .from("homework")
+      .select("id, title, description, status")
+      .eq("id", activeHomeworkId)
+      .eq("student_id", studentId)
+      .single();
+    if (!hw) return null;
+
+    const { data: blocks } = await db
+      .from("homework_blocks")
+      .select("id, order_index, type, instruction, words, homework_block_items(id, order_index, image_url, question, auto_type, options, correct_answer)")
+      .eq("homework_id", hw.id)
+      .order("order_index");
+
+    if (!blocks || blocks.length === 0) return null;
+
+    const { data: attempt } = await db
+      .from("homework_attempts")
+      .select("answers")
+      .eq("homework_id", hw.id)
+      .maybeSingle();
+
+    const preparedBlocks: RunBlock[] = ((blocks ?? []) as unknown as BlockRow[])
+      .sort((a, b) => a.order_index - b.order_index)
+      .map(b => ({
+        id: b.id,
+        type: b.type,
+        instruction: b.instruction,
+        words: b.words,
+        items: [...(b.homework_block_items ?? [])]
+          .sort((x, y) => x.order_index - y.order_index)
+          .map(item => ({
+            id: item.id,
+            image_url: item.image_url,
+            question: item.question,
+            autoType: item.auto_type,
+            // word_order: только перемешанные слова эталона, не сам эталон —
+            // как в ExercisesTab.tsx для грамматики, чтобы ответ не утёк
+            // через Network до сдачи работы.
+            options: item.auto_type === "word_order" && item.correct_answer
+              ? shuffle(item.correct_answer.split("|")[0].trim().split(/\s+/))
+              : item.options,
+          })),
+      }));
+
+    return (
+      <HomeworkBlocksRunner
+        homeworkId={hw.id}
+        studentId={studentId}
+        code={code}
+        title={hw.title}
+        description={hw.description}
+        blocks={preparedBlocks}
+        initialAnswers={(attempt?.answers as Record<string, string>) ?? {}}
+        initialStatus={hw.status}
+      />
+    );
+  }
+
   const supabase = await createClient();
   const { data: homework } = await supabase
     .from("homework")
@@ -49,6 +131,21 @@ export default async function HomeworkTab({ studentId, code }: { studentId: stri
       if (masteredWordIds.has(w.id)) mastered.set(w.set_id, (mastered.get(w.set_id) ?? 0) + 1);
     }
     vocabResults = new Map(vocabSetIds.map(id => [id, { mastered: mastered.get(id) ?? 0, total: totals.get(id) ?? 0 }]));
+  }
+
+  // Интерактивные домашки (блоки-конструктор) не имеют material_url/
+  // grammar_assignment_id/vocabulary_set_id — только по этому множеству
+  // отличаем их от обычных, чтобы показать «Открыть» вместо тех ссылок.
+  // homework_blocks закрыт RLS на репетитора (auth.uid()), поэтому читаем
+  // admin-клиентом — ученик не аутентифицирован через Supabase Auth.
+  let interactiveIds = new Set<string>();
+  if ((homework ?? []).length > 0) {
+    const admin = createAdminClient();
+    const { data: blockRows } = await admin
+      .from("homework_blocks")
+      .select("homework_id")
+      .in("homework_id", (homework ?? []).map(hw => hw.id));
+    interactiveIds = new Set((blockRows ?? []).map(r => r.homework_id as string));
   }
 
   if (!homework || homework.length === 0) {
@@ -108,6 +205,16 @@ export default async function HomeworkTab({ studentId, code }: { studentId: stri
                       {isOverdue ? "Просрочено · " : "Срок: "}
                       {new Date(hw.due_date).toLocaleDateString("ru", { day: "numeric", month: "long" })}
                     </div>
+                  )}
+                  {interactiveIds.has(hw.id) && (
+                    <Link
+                      href={`/student/${code}?tab=homework&hw=${hw.id}`}
+                      className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-xl text-xs font-semibold transition-opacity hover:opacity-75"
+                      style={{ background: "var(--gradient-primary)", color: "#fff", boxShadow: "var(--shadow-button)" }}
+                    >
+                      <Blocks size={11} />
+                      {hw.status === "pending" ? "Открыть и выполнить" : "Открыть"}
+                    </Link>
                   )}
                   {hw.material_url && (
                     <a

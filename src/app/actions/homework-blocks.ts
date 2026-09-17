@@ -128,3 +128,33 @@ export async function createInteractiveHomework(input: InteractiveHomeworkInput)
   revalidatePath("/tutor/homework");
   return { ok: true, id: hw.id };
 }
+
+// ── Этап 2: выполнение учеником ─────────────────────────────────────────────
+// Ученик не аутентифицирован через Supabase Auth (заходит по коду доступа),
+// поэтому и черновик, и статус пишем через createAdminClient() — как в
+// saveAttempt/submitTest для обычных тестов.
+
+export async function saveHomeworkAttempt(homeworkId: string, studentId: string, answers: Record<string, string>) {
+  const db = createAdminClient();
+  const { error } = await db.from("homework_attempts").upsert(
+    { homework_id: homeworkId, student_id: studentId, answers, status: "in_progress", updated_at: new Date().toISOString() },
+    { onConflict: "homework_id" }
+  );
+  if (error) return { error: error.message };
+  return { ok: true };
+}
+
+export async function submitHomeworkAttempt(homeworkId: string, studentId: string, answers: Record<string, string>) {
+  const db = createAdminClient();
+  const { error: attErr } = await db.from("homework_attempts").upsert(
+    { homework_id: homeworkId, student_id: studentId, answers, status: "submitted", updated_at: new Date().toISOString() },
+    { onConflict: "homework_id" }
+  );
+  if (attErr) return { error: attErr.message };
+
+  const { error: hwErr } = await db.from("homework").update({ status: "submitted" }).eq("id", homeworkId).eq("student_id", studentId);
+  if (hwErr) return { error: hwErr.message };
+
+  revalidatePath("/tutor/homework");
+  return { ok: true };
+}
