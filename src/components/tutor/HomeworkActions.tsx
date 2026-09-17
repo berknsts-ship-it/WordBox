@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import Link from "next/link";
 import { updateHomeworkStatus, deleteHomework } from "@/app/actions/homework";
 import { showToast } from "@/components/ui/toaster";
 
@@ -8,10 +9,15 @@ export function HomeworkActions({
   id,
   studentId,
   status,
+  reviewHref,
 }: {
   id: string;
   studentId: string;
   status: string;
+  // Интерактивная домашка (конструктор с блоками) проверяется по пунктам —
+  // ведём на отдельную страницу вместо мгновенного «✓ Проверено», чтобы
+  // тутор не мог случайно закрыть задание, не посмотрев ответы ученика.
+  reviewHref?: string;
 }) {
   const [markPending, startMark] = useTransition();
   const [delPending,  startDel]  = useTransition();
@@ -36,7 +42,16 @@ export function HomeworkActions({
 
   return (
     <div className="flex items-center gap-2 shrink-0">
-      {status === "submitted" && (
+      {reviewHref && (status === "submitted" || status === "checked") && (
+        <Link
+          href={reviewHref}
+          className="text-xs px-2.5 py-1 rounded-lg font-semibold hover:opacity-80"
+          style={{ background: "var(--brown-pale)", color: "var(--brown-mid)" }}
+        >
+          {status === "checked" ? "Открыть проверку" : "🧩 Проверить"}
+        </Link>
+      )}
+      {!reviewHref && status === "submitted" && (
         <button
           onClick={markChecked}
           disabled={markPending}

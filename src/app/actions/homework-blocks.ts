@@ -158,3 +158,50 @@ export async function submitHomeworkAttempt(homeworkId: string, studentId: strin
   revalidatePath("/tutor/homework");
   return { ok: true };
 }
+
+// ── Этап 3: проверка репетитором ────────────────────────────────────────────
+// Автозадания не хранят свою проверку — считаются на лету (isGrammarAnswerCorrect)
+// из уже сохранённого ответа, как в грамматике/тестах. Здесь храним только
+// ручную проверку пунктов без эталона (картинка+ответ, свободный вопрос).
+
+export async function saveItemReview(itemId: string, status: "pending" | "correct" | "incorrect", comment: string | null) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Не авторизован" };
+
+  const db = createAdminClient();
+  const { error } = await db.from("homework_item_reviews").upsert(
+    { item_id: itemId, status, comment },
+    { onConflict: "item_id" }
+  );
+  if (error) return { error: error.message };
+  return { ok: true };
+}
+
+export async function finalizeHomeworkReview(homeworkId: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Не авторизован" };
+
+  const db = createAdminClient();
+  const { data: hw, error: fetchErr } = await db.from("homework")
+    .select("student_id, title, tutor_id")
+    .eq("id", homeworkId)
+    .single();
+  if (fetchErr || !hw) return { error: fetchErr?.message ?? "Задание не найдено" };
+  if (hw.tutor_id !== user.id) return { error: "Не авторизован" };
+
+  const { error } = await db.from("homework").update({ status: "checked" }).eq("id", homeworkId);
+  if (error) return { error: error.message };
+
+  notifyStudent(hw.student_id, {
+    title: "Домашка проверена",
+    body: `«${hw.title}» — можно посмотреть результат`,
+    action_url: "/student?tab=homework",
+    type: "homework-checked",
+    emoji: "✅",
+  }).catch(() => {});
+
+  revalidatePath("/tutor/homework");
+  return { ok: true };
+}

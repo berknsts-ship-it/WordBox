@@ -3,12 +3,13 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, CheckCircle2, XCircle } from "lucide-react";
 import { saveHomeworkAttempt, submitHomeworkAttempt, type HomeworkBlockType, type AutoQuestionType } from "@/app/actions/homework-blocks";
 import { ItemInput, type GrammarItem } from "@/components/shared/GrammarItemInput";
 
 export type RunItem = { id: string; image_url: string | null; question: string | null; autoType: AutoQuestionType | null; options: string[] | null };
 export type RunBlock = { id: string; type: HomeworkBlockType; instruction: string | null; words: string[] | null; items: RunItem[] };
+export type ItemResult = { correct: boolean | null; correctAnswer?: string | null; comment?: string | null };
 type AnswerMap = Record<string, string>;
 
 const card = { background: "white", borderColor: "var(--brown-pale)" };
@@ -117,8 +118,73 @@ function BlockView({ block, answers, setAnswer }: { block: RunBlock; answers: An
   );
 }
 
+function ResultMark({ correct }: { correct: boolean | null }) {
+  if (correct === null) return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0" style={{ background: "#fff3cc", color: "#8a6200" }}>не проверено</span>;
+  return correct
+    ? <CheckCircle2 size={18} className="shrink-0" style={{ color: "#2a7a3a" }} />
+    : <XCircle size={18} className="shrink-0" style={{ color: "#c0392b" }} />;
+}
+
+function ResultBlockView({ block, answers, results }: { block: RunBlock; answers: AnswerMap; results: Record<string, ItemResult> }) {
+  if (block.type === "instruction") {
+    return (
+      <div className="rounded-2xl border p-4" style={{ background: "#f5ece3", borderColor: "var(--brown-pale)" }}>
+        <p className="text-sm whitespace-pre-wrap" style={{ color: "var(--brown-dark)" }}>{block.instruction}</p>
+      </div>
+    );
+  }
+  if (block.type === "word_bank") {
+    return (
+      <div className="rounded-2xl border p-4" style={{ ...card }}>
+        <div className="flex flex-wrap gap-1.5">
+          {(block.words ?? []).map((w, i) => (
+            <span key={i} className="px-2.5 py-1 rounded-full text-xs font-medium" style={{ background: "#f5ece3", color: "var(--brown-dark)" }}>{w}</span>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border p-4 space-y-3" style={{ ...card }}>
+      {block.instruction && <p className="text-sm font-medium" style={{ color: "var(--brown-dark)" }}>{block.instruction}</p>}
+      {block.items.map((item, i) => {
+        const r = results[item.id];
+        return (
+          <div key={item.id} className="rounded-xl border p-3 space-y-1.5" style={{ borderColor: "var(--brown-pale)", background: "#fefcf8" }}>
+            <div className="flex items-start gap-2">
+              <div className="flex-1 min-w-0">
+                {item.question && (
+                  <p className="text-xs mb-1" style={{ color: "var(--brown-light)" }}>
+                    {block.type !== "image_answer" && <span className="font-bold mr-1" style={{ color: "var(--brown-mid)" }}>{i + 1}.</span>}
+                    {item.question}
+                  </p>
+                )}
+                {item.image_url && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={item.image_url} alt="" className="w-full max-w-[200px] rounded-lg border mb-1.5" style={{ borderColor: "var(--brown-pale)" }} />
+                )}
+                <p className="text-sm px-3 py-2 rounded-lg" style={{ background: "white", border: "1px solid var(--brown-pale)", color: "var(--brown-dark)" }}>
+                  {answers[item.id] || <span style={{ color: "var(--brown-light)" }}>— пусто —</span>}
+                </p>
+              </div>
+              <ResultMark correct={r?.correct ?? null} />
+            </div>
+            {r?.correctAnswer && r.correct === false && (
+              <p className="text-xs" style={{ color: "#2a7a3a" }}>Правильно: {r.correctAnswer}</p>
+            )}
+            {r?.comment && (
+              <p className="text-xs italic" style={{ color: "var(--brown-mid)" }}>💬 {r.comment}</p>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function HomeworkBlocksRunner({
-  homeworkId, studentId, code, title, description, blocks, initialAnswers, initialStatus,
+  homeworkId, studentId, code, title, description, blocks, initialAnswers, initialStatus, results, score,
 }: {
   homeworkId: string;
   studentId: string;
@@ -128,6 +194,8 @@ export default function HomeworkBlocksRunner({
   blocks: RunBlock[];
   initialAnswers: AnswerMap;
   initialStatus: string;
+  results?: Record<string, ItemResult> | null;
+  score?: { earned: number; total: number } | null;
 }) {
   const router = useRouter();
   const [answers, setAnswers] = useState<AnswerMap>(initialAnswers);
@@ -176,7 +244,16 @@ export default function HomeworkBlocksRunner({
         {description && <p className="text-sm mt-1" style={{ color: "var(--brown-light)" }}>{description}</p>}
       </div>
 
-      {submitted ? (
+      {initialStatus === "checked" && results ? (
+        <>
+          <div className="rounded-2xl border p-5 text-center" style={{ ...card }}>
+            <p className="text-3xl mb-2">{score && score.total > 0 && score.earned >= score.total * 0.7 ? "🎉" : "📝"}</p>
+            <p className="font-semibold" style={{ color: "var(--brown-dark)" }}>Проверено репетитором</p>
+            {score && <p className="text-sm mt-1" style={{ color: "var(--brown-mid)" }}>{score.earned} / {score.total} баллов</p>}
+          </div>
+          {blocks.map(block => <ResultBlockView key={block.id} block={block} answers={answers} results={results} />)}
+        </>
+      ) : submitted ? (
         <div className="rounded-2xl border p-8 text-center" style={{ ...card }}>
           <p className="text-4xl mb-3">📨</p>
           <p className="font-semibold" style={{ color: "var(--brown-dark)" }}>Сдано, ждём проверки репетитора</p>

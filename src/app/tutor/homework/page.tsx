@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import Link from "next/link";
 import { HomeworkActions } from "@/components/tutor/HomeworkActions";
 
@@ -65,6 +66,20 @@ export default async function HomeworkPage({
       return { status: s, count: count ?? 0 };
     })
   );
+
+  // Интерактивные домашки (конструктор с блоками) проверяются на отдельной
+  // странице — homework_blocks закрыт RLS на репетитора, но тут это тот же
+  // репетитор, что владеет и homework, так что можно было бы и SSR-клиентом;
+  // берём admin для единообразия с остальными местами, где читаем эти таблицы.
+  let interactiveIds = new Set<string>();
+  if ((homework ?? []).length > 0) {
+    const admin = createAdminClient();
+    const { data: blockRows } = await admin
+      .from("homework_blocks")
+      .select("homework_id")
+      .in("homework_id", (homework ?? []).map(hw => hw.id));
+    interactiveIds = new Set((blockRows ?? []).map(r => r.homework_id as string));
+  }
 
   return (
     <div>
@@ -163,7 +178,10 @@ export default async function HomeworkPage({
                   <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${statusCfg.color}`}>
                     {statusCfg.label}{hw.status === "submitted" && hw.completed_late ? " (с опозданием)" : ""}
                   </span>
-                  <HomeworkActions id={hw.id} studentId={hw.student_id} status={hw.status} />
+                  <HomeworkActions
+                    id={hw.id} studentId={hw.student_id} status={hw.status}
+                    reviewHref={interactiveIds.has(hw.id) ? `/tutor/homework/${hw.id}/review` : undefined}
+                  />
                 </div>
               </div>
             );

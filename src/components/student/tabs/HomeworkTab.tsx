@@ -2,8 +2,9 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import Link from "next/link";
 import { ClipboardList, Paperclip, AlertCircle, CheckCircle2, Clock3, Dumbbell, Blocks } from "lucide-react";
-import HomeworkBlocksRunner, { type RunBlock } from "./HomeworkBlocksRunner";
+import HomeworkBlocksRunner, { type RunBlock, type ItemResult } from "./HomeworkBlocksRunner";
 import type { AutoQuestionType } from "@/app/actions/homework-blocks";
+import { isGrammarAnswerCorrect } from "@/lib/grammar/checkAnswer";
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -16,7 +17,7 @@ function shuffle<T>(arr: T[]): T[] {
 
 type BlockItemRow = {
   id: string; order_index: number; image_url: string | null; question: string | null;
-  auto_type: AutoQuestionType | null; options: string[] | null; correct_answer: string | null;
+  auto_type: AutoQuestionType | null; options: string[] | null; correct_answer: string | null; points: number;
 };
 type BlockRow = {
   id: string; order_index: number; type: RunBlock["type"]; instruction: string | null; words: string[] | null;
@@ -57,7 +58,7 @@ export default async function HomeworkTab({ studentId, code, activeHomeworkId }:
 
     const { data: blocks } = await db
       .from("homework_blocks")
-      .select("id, order_index, type, instruction, words, homework_block_items(id, order_index, image_url, question, auto_type, options, correct_answer)")
+      .select("id, order_index, type, instruction, words, homework_block_items(id, order_index, image_url, question, auto_type, options, correct_answer, points)")
       .eq("homework_id", hw.id)
       .order("order_index");
 
@@ -68,6 +69,39 @@ export default async function HomeworkTab({ studentId, code, activeHomeworkId }:
       .select("answers")
       .eq("homework_id", hw.id)
       .maybeSingle();
+    const answers = (attempt?.answers as Record<string, string>) ?? {};
+
+    // Проверено репетитором — теперь можно раскрыть correct_answer и
+    // подтянуть ручные отметки, чтобы ученик увидел итог по каждому пункту.
+    let results: Record<string, ItemResult> | null = null;
+    let score: { earned: number; total: number } | null = null;
+    if (hw.status === "checked") {
+      const allItems = ((blocks ?? []) as unknown as BlockRow[])
+        .filter(b => b.type !== "instruction" && b.type !== "word_bank")
+        .flatMap(b => b.homework_block_items ?? []);
+      const itemIds = allItems.map(i => i.id);
+      const { data: reviewRows } = itemIds.length > 0
+        ? await db.from("homework_item_reviews").select("item_id, status, comment").in("item_id", itemIds)
+        : { data: [] as { item_id: string; status: string; comment: string | null }[] };
+      const reviewMap = new Map((reviewRows ?? []).map(r => [r.item_id, r]));
+
+      results = {};
+      let earned = 0, total = 0;
+      for (const item of allItems) {
+        total += item.points;
+        if (item.auto_type) {
+          const correct = isGrammarAnswerCorrect(item.auto_type, answers[item.id], item.correct_answer ?? "");
+          if (correct) earned += item.points;
+          results[item.id] = { correct, correctAnswer: item.correct_answer };
+        } else {
+          const review = reviewMap.get(item.id);
+          const correct = review?.status === "correct" ? true : review?.status === "incorrect" ? false : null;
+          if (correct) earned += item.points;
+          results[item.id] = { correct, comment: review?.comment ?? null };
+        }
+      }
+      score = { earned, total };
+    }
 
     const preparedBlocks: RunBlock[] = ((blocks ?? []) as unknown as BlockRow[])
       .sort((a, b) => a.order_index - b.order_index)
@@ -100,8 +134,10 @@ export default async function HomeworkTab({ studentId, code, activeHomeworkId }:
         title={hw.title}
         description={hw.description}
         blocks={preparedBlocks}
-        initialAnswers={(attempt?.answers as Record<string, string>) ?? {}}
+        initialAnswers={answers}
         initialStatus={hw.status}
+        results={results}
+        score={score}
       />
     );
   }
