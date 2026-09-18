@@ -8,7 +8,7 @@ import { ItemInput, TYPE_LABELS } from "@/components/shared/GrammarItemInput";
 import { sayCorgi } from "@/lib/corgi-events";
 import { logActivity } from "@/app/actions/activity";
 
-type Item = { id: string; points: number; options: string[] | null };
+type Item = { id: string; points: number; options: string[] | null; question: string | null };
 type Block = { id: string; type: ExerciseType; instruction: string | null; items: Item[] };
 type AnswerMap = Record<string, string>;
 type ResultData = { score: number; maxScore: number; results: Record<string, GrammarItemResult> };
@@ -89,8 +89,9 @@ export default function GrammarPractice({
                     style={{ background: r?.correct ? "#f2faf2" : "#fff3f0" }}>
                     {r?.correct ? <CheckCircle2 size={16} className="shrink-0 mt-0.5" style={{ color: "#2a7a3a" }} /> : <XCircle size={16} className="shrink-0 mt-0.5" style={{ color: "#c04020" }} />}
                     <div className="flex-1 min-w-0">
+                      {item.question && <p className="font-medium mb-0.5" style={{ color: "var(--brown-dark)" }}>{i + 1}. {item.question}</p>}
                       <p style={{ color: "var(--brown-dark)" }}>
-                        {i + 1}. Ваш ответ: <span className="font-medium">{answers[item.id] || "—"}</span>
+                        {!item.question && `${i + 1}. `}Ваш ответ: <span className="font-medium">{answers[item.id] || "—"}</span>
                       </p>
                       {!r?.correct && (
                         <>
@@ -158,6 +159,7 @@ export default function GrammarPractice({
               {block.items.map((item, i) => (
                 <div key={item.id}>
                   <span className="text-xs font-semibold" style={{ color: "var(--brown-light)" }}>{i + 1} · {item.points} б.</span>
+                  {item.question && <p className="text-sm mt-0.5" style={{ color: "var(--brown-dark)" }}>{item.question}</p>}
                   <div className="mt-1.5">
                     <ItemInput item={item} type={block.type} answer={answers[item.id] ?? ""} onAnswer={v => setAnswer(item.id, v)} />
                   </div>

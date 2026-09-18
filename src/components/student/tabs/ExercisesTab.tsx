@@ -79,6 +79,11 @@ export default async function ExercisesTab({
             return {
               id: item.id,
               points: item.points,
+              // word_order хранит question==correct_answer (нешаффленное
+              // предложение-эталон, см. GrammarSetEditor) — отдавать его
+              // текстом было бы прямой утечкой ответа рядом с перемешанными
+              // словами, так что для этого типа question не шлём вовсе.
+              question: ex.type === "word_order" ? null : item.question,
               // Для mcq — варианты как есть; для "порядок слов" — перемешанные
               // слова (не сам эталон!); для остальных типов options не нужны.
               options: ex.type === "word_order"
