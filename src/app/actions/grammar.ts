@@ -215,6 +215,20 @@ export async function submitGrammarAttempt(assignmentId: string, answers: Record
   return { score, maxScore, results };
 }
 
+// Ученик решил пройти уже сданный набор ещё раз — просто сбрасываем
+// попытку к чистому состоянию, ничего не удаляя (schema одна строка на
+// назначение, истории попыток нет). Уже отмеченную по этому набору
+// домашку (см. completeHomeworkForGrammarAssignment) НЕ трогаем: то, что
+// ученик тренируется ещё раз, не должно "отменять" сдачу задания.
+export async function retakeGrammarAssignment(assignmentId: string) {
+  const db = createAdminClient();
+  const { error } = await db.from("grammar_assignments")
+    .update({ status: "in_progress", answers: {}, updated_at: new Date().toISOString() })
+    .eq("id", assignmentId);
+  if (error) return { error: error.message };
+  return {};
+}
+
 export type GrammarBoardCheckResult = { correct: boolean; correct_answer: string; explanation: string | null };
 
 // Проверка упражнения, вынесенного на доску. Как и submitGrammarAttempt —

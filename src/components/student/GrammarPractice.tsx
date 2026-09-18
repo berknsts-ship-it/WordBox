@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, XCircle } from "lucide-react";
-import { saveGrammarProgress, submitGrammarAttempt, type ExerciseType, type GrammarItemResult } from "@/app/actions/grammar";
+import { saveGrammarProgress, submitGrammarAttempt, retakeGrammarAssignment, type ExerciseType, type GrammarItemResult } from "@/app/actions/grammar";
 import { ItemInput, TYPE_LABELS } from "@/components/shared/GrammarItemInput";
 import { sayCorgi } from "@/lib/corgi-events";
 import { logActivity } from "@/app/actions/activity";
@@ -29,6 +29,7 @@ export default function GrammarPractice({
   const [answers, setAnswers] = useState<AnswerMap>(initialAnswers);
   const [result, setResult] = useState<ResultData | null>(initialResult);
   const [submitting, setSubmitting] = useState(false);
+  const [retaking, setRetaking] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
 
   const skipFirstSave = useRef(true);
@@ -55,6 +56,16 @@ export default function GrammarPractice({
     setResult({ score: res.score!, maxScore: res.maxScore!, results: res.results! });
     sayCorgi("Great job!");
     logActivity(code, "grammar_completed", assignmentId);
+  }
+
+  async function handleRetake() {
+    if (retaking) return;
+    setRetaking(true);
+    const res = await retakeGrammarAssignment(assignmentId);
+    setRetaking(false);
+    if (res.error) return;
+    setAnswers({});
+    setResult(null);
   }
 
   const totalItems = exercises.reduce((a, b) => a + b.items.length, 0);
@@ -109,11 +120,18 @@ export default function GrammarPractice({
           </div>
         ))}
 
-        <button onClick={() => router.push(`/student/${code}?tab=trainer&sub=exercises`)}
-          className="w-full py-3 rounded-2xl font-semibold text-white"
-          style={{ background: "var(--gradient-primary)" }}>
-          К списку упражнений
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => router.push(`/student/${code}?tab=trainer&sub=exercises`)}
+            className="flex-1 py-3 rounded-2xl font-semibold"
+            style={{ background: "white", border: "1.5px solid var(--brown-pale)", color: "var(--brown-dark)" }}>
+            К списку упражнений
+          </button>
+          <button onClick={handleRetake} disabled={retaking}
+            className="flex-1 py-3 rounded-2xl font-semibold text-white disabled:opacity-50"
+            style={{ background: "var(--gradient-primary)" }}>
+            {retaking ? "Начинаем…" : "Пройти заново"}
+          </button>
+        </div>
       </div>
     );
   }
