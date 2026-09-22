@@ -146,7 +146,7 @@ type FlowerItem = {
   petals: FlowerPetal[];
   locked?: boolean; pdfPage?: number;
 };
-export type ReadingExerciseMode = "build" | "read_aloud" | "fill_letter";
+export type ReadingExerciseMode = "build" | "read_aloud" | "fill_letter" | "alphabet" | "match_case";
 export type ReadingWordConfig = {
   word: string;
   emoji: string;
@@ -173,6 +173,15 @@ export type ReadingExerciseItem = {
   // "build" only: letters currently sitting in each slot of the CURRENT
   // word ("" = empty). Reset whenever currentIndex changes.
   placed?: string[];
+  // "match_case" only: shuffled display order for the lowercase column
+  // (fixed at creation, same reasoning as "letters"/"blankOptions" above).
+  // solvedWords[] doubles as "this pair is matched" here, keyed to words[]
+  // (each word = one uppercase letter). selectedUpper/selectedLower track
+  // an in-progress pick so both viewers see the same tentative selection,
+  // not just the resolved matches.
+  lowercaseOrder?: string[];
+  selectedUpper?: string | null;
+  selectedLower?: string | null;
   locked?: boolean; pdfPage?: number;
 };
 type DrawItem = PathItem | TextItem | ImageItem | ShapeItem | FrameItem | VideoItem | DiceItem | WheelItem | TableItem | FunctionItem | CardItem | AudioItem | GrammarExerciseBoardItem | FlowerItem | ReadingExerciseItem;
@@ -267,6 +276,16 @@ const READING_FILL_WORDS: ReadingFillWord[] = [
   { word: "bag", emoji: "🎒", blankIndex: 1, wrongOptions: ["o", "e"] },
   { word: "ten", emoji: "🔟", blankIndex: 1, wrongOptions: ["a", "i"] },
 ];
+
+// "alphabet"/"match_case" share the same 26-letter bank — the picker panel
+// only shows checkboxes for match_case (alphabet is always all 26, no
+// picking), but both read bank.length off this one array.
+const ALPHABET_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+const ALPHABET_BANK: { word: string; emoji: string }[] = ALPHABET_LETTERS.map(l => ({ word: l, emoji: "" }));
+// Cycled by letter index for "alphabet" mode's lit state — a single fixed
+// color would make 26 clicks feel monotone; this keeps it looking like the
+// colorful alphabet chart it's meant to evoke.
+const ALPHABET_COLORS = ["#e0507a", "#e08a30", "#d0b020", "#3fa562", "#3090c0", "#8560d0"];
 
 // ── constants ─────────────────────────────────────────────────────────────────
 const COLORS           = ["#1a1a1a","#e03030","#2060d0","#20a040","#d07020","#9030b0","#ffffff"];
@@ -4067,7 +4086,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     } else if (readingMode === "read_aloud") {
       READING_ALOUD_WORDS.forEach((w, i) => { if (readingSelected.has(i)) words.push({ word: w.word, emoji: w.emoji }); });
       for (const c of readingCustom) words.push({ word: c.word, emoji: c.emoji });
-    } else {
+    } else if (readingMode === "fill_letter") {
       READING_FILL_WORDS.forEach((w, i) => {
         if (!readingSelected.has(i)) return;
         words.push({
@@ -4080,6 +4099,16 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
         const blankIndex = Math.floor(c.word.length / 2);
         words.push({ word: c.word, emoji: c.emoji, blankIndex, blankOptions: shuffleWords([c.word[blankIndex], ...extra]) });
       }
+    } else if (readingMode === "alphabet") {
+      // Always the full alphabet, in order — that's the whole point of
+      // "click along to the song," so there's nothing to pick here.
+      ALPHABET_LETTERS.forEach(l => words.push({ word: l, emoji: "" }));
+    } else {
+      // match_case — a chosen subset (default: first 8, see selectMode),
+      // uppercase kept in that same order; lowercase gets its own shuffle
+      // so the two columns don't line up row-by-row (that would make the
+      // "match" trivial — just click the same row on both sides).
+      ALPHABET_LETTERS.forEach((l, i) => { if (readingSelected.has(i)) words.push({ word: l, emoji: "" }); });
     }
     if (words.length === 0) return;
 
@@ -4087,12 +4116,16 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     const cv = canvasRef.current; const dpr = window.devicePixelRatio || 1;
     const cx = cv ? (cv.width / dpr / 2 - panX) / zoom : 400;
     const cy = cv ? (cv.height / dpr / 2 - panY) / zoom : 300;
-    const W = 340, H = readingMode === "read_aloud" ? 280 : 340;
+    const W = readingMode === "alphabet" ? 420 : readingMode === "match_case" ? 380 : 340;
+    const H = readingMode === "read_aloud" ? 280 : readingMode === "alphabet" ? 320 : readingMode === "match_case" ? 380 : 340;
     const item: ReadingExerciseItem = {
       type: "reading_exercise", id: uid(), x: cx - W / 2, y: cy - H / 2, w: W, h: H,
       mode: readingMode, words, currentIndex: 0,
       solvedWords: words.map(() => false),
       placed: readingMode === "build" ? words[0].word.split("").map(() => "") : undefined,
+      lowercaseOrder: readingMode === "match_case" ? shuffleWords(words.map(w => w.word.toLowerCase())) : undefined,
+      selectedUpper: readingMode === "match_case" ? null : undefined,
+      selectedLower: readingMode === "match_case" ? null : undefined,
     };
     itemsRef.current.push(item); render();
     send({ type: "path", item }); pushHistory({ type: "add", item });
@@ -6920,13 +6953,23 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
 
         {/* Reading exercise panel */}
         {showReadingPanel && (() => {
-          const bank = readingMode === "build" ? READING_BUILD_WORDS : readingMode === "read_aloud" ? READING_ALOUD_WORDS : READING_FILL_WORDS;
+          const bank = readingMode === "build" ? READING_BUILD_WORDS
+            : readingMode === "read_aloud" ? READING_ALOUD_WORDS
+            : readingMode === "fill_letter" ? READING_FILL_WORDS
+            : ALPHABET_BANK;
           const selectMode = (m: ReadingExerciseMode) => {
             setReadingMode(m);
-            const b = m === "build" ? READING_BUILD_WORDS : m === "read_aloud" ? READING_ALOUD_WORDS : READING_FILL_WORDS;
-            setReadingSelected(new Set(b.map((_, i) => i)));
+            const b = m === "build" ? READING_BUILD_WORDS
+              : m === "read_aloud" ? READING_ALOUD_WORDS
+              : m === "fill_letter" ? READING_FILL_WORDS
+              : ALPHABET_BANK;
+            // match_case defaults to a small first slice, not all 26 — a
+            // 6-8 year old matching every letter at once is the "too much
+            // at a time" she was avoiding; alphabet mode ignores this
+            // entirely (always all 26, see addReadingExerciseToBoard).
+            setReadingSelected(m === "match_case" ? new Set(b.slice(0, 8).map((_, i) => i)) : new Set(b.map((_, i) => i)));
           };
-          const totalCount = readingSelected.size + readingCustom.length;
+          const totalCount = readingMode === "alphabet" ? 26 : readingSelected.size + readingCustom.length;
           return (
             <div className="fixed inset-0 z-[250] flex items-start justify-center pt-16 px-4"
               data-no-prevent style={{ background:"rgba(0,0,0,0.25)" }}
@@ -6946,6 +6989,8 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                       { v:"build" as const,       label:"Собери слово",     hint:"картинка видна сразу, собери буквы по порядку" },
                       { v:"read_aloud" as const,  label:"Прочитай вслух",   hint:"картинка появляется как проверка после чтения" },
                       { v:"fill_letter" as const, label:"Вставь букву",     hint:"звук + картинка помогают выбрать букву" },
+                      { v:"alphabet" as const,    label:"Алфавит",          hint:"все буквы A-Z по порядку — кликать под песенку" },
+                      { v:"match_case" as const,  label:"Большая и маленькая", hint:"соединить заглавную букву со строчной" },
                     ]).map(o => (
                       <button key={o.v} onClick={()=>selectMode(o.v)}
                         className="text-left px-3 py-2 rounded-xl border text-sm"
@@ -6959,25 +7004,36 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                   </div>
                 </div>
 
-                <div className="mb-1 flex items-center justify-between">
-                  <span className="text-xs font-medium" style={{ color:"var(--brown-mid)" }}>Слова ({bank.length})</span>
-                  <button className="text-xs underline" style={{ color:"var(--brown-mid)" }}
-                    onClick={()=>setReadingSelected(readingSelected.size===bank.length ? new Set() : new Set(bank.map((_,i)=>i)))}>
-                    {readingSelected.size===bank.length ? "Снять все" : "Выбрать все"}
-                  </button>
-                </div>
-                <div className="overflow-y-auto max-h-40 flex flex-col gap-0.5 mb-3 pr-1">
-                  {bank.map((w, i) => (
-                    <label key={w.word} className="flex items-center gap-2 text-sm cursor-pointer px-2 py-1 rounded-lg hover:bg-[var(--brown-pale)]">
-                      <input type="checkbox" checked={readingSelected.has(i)}
-                        onChange={e=>{ const s=new Set(readingSelected); e.target.checked?s.add(i):s.delete(i); setReadingSelected(s); }}
-                        className="accent-[var(--brown-dark)]"/>
-                      <span>{w.emoji}</span>
-                      <span style={{ color:"var(--brown-dark)" }}>{w.word}</span>
-                    </label>
-                  ))}
-                </div>
+                {readingMode === "alphabet" ? (
+                  <div className="mb-3 text-sm px-3 py-2.5 rounded-xl" style={{ background:"var(--cream)", color:"var(--brown-mid)" }}>
+                    Все 26 букв A-Z, по порядку — выбирать нечего, включай песенку и кликайте буквы по ходу
+                  </div>
+                ) : (
+                  <>
+                    <div className="mb-1 flex items-center justify-between">
+                      <span className="text-xs font-medium" style={{ color:"var(--brown-mid)" }}>
+                        {readingMode === "match_case" ? "Буквы" : "Слова"} ({bank.length})
+                      </span>
+                      <button className="text-xs underline" style={{ color:"var(--brown-mid)" }}
+                        onClick={()=>setReadingSelected(readingSelected.size===bank.length ? new Set() : new Set(bank.map((_,i)=>i)))}>
+                        {readingSelected.size===bank.length ? "Снять все" : "Выбрать все"}
+                      </button>
+                    </div>
+                    <div className="overflow-y-auto max-h-40 flex flex-col gap-0.5 mb-3 pr-1">
+                      {bank.map((w, i) => (
+                        <label key={w.word} className="flex items-center gap-2 text-sm cursor-pointer px-2 py-1 rounded-lg hover:bg-[var(--brown-pale)]">
+                          <input type="checkbox" checked={readingSelected.has(i)}
+                            onChange={e=>{ const s=new Set(readingSelected); e.target.checked?s.add(i):s.delete(i); setReadingSelected(s); }}
+                            className="accent-[var(--brown-dark)]"/>
+                          {w.emoji && <span>{w.emoji}</span>}
+                          <span style={{ color:"var(--brown-dark)" }}>{w.word}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </>
+                )}
 
+                {readingMode !== "alphabet" && readingMode !== "match_case" && (
                 <div className="border-t pt-3 mb-3" style={{ borderColor:"var(--brown-pale)" }}>
                   <span className="text-xs font-medium block mb-1.5" style={{ color:"var(--brown-mid)" }}>
                     Своё слово (для любого ученика)
@@ -7018,9 +7074,10 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                     </div>
                   )}
                 </div>
+                )}
 
                 <button onClick={addReadingExerciseToBoard}
-                  disabled={totalCount===0}
+                  disabled={readingMode !== "alphabet" && totalCount===0}
                   className="w-full py-2 rounded-xl text-sm font-semibold disabled:opacity-40"
                   style={{ background:"var(--gradient-primary)", color:"white" }}>
                   Добавить на доску ({totalCount})
@@ -7951,6 +8008,7 @@ function GrammarExerciseOverlay({ item, sp, sw, sh, selected, onAnswer, onCheck,
 // the next word), never a continuous gesture.
 const READING_MODE_LABEL: Record<ReadingExerciseMode, string> = {
   build: "Собери слово", read_aloud: "Прочитай вслух", fill_letter: "Вставь букву",
+  alphabet: "Алфавит", match_case: "Большая и маленькая",
 };
 
 function remainingLetterPool(letters: string[], placed: string[]): string[] {
@@ -8039,6 +8097,58 @@ function ReadingExerciseOverlay({ item, sp, sw, sh, selected, zoom, onUpdate, on
     onSpeak(cur.word);
   };
 
+  // "alphabet" — click any letter to toggle it lit; no notion of solved/
+  // unsolved order, just an on/off per letter (reusing solvedWords as the
+  // "lit" flags — no dedicated field needed).
+  const toggleAlphabetLetter = (idx: number) => {
+    if (locked) return;
+    onUpdate({ ...item, solvedWords: item.solvedWords.map((s, i) => i === idx ? !s : s) });
+  };
+
+  // "match_case" — pick an upper then a lower (either order); a matching
+  // pair locks in (solvedWords[idx]=true) and clears both picks, a
+  // mismatch flashes red on the two you picked, then clears. Always
+  // resolving the FULL next state in one onUpdate — this can't be modeled
+  // as "toggle one field" since picking the second letter of a pair also
+  // has to react to whatever was already picked as the first.
+  const [matchError, setMatchError] = useState(false);
+  const resolveMatchCasePick = (upper: string | null, lower: string | null) => {
+    if (upper && lower) {
+      if (upper.toLowerCase() === lower) {
+        const idx = item.words.findIndex(w => w.word === upper);
+        onUpdate({ ...item, selectedUpper: null, selectedLower: null,
+          solvedWords: item.solvedWords.map((s, i) => i === idx ? true : s) });
+        onSpeak(upper);
+      } else {
+        onUpdate({ ...item, selectedUpper: upper, selectedLower: lower });
+        setMatchError(true);
+        shakeTimer.current = setTimeout(() => {
+          setMatchError(false);
+          onUpdate({ ...item, selectedUpper: null, selectedLower: null });
+        }, 550);
+      }
+    } else {
+      onUpdate({ ...item, selectedUpper: upper, selectedLower: lower });
+    }
+  };
+  const pickUpper = (letter: string) => {
+    if (locked || matchError) return;
+    const idx = item.words.findIndex(w => w.word === letter);
+    if (idx >= 0 && item.solvedWords[idx]) return; // already matched
+    resolveMatchCasePick(item.selectedUpper === letter ? null : letter, item.selectedLower ?? null);
+  };
+  const pickLower = (letter: string) => {
+    if (locked || matchError) return;
+    resolveMatchCasePick(item.selectedUpper ?? null, item.selectedLower === letter ? null : letter);
+  };
+  const resetProgress = () => {
+    if (item.mode === "alphabet") {
+      onUpdate({ ...item, solvedWords: item.words.map(() => false) });
+    } else if (item.mode === "match_case") {
+      onUpdate({ ...item, solvedWords: item.words.map(() => false), selectedUpper: null, selectedLower: null });
+    }
+  };
+
   return (
     <div data-no-prevent className="absolute select-none" style={{ left:sp.x, top:sp.y, width:sw, height:sh, zIndex:20 }}>
       <style>{`
@@ -8056,15 +8166,32 @@ function ReadingExerciseOverlay({ item, sp, sw, sh, selected, zoom, onUpdate, on
             📖 {READING_MODE_LABEL[item.mode]}
           </span>
           <div className="flex items-center gap-1.5 shrink-0" onMouseDown={stop} onTouchStart={stop}>
-            <button onClick={()=>goTo(item.currentIndex-1)} disabled={item.currentIndex===0}
-              className="w-6 h-6 rounded-full flex items-center justify-center disabled:opacity-30"
-              style={{ background:"white", border:"1px solid #e8ddd0" }}>‹</button>
-            <span className="text-xs font-medium tabular-nums" style={{ color:"var(--brown-mid)" }}>
-              {item.currentIndex+1}/{item.words.length}{solved ? " ✓" : ""}
-            </span>
-            <button onClick={()=>goTo(item.currentIndex+1)} disabled={item.currentIndex===item.words.length-1}
-              className="w-6 h-6 rounded-full flex items-center justify-center disabled:opacity-30"
-              style={{ background:"white", border:"1px solid #e8ddd0" }}>›</button>
+            {item.mode === "alphabet" || item.mode === "match_case" ? (
+              <>
+                <span className="text-xs font-medium tabular-nums" style={{ color:"var(--brown-mid)" }}>
+                  {item.solvedWords.filter(Boolean).length}/{item.words.length}
+                </span>
+                {!locked && (
+                  <button onClick={resetProgress}
+                    className="text-xs font-semibold px-2 py-1 rounded-full"
+                    style={{ background:"white", border:"1px solid #e8ddd0", color:"var(--brown-mid)" }}>
+                    Сбросить
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                <button onClick={()=>goTo(item.currentIndex-1)} disabled={item.currentIndex===0}
+                  className="w-6 h-6 rounded-full flex items-center justify-center disabled:opacity-30"
+                  style={{ background:"white", border:"1px solid #e8ddd0" }}>‹</button>
+                <span className="text-xs font-medium tabular-nums" style={{ color:"var(--brown-mid)" }}>
+                  {item.currentIndex+1}/{item.words.length}{solved ? " ✓" : ""}
+                </span>
+                <button onClick={()=>goTo(item.currentIndex+1)} disabled={item.currentIndex===item.words.length-1}
+                  className="w-6 h-6 rounded-full flex items-center justify-center disabled:opacity-30"
+                  style={{ background:"white", border:"1px solid #e8ddd0" }}>›</button>
+              </>
+            )}
           </div>
         </div>
 
@@ -8153,6 +8280,57 @@ function ReadingExerciseOverlay({ item, sp, sw, sh, selected, zoom, onUpdate, on
               )}
             </>
           )}
+
+          {item.mode === "alphabet" && (
+            <div style={{ display:"grid", gridTemplateColumns:`repeat(7, ${z(42)}px)`, gap:z(6) }}>
+              {item.words.map((w, i) => {
+                const lit = item.solvedWords[i];
+                const litColor = ALPHABET_COLORS[i % ALPHABET_COLORS.length];
+                return (
+                  <button key={i} onClick={()=>toggleAlphabetLetter(i)}
+                    className="flex items-center justify-center rounded-lg font-bold uppercase hover:opacity-85 transition-all"
+                    style={{
+                      width:z(42), height:z(42), fontSize:z(18), borderRadius:z(9),
+                      background: lit ? litColor : "white",
+                      border: `${z(2)}px solid ${lit ? litColor : "#c0b8b0"}`,
+                      color: lit ? "white" : "var(--brown-dark)",
+                    }}>
+                    {w.word}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {item.mode === "match_case" && (() => {
+            const lowerOrder = item.lowercaseOrder ?? item.words.map(w => w.word.toLowerCase());
+            const letterBtn = (label: string, idx: number, isSel: boolean, isSolved: boolean, onClick: () => void) => (
+              <button key={label} disabled={isSolved} onClick={onClick}
+                className={`flex items-center justify-center rounded-lg font-bold ${matchError && isSel ? "reading-shake" : ""}`}
+                style={{
+                  width:z(40), height:z(36), fontSize:z(16), borderRadius:z(8),
+                  background: isSolved ? "#e6f5ea" : isSel ? "#eef2ff" : "white",
+                  border: `${z(2)}px solid ${isSolved ? "#6ea882" : isSel ? "#4a80f0" : "#c0b8b0"}`,
+                  color: isSolved ? "#2f6b45" : "var(--brown-dark)",
+                  cursor: isSolved ? "default" : "pointer",
+                }}>
+                {label}
+              </button>
+            );
+            return (
+              <div style={{ display:"flex", gap:z(24) }}>
+                <div style={{ display:"flex", flexDirection:"column", gap:z(6) }}>
+                  {item.words.map((w, i) => letterBtn(w.word, i, item.selectedUpper===w.word, item.solvedWords[i], ()=>pickUpper(w.word)))}
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", gap:z(6) }}>
+                  {lowerOrder.map((l, i) => {
+                    const idx = item.words.findIndex(w => w.word.toLowerCase() === l);
+                    return letterBtn(l, i, item.selectedLower===l, idx>=0 && item.solvedWords[idx], ()=>pickLower(l));
+                  })}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </div>
       {/* Resize handles */}
