@@ -277,6 +277,41 @@ const READING_FILL_WORDS: ReadingFillWord[] = [
   { word: "ten", emoji: "🔟", blankIndex: 1, wrongOptions: ["a", "i"] },
 ];
 
+// Открытый слог (magic e): a single vowel followed by one consonant and a
+// silent "e" says its own name instead of the short sound above — cat/cap
+// vs cake/cape. Same three shapes as the closed-syllable banks, picked by
+// the "Слог" toggle in the panel so all three modes keep working exactly
+// as they already do, just against a different word list.
+const READING_BUILD_WORDS_OPEN: ReadingBuildWord[] = [
+  { word: "cake", emoji: "🍰", distractors: ["o", "i"] },
+  { word: "bike", emoji: "🚲", distractors: ["a", "o"] },
+  { word: "kite", emoji: "🪁", distractors: ["a", "u"] },
+  { word: "rose", emoji: "🌹", distractors: ["i", "u"] },
+  { word: "cube", emoji: "🧊", distractors: ["a", "o"] },
+  { word: "home", emoji: "🏠", distractors: ["a", "i"] },
+];
+const READING_ALOUD_WORDS_OPEN: ReadingAloudWord[] = [
+  { word: "cake", emoji: "🍰" },
+  { word: "bike", emoji: "🚲" },
+  { word: "kite", emoji: "🪁" },
+  { word: "rose", emoji: "🌹" },
+  { word: "cube", emoji: "🧊" },
+  { word: "home", emoji: "🏠" },
+  { word: "tube", emoji: "🎺" },
+  { word: "mule", emoji: "🫏" },
+];
+const READING_FILL_WORDS_OPEN: ReadingFillWord[] = [
+  // Blanking the final "e" (not the vowel, unlike the closed-syllable
+  // bank above) — the point of this mode is noticing that a word needs
+  // its magic e, not picking which middle vowel it has.
+  { word: "cake", emoji: "🍰", blankIndex: 3, wrongOptions: ["a", "o"] },
+  { word: "bike", emoji: "🚲", blankIndex: 3, wrongOptions: ["a", "i"] },
+  { word: "rose", emoji: "🌹", blankIndex: 3, wrongOptions: ["a", "i"] },
+  { word: "cube", emoji: "🧊", blankIndex: 3, wrongOptions: ["a", "o"] },
+  { word: "home", emoji: "🏠", blankIndex: 3, wrongOptions: ["a", "i"] },
+  { word: "tube", emoji: "🎺", blankIndex: 3, wrongOptions: ["a", "o"] },
+];
+
 // "alphabet"/"match_case" share the same 26-letter bank — the picker panel
 // only shows checkboxes for match_case (alphabet is always all 26, no
 // picking), but both read bank.length off this one array.
@@ -1786,6 +1821,10 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   // reading exercise panel
   const [showReadingPanel, setShowReadingPanel] = useState(false);
   const [readingMode,      setReadingMode]      = useState<ReadingExerciseMode>("build");
+  // Only meaningful for build/read_aloud/fill_letter — picks which of the
+  // two parallel word banks (short-vowel CVC vs "magic e" CVCe) feeds
+  // those three modes. alphabet/match_case don't use word banks at all.
+  const [readingSyllable,  setReadingSyllable]  = useState<"closed" | "open">("closed");
   const [readingSelected,  setReadingSelected]  = useState<Set<number>>(new Set(READING_BUILD_WORDS.map((_, i) => i)));
   const [readingCustom,    setReadingCustom]    = useState<{ word: string; emoji: string; extra: string }[]>([]);
   const [readingCustomWord,   setReadingCustomWord]   = useState("");
@@ -4075,7 +4114,8 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
 
     const words: ReadingWordConfig[] = [];
     if (readingMode === "build") {
-      READING_BUILD_WORDS.forEach((w, i) => {
+      const source = readingSyllable === "open" ? READING_BUILD_WORDS_OPEN : READING_BUILD_WORDS;
+      source.forEach((w, i) => {
         if (!readingSelected.has(i)) return;
         words.push({ word: w.word, emoji: w.emoji, letters: shuffleWords([...w.word.split(""), ...w.distractors]) });
       });
@@ -4084,10 +4124,12 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
         words.push({ word: c.word, emoji: c.emoji, letters: shuffleWords([...c.word.split(""), ...extra]) });
       }
     } else if (readingMode === "read_aloud") {
-      READING_ALOUD_WORDS.forEach((w, i) => { if (readingSelected.has(i)) words.push({ word: w.word, emoji: w.emoji }); });
+      const source = readingSyllable === "open" ? READING_ALOUD_WORDS_OPEN : READING_ALOUD_WORDS;
+      source.forEach((w, i) => { if (readingSelected.has(i)) words.push({ word: w.word, emoji: w.emoji }); });
       for (const c of readingCustom) words.push({ word: c.word, emoji: c.emoji });
     } else if (readingMode === "fill_letter") {
-      READING_FILL_WORDS.forEach((w, i) => {
+      const source = readingSyllable === "open" ? READING_FILL_WORDS_OPEN : READING_FILL_WORDS;
+      source.forEach((w, i) => {
         if (!readingSelected.has(i)) return;
         words.push({
           word: w.word, emoji: w.emoji, blankIndex: w.blankIndex,
@@ -6953,23 +6995,27 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
 
         {/* Reading exercise panel */}
         {showReadingPanel && (() => {
-          const bank = readingMode === "build" ? READING_BUILD_WORDS
-            : readingMode === "read_aloud" ? READING_ALOUD_WORDS
-            : readingMode === "fill_letter" ? READING_FILL_WORDS
+          const bankFor = (m: ReadingExerciseMode, syl: "closed" | "open") =>
+            m === "build" ? (syl === "open" ? READING_BUILD_WORDS_OPEN : READING_BUILD_WORDS)
+            : m === "read_aloud" ? (syl === "open" ? READING_ALOUD_WORDS_OPEN : READING_ALOUD_WORDS)
+            : m === "fill_letter" ? (syl === "open" ? READING_FILL_WORDS_OPEN : READING_FILL_WORDS)
             : ALPHABET_BANK;
+          const bank = bankFor(readingMode, readingSyllable);
           const selectMode = (m: ReadingExerciseMode) => {
             setReadingMode(m);
-            const b = m === "build" ? READING_BUILD_WORDS
-              : m === "read_aloud" ? READING_ALOUD_WORDS
-              : m === "fill_letter" ? READING_FILL_WORDS
-              : ALPHABET_BANK;
+            const b = bankFor(m, readingSyllable);
             // match_case defaults to a small first slice, not all 26 — a
             // 6-8 year old matching every letter at once is the "too much
             // at a time" she was avoiding; alphabet mode ignores this
             // entirely (always all 26, see addReadingExerciseToBoard).
             setReadingSelected(m === "match_case" ? new Set(b.slice(0, 8).map((_, i) => i)) : new Set(b.map((_, i) => i)));
           };
+          const selectSyllable = (syl: "closed" | "open") => {
+            setReadingSyllable(syl);
+            setReadingSelected(new Set(bankFor(readingMode, syl).map((_, i) => i)));
+          };
           const totalCount = readingMode === "alphabet" ? 26 : readingSelected.size + readingCustom.length;
+          const usesWordBank = readingMode === "build" || readingMode === "read_aloud" || readingMode === "fill_letter";
           return (
             <div className="fixed inset-0 z-[250] flex items-start justify-center pt-16 px-4"
               data-no-prevent style={{ background:"rgba(0,0,0,0.25)" }}
@@ -7003,6 +7049,30 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                     ))}
                   </div>
                 </div>
+
+                {usesWordBank && (
+                  <div className="mb-3">
+                    <label className="text-xs font-medium block mb-1.5" style={{ color:"var(--brown-mid)" }}>Слог</label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <button onClick={()=>selectSyllable("closed")}
+                        className="text-left px-3 py-2 rounded-xl border text-sm"
+                        style={readingSyllable==="closed"
+                          ? { borderColor:"var(--brown-dark)", background:"var(--brown-pale)", color:"var(--brown-dark)" }
+                          : { borderColor:"var(--brown-pale)", color:"var(--brown-mid)" }}>
+                        <span className="font-semibold">Закрытый</span>
+                        <span className="block text-xs mt-0.5" style={{ color:"var(--brown-light)" }}>cat, dog — краткий звук</span>
+                      </button>
+                      <button onClick={()=>selectSyllable("open")}
+                        className="text-left px-3 py-2 rounded-xl border text-sm"
+                        style={readingSyllable==="open"
+                          ? { borderColor:"var(--brown-dark)", background:"var(--brown-pale)", color:"var(--brown-dark)" }
+                          : { borderColor:"var(--brown-pale)", color:"var(--brown-mid)" }}>
+                        <span className="font-semibold">Открытый</span>
+                        <span className="block text-xs mt-0.5" style={{ color:"var(--brown-light)" }}>cake, bike — немая e</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {readingMode === "alphabet" ? (
                   <div className="mb-3 text-sm px-3 py-2.5 rounded-xl" style={{ background:"var(--cream)", color:"var(--brown-mid)" }}>
