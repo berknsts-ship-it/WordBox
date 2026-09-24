@@ -4763,6 +4763,13 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Every toolbar-triggered dropdown/picker that should sit above board
+  // content — used to visually hide native <video>/<audio> controls while
+  // one is open (see the video/audio overlays below for why).
+  const anyBoardMenuOpen = showShapeMenu || showFrameMenu || showMoreTools || showSymbols
+    || showEmojiPicker || showReadingPanel || showGrammarPanel || showTablePicker
+    || showFnPanel || showParticipants;
+
   return (
     <div className="flex flex-1 overflow-hidden select-none" style={{ touchAction: "none" }}>
 
@@ -5328,7 +5335,19 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                 // visibly trailing behind the rest of the board while
                 // panning. transform is compositor-only, no reflow.
                 transform: `translate(${sp.x}px, ${sp.y}px)`,
-                visibility: isDraggingThis ? "hidden" : undefined }}
+                // Native <video>/<audio> controls are painted by the browser's
+                // own media-rendering path, not just ordinary CSS stacking —
+                // some browsers (reported: Yandex Browser, likely a hardware
+                // video-overlay compositing quirk) paint them above a
+                // same-page z-index:10000 dropdown regardless of z-index.
+                // Confirmed NOT reproducible in stock Chromium (verified via
+                // elementFromPoint — the dropdown wins the hit-test there),
+                // so this isn't "fixing" a proven bug so much as routing
+                // around a browser-specific one we can't test directly:
+                // visually hiding the control (not display:none, so audio
+                // that's already playing keeps playing) for as long as any
+                // toolbar dropdown sits on top of it.
+                visibility: (isDraggingThis || anyBoardMenuOpen) ? "hidden" : undefined }}
               onMouseDown={e => {
                 e.stopPropagation();
                 setSelectedId(vi.id); setSelectedIds(new Set());
@@ -5435,7 +5454,10 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                 // transform, not left/top — same reasoning as the video
                 // overlay: avoids a layout reflow on every pan frame.
                 transform: `translate(${sp.x}px, ${sp.y}px)`,
-                visibility: isDraggingThis ? "hidden" : undefined }}
+                // See the matching comment on the <video> overlay above —
+                // same browser-specific native-media-overlay workaround.
+                // visibility (not display:none) keeps playback running.
+                visibility: (isDraggingThis || anyBoardMenuOpen) ? "hidden" : undefined }}
               onMouseDown={e => {
                 e.stopPropagation();
                 setSelectedId(ai.id); setSelectedIds(new Set([ai.id]));
