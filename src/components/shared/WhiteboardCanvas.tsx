@@ -4710,12 +4710,16 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     const pad = 80;
     minX -= pad; minY -= pad; maxX += pad; maxY += pad;
     const cw = cont.clientWidth, ch = cont.clientHeight;
-    // Floored — content shaped very tall-and-narrow or wide-and-short
-    // (e.g. several cards stacked in one column) could otherwise force a
-    // near-zero zoom to fit every last pixel, leaving mostly empty space
-    // either side. Below this floor it's more useful to see most of the
-    // content at a readable size than all of it unreadably small.
-    const newZoom = Math.max(0.15, Math.min(cw / (maxX - minX), ch / (maxY - minY), 3));
+    // A board that's genuinely sprawled very wide (months of lessons laid
+    // out left-to-right — real boards seen at 16000+ px wide) needs a real
+    // fit zoom well under 15% to show everything; a hard 0.15 floor here
+    // used to win that fight, silently leaving most of the content
+    // off-screen with zero indication anything was missing — reported as
+    // "the board is empty," not "the board is zoomed in." 0.05 matches the
+    // manual scroll-to-zoom floor (see the wheel handler above) rather than
+    // being a separate, stricter limit — tiny-but-visible-and-navigable
+    // beats large chunks silently existing off-screen.
+    const newZoom = Math.max(0.05, Math.min(cw / (maxX - minX), ch / (maxY - minY), 3));
     applyView(newZoom, (cw - (maxX + minX) * newZoom) / 2, (ch - (maxY + minY) * newZoom) / 2);
     render();
   }, [applyView, render]);
