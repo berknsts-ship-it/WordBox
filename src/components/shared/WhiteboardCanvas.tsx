@@ -184,7 +184,24 @@ export type ReadingExerciseItem = {
   selectedLower?: string | null;
   locked?: boolean; pdfPage?: number;
 };
-type DrawItem = PathItem | TextItem | ImageItem | ShapeItem | FrameItem | VideoItem | DiceItem | WheelItem | TableItem | FunctionItem | CardItem | AudioItem | GrammarExerciseBoardItem | FlowerItem | ReadingExerciseItem;
+
+// "Поиск слов" — a letter grid with target words hidden horizontally and
+// vertically. grid/placements are generated once at creation (see
+// buildWordSearchGrid) and never regenerated — both viewers must solve the
+// exact same puzzle, same reasoning as the shuffled letter pools above.
+export type WordSearchPlacement = { word: string; cells: [number, number][] };
+export type WordSearchItem = {
+  type: "word_search"; id: string;
+  x: number; y: number; w: number; h: number;
+  words: string[];
+  grid: string[][];
+  size: number;
+  placements: WordSearchPlacement[];
+  // Synced across viewers — words already found, by their text (uppercase).
+  foundWords: string[];
+  locked?: boolean; pdfPage?: number;
+};
+type DrawItem = PathItem | TextItem | ImageItem | ShapeItem | FrameItem | VideoItem | DiceItem | WheelItem | TableItem | FunctionItem | CardItem | AudioItem | GrammarExerciseBoardItem | FlowerItem | ReadingExerciseItem | WordSearchItem;
 
 type WsEvent =
   | { type: "path-pt"; id: string; x: number; y: number; t?: number; color: string; size: number; eraser: boolean; highlight: boolean }
@@ -356,6 +373,63 @@ function shuffleWords(arr: string[]): string[] {
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
+}
+
+// Horizontal/vertical only — no diagonals, no reversed words. A word search
+// for young ESL learners needs to stay solvable by eye; adding the other
+// six classic directions triples the search space for basically no benefit
+// at this level.
+function buildWordSearchGrid(rawWords: string[]): { grid: string[][]; size: number; placements: WordSearchPlacement[] } {
+  const words = rawWords
+    .map(w => w.toUpperCase().replace(/[^A-Z]/g, ""))
+    .filter(w => w.length >= 2)
+    .sort((a, b) => b.length - a.length); // longest first — packs tighter
+
+  const longest = words.reduce((m, w) => Math.max(m, w.length), 0);
+  const size = Math.min(14, Math.max(8, longest, Math.ceil(Math.sqrt(words.reduce((s, w) => s + w.length, 0) * 2.2))));
+
+  const grid: (string | null)[][] = Array.from({ length: size }, () => Array(size).fill(null));
+  const placements: WordSearchPlacement[] = [];
+
+  const DIRS: [number, number][] = [[1, 0], [0, 1]]; // →, ↓
+
+  for (const word of words) {
+    const attempts = shuffleWords(
+      Array.from({ length: size * size * DIRS.length }, (_, i) => String(i))
+    );
+    let placed = false;
+    for (const key of attempts) {
+      const idx = Number(key);
+      const [dx, dy] = DIRS[idx % DIRS.length];
+      const cellIdx = Math.floor(idx / DIRS.length);
+      const row0 = cellIdx % size, col0 = Math.floor(cellIdx / size);
+      const rowEnd = row0 + dy * (word.length - 1), colEnd = col0 + dx * (word.length - 1);
+      if (rowEnd >= size || colEnd >= size) continue;
+
+      let ok = true;
+      const cells: [number, number][] = [];
+      for (let i = 0; i < word.length; i++) {
+        const r = row0 + dy * i, c = col0 + dx * i;
+        const existing = grid[r][c];
+        if (existing !== null && existing !== word[i]) { ok = false; break; }
+        cells.push([r, c]);
+      }
+      if (!ok) continue;
+
+      cells.forEach(([r, c], i) => { grid[r][c] = word[i]; });
+      placements.push({ word, cells });
+      placed = true;
+      break;
+    }
+    // A word that genuinely can't fit (grid too small, too many
+    // collisions) is silently dropped rather than blocking the whole
+    // exercise — better to show 9 of 10 words than fail to create it.
+    if (!placed) continue;
+  }
+
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const finalGrid = grid.map(row => row.map(cell => cell ?? alphabet[Math.floor(Math.random() * alphabet.length)]));
+  return { grid: finalGrid, size, placements };
 }
 
 const SHAPE_KINDS: { v: ShapeKind; label: string; icon: string }[] = [
@@ -599,6 +673,7 @@ function itemBounds(item: DrawItem) {
   if (item.type === "grammar_exercise") return { x0: item.x, y0: item.y, x1: item.x + item.w, y1: item.y + item.h };
   if (item.type === "flower") return { x0: item.x, y0: item.y, x1: item.x + item.w, y1: item.y + item.h };
   if (item.type === "reading_exercise") return { x0: item.x, y0: item.y, x1: item.x + item.w, y1: item.y + item.h };
+  if (item.type === "word_search") return { x0: item.x, y0: item.y, x1: item.x + item.w, y1: item.y + item.h };
   return item.type === "path" ? pathBounds(item) : textBounds(item as TextItem);
 }
 const pathBboxCache = new WeakMap<PathItem, ReturnType<typeof pathBounds>>();
@@ -642,6 +717,7 @@ function shiftItem(item: DrawItem, dx: number, dy: number): DrawItem {
   if (item.type === "grammar_exercise") return { ...item, x: item.x + dx, y: item.y + dy };
   if (item.type === "flower") return { ...item, x: item.x + dx, y: item.y + dy };
   if (item.type === "reading_exercise") return { ...item, x: item.x + dx, y: item.y + dy };
+  if (item.type === "word_search") return { ...item, x: item.x + dx, y: item.y + dy };
   const ti = item as TextItem;
   return { ...ti, x: ti.x + dx, y: ti.y + dy };
 }
@@ -1307,6 +1383,11 @@ function renderItem(ctx: CanvasRenderingContext2D, item: DrawItem, zoom: number,
     ctx.strokeStyle = "#4a80f055"; ctx.lineWidth = 1;
     ctx.strokeRect(item.x, item.y, item.w, item.h);
     ctx.restore();
+  } else if (item.type === "word_search") {
+    ctx.save();
+    ctx.strokeStyle = "#4a80f055"; ctx.lineWidth = 1;
+    ctx.strokeRect(item.x, item.y, item.w, item.h);
+    ctx.restore();
   } else {
     renderText(ctx, item as TextItem);
   }
@@ -1356,6 +1437,7 @@ function getItemBounds(item: DrawItem): { x: number; y: number; w: number; h: nu
     case "grammar_exercise":
     case "flower":
     case "reading_exercise":
+    case "word_search":
     case "card": return { x: item.x, y: item.y, w: item.w, h: item.h };
     default: return null;
   }
@@ -1830,6 +1912,13 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   const [readingCustomWord,   setReadingCustomWord]   = useState("");
   const [readingCustomEmoji,  setReadingCustomEmoji]  = useState("");
   const [readingCustomExtra,  setReadingCustomExtra]  = useState("");
+
+  // word search panel — a raw textarea (one word per line) rather than a
+  // category picker like the reading exercise: unlike CVC phonics words
+  // there's no sensible starter bank, this is always "whatever vocabulary
+  // this student is on right now."
+  const [showWordSearchPanel, setShowWordSearchPanel] = useState(false);
+  const [wordSearchInput,     setWordSearchInput]      = useState("");
 
   // ── render ──────────────────────────────────────────────────────────────────
   const render = useCallback(() => {
@@ -4176,6 +4265,29 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     setReadingCustom([]);
   };
 
+  const addWordSearchToBoard = () => {
+    const rawWords = wordSearchInput.split("\n").map(w => w.trim()).filter(Boolean);
+    if (rawWords.length === 0) return;
+    const { grid, size, placements } = buildWordSearchGrid(rawWords);
+    if (placements.length === 0) return; // nothing fit — bail rather than place an empty puzzle
+
+    const { zoom, panX, panY } = viewRef.current;
+    const cv = canvasRef.current; const dpr = window.devicePixelRatio || 1;
+    const cx = cv ? (cv.width / dpr / 2 - panX) / zoom : 400;
+    const cy = cv ? (cv.height / dpr / 2 - panY) / zoom : 300;
+    // Square grid + a strip below for the word list.
+    const W = Math.max(340, size * 32);
+    const H = W + 90;
+    const item: WordSearchItem = {
+      type: "word_search", id: uid(), x: cx - W / 2, y: cy - H / 2, w: W, h: H,
+      words: placements.map(p => p.word), grid, size, placements, foundWords: [],
+    };
+    itemsRef.current.push(item); render();
+    send({ type: "path", item }); pushHistory({ type: "add", item });
+    setShowWordSearchPanel(false);
+    setWordSearchInput("");
+  };
+
   const speakWord = useCallback((word: string, rate = 0.85) => {
     if (!("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
@@ -4772,7 +4884,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   // one is open (see the video/audio overlays below for why).
   const anyBoardMenuOpen = showShapeMenu || showFrameMenu || showMoreTools || showSymbols
     || showEmojiPicker || showReadingPanel || showGrammarPanel || showTablePicker
-    || showFnPanel || showParticipants;
+    || showFnPanel || showParticipants || showWordSearchPanel;
 
   return (
     <div className="flex flex-1 overflow-hidden select-none" style={{ touchAction: "none" }}>
@@ -4928,6 +5040,14 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                       className="flex flex-col items-center gap-1 p-2 rounded-xl border hover:opacity-70"
                       style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
                       <span className="text-xl">📖</span><span className="text-xs">Чтение</span>
+                    </button>
+                  )}
+                  {role==="tutor" && (
+                    <button onClick={()=>{setShowWordSearchPanel(v=>!v);setShowMoreTools(false);}}
+                      onTouchEnd={e=>{e.preventDefault();e.stopPropagation();(e.currentTarget as HTMLButtonElement).click();}}
+                      className="flex flex-col items-center gap-1 p-2 rounded-xl border hover:opacity-70"
+                      style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
+                      <span className="text-xl">🔍</span><span className="text-xs">Поиск слов</span>
                     </button>
                   )}
                   {role==="tutor" && (
@@ -5720,6 +5840,27 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                 const wh = (clientY - rect.top  - viewRef.current.panY) / viewRef.current.zoom;
                 selDragRef.current = { mode:"resize-img", id: ri.id, corner, wx0: ww, wy0: wh, origItem: { ...ri } };
                 snapCandidatesRef.current = collectSnapCandidates(itemsRef.current, new Set([ri.id]));
+              }} />
+          );
+        })}
+
+        {/* Word search overlays */}
+        {itemsRef.current.filter(it => it.type === "word_search").map(it => {
+          const wi = it as WordSearchItem;
+          const sp = w2s(wi.x, wi.y);
+          const ep = w2s(wi.x + wi.w, wi.y + wi.h);
+          const sw = ep.x - sp.x, sh = ep.y - sp.y;
+          const sel = selectedId === wi.id || selectedIds.has(wi.id);
+          return (
+            <WordSearchOverlay key={wi.id} item={wi} sp={sp} sw={sw} sh={sh} selected={sel}
+              zoom={viewRef.current.zoom}
+              onUpdate={next => updateBoardItem(next)}
+              onResizeStart={(corner, clientX, clientY) => {
+                const rect = containerRef.current!.getBoundingClientRect();
+                const ww = (clientX - rect.left - viewRef.current.panX) / viewRef.current.zoom;
+                const wh = (clientY - rect.top  - viewRef.current.panY) / viewRef.current.zoom;
+                selDragRef.current = { mode:"resize-img", id: wi.id, corner, wx0: ww, wy0: wh, origItem: { ...wi } };
+                snapCandidatesRef.current = collectSnapCandidates(itemsRef.current, new Set([wi.id]));
               }} />
           );
         })}
@@ -7183,6 +7324,41 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           );
         })()}
 
+        {/* Word search panel */}
+        {showWordSearchPanel && (() => {
+          const wordCount = wordSearchInput.split("\n").map(w => w.trim()).filter(Boolean).length;
+          return (
+            <div className="fixed inset-0 z-[250] flex items-start justify-center pt-16 px-4"
+              data-no-prevent style={{ background:"rgba(0,0,0,0.25)" }}
+              onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()}
+              onClick={e=>{ if(e.target===e.currentTarget) setShowWordSearchPanel(false); }}>
+              <div className="rounded-2xl shadow-xl p-5 w-full max-w-sm"
+                style={{ background:"white", borderColor:"var(--brown-pale)", border:"1px solid" }}>
+                <div className="flex items-center justify-between mb-4">
+                  <span className="font-semibold text-base" style={{ color:"var(--brown-dark)" }}>Поиск слов</span>
+                  <button onClick={()=>setShowWordSearchPanel(false)} style={{ color:"var(--brown-mid)" }}><X size={18}/></button>
+                </div>
+                <label className="text-xs font-medium block mb-1.5" style={{ color:"var(--brown-mid)" }}>
+                  Слова — по одному на строку
+                </label>
+                <textarea value={wordSearchInput} onChange={e=>setWordSearchInput(e.target.value)}
+                  rows={10} placeholder={"calculator\ndictionary\nlaptop\nmap\n..."}
+                  className="w-full px-3 py-2 rounded-xl border outline-none text-sm mb-1 resize-none"
+                  style={{ borderColor:"var(--brown-pale)", background:"#fdf8f0", color:"var(--brown-dark)" }}/>
+                <p className="text-xs mb-3" style={{ color:"var(--brown-light)" }}>
+                  Сетка подберётся под самое длинное слово и их количество. Слово, которому не хватило места, просто не попадёт в сетку.
+                </p>
+                <button onClick={addWordSearchToBoard}
+                  disabled={wordCount === 0}
+                  className="w-full py-2 rounded-xl text-sm font-semibold disabled:opacity-40"
+                  style={{ background:"var(--gradient-primary)", color:"white" }}>
+                  Добавить на доску ({wordCount})
+                </button>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Wheel panel */}
         {showWheel && (
           <div className="fixed inset-0 z-[250] flex items-start justify-center pt-16 px-4"
@@ -7434,6 +7610,14 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                 className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl border shrink-0"
                 style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
                 <span className="text-lg">📖</span><span className="text-xs">Чтение</span>
+              </button>
+            )}
+            {role==="tutor" && (
+              <button onClick={()=>{setShowWordSearchPanel(v=>!v);setShowMoreTools(false);}}
+                onTouchEnd={e=>{e.preventDefault();e.stopPropagation();(e.currentTarget as HTMLButtonElement).click();}}
+                className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl border shrink-0"
+                style={{ borderColor:"var(--brown-pale)", color:"var(--brown-dark)" }}>
+                <span className="text-lg">🔍</span><span className="text-xs">Поиск слов</span>
               </button>
             )}
             {role==="tutor" && (
@@ -8430,6 +8614,141 @@ function ReadingExerciseOverlay({ item, sp, sw, sh, selected, zoom, onUpdate, on
         </div>
       </div>
       {/* Resize handles */}
+      {selected && !locked && (["nw","ne","sw","se"] as const).map(corner => {
+        const isRight = corner.endsWith("e"), isBottom = corner.startsWith("s");
+        return (
+          <div key={corner} className="absolute pointer-events-auto"
+            style={{
+              [isRight?"right":"left"]: -7, [isBottom?"bottom":"top"]: -7,
+              width:18, height:18, cursor:`${corner}-resize`, zIndex:32,
+              background:"white", border:"2px solid #4a80f0", borderRadius:3,
+            }}
+            onMouseDown={e => { e.stopPropagation(); onResizeStart(corner, e.clientX, e.clientY); }}
+            onTouchStart={e => { e.stopPropagation(); e.preventDefault(); onResizeStart(corner, e.touches[0].clientX, e.touches[0].clientY); }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+// ── WordSearchOverlay ────────────────────────────────────────────────────────
+// The in-progress cell selection (first click, waiting for the second) is
+// kept LOCAL, not synced — unlike match_case's live selectedUpper/
+// selectedLower, there's no turn-taking reason for the other viewer to see
+// a half-made pick here, and syncing every click would mean an extra
+// broadcast per attempt for no real benefit. Only a resolved find (or not)
+// goes into item.foundWords, which IS synced the normal way.
+function WordSearchOverlay({ item, sp, sw, sh, selected, zoom, onUpdate, onResizeStart }: {
+  item: WordSearchItem; sp:{x:number;y:number}; sw:number; sh:number; selected:boolean; zoom:number;
+  onUpdate:(next:WordSearchItem)=>void;
+  onResizeStart:(corner:"se"|"sw"|"ne"|"nw", clientX:number, clientY:number)=>void;
+}) {
+  const locked = item.locked;
+  const stop = (e: React.SyntheticEvent) => e.stopPropagation();
+  const z = (px: number) => Math.max(1, px * zoom);
+  const [startCell, setStartCell] = useState<[number, number] | null>(null);
+  const [wrongCells, setWrongCells] = useState<Set<string> | null>(null);
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (flashTimer.current) clearTimeout(flashTimer.current); }, []);
+
+  const foundSet = new Set(item.foundWords);
+  const foundCellKeys = new Set<string>();
+  for (const p of item.placements) {
+    if (foundSet.has(p.word)) for (const [r, c] of p.cells) foundCellKeys.add(`${r},${c}`);
+  }
+
+  const cellClick = (r: number, c: number) => {
+    if (locked) return;
+    if (!startCell) { setStartCell([r, c]); return; }
+    const [r0, c0] = startCell;
+    setStartCell(null);
+    if (r0 === r && c0 === c) return; // same cell twice — cancel
+    if (r0 !== r && c0 !== c) return; // not a straight horizontal/vertical line — ignore
+
+    const cells: [number, number][] = [];
+    if (r0 === r) { const lo = Math.min(c0, c), hi = Math.max(c0, c); for (let cc = lo; cc <= hi; cc++) cells.push([r, cc]); }
+    else { const lo = Math.min(r0, r), hi = Math.max(r0, r); for (let rr = lo; rr <= hi; rr++) cells.push([rr, c]); }
+
+    const match = item.placements.find(p =>
+      !foundSet.has(p.word) && p.cells.length === cells.length &&
+      p.cells.every(([pr, pc]) => cells.some(([cr, cc]) => cr === pr && cc === pc))
+    );
+    if (match) {
+      onUpdate({ ...item, foundWords: [...item.foundWords, match.word] });
+    } else {
+      const keys = new Set(cells.map(([r2, c2]) => `${r2},${c2}`));
+      setWrongCells(keys);
+      flashTimer.current = setTimeout(() => setWrongCells(null), 400);
+    }
+  };
+
+  const resetProgress = () => { setStartCell(null); onUpdate({ ...item, foundWords: [] }); };
+
+  const cellSize = z((sw - 24) / item.size);
+
+  return (
+    <div data-no-prevent className="absolute select-none" style={{ left:sp.x, top:sp.y, width:sw, height:sh, zIndex:20 }}>
+      <style>{`
+        @keyframes wordsearch-shake { 0%,100%{transform:translateX(0);} 25%{transform:translateX(-4px);} 75%{transform:translateX(4px);} }
+        .wordsearch-shake { animation: wordsearch-shake 0.25s ease-in-out; }
+      `}</style>
+      <div className="w-full h-full flex flex-col" style={{
+        outline: selected ? "2px solid #4a80f0" : "1px solid #c0b8b0",
+        borderRadius:14, background:"#fffdf8", boxShadow:"0 1px 6px rgba(0,0,0,0.08)", overflow:"hidden",
+      }}>
+        <div className="flex items-center justify-between gap-2 px-3 py-2 shrink-0"
+          style={{ background:"#f8f4ee", borderBottom:"1px solid #e8ddd0", cursor: locked ? "default" : "move" }}>
+          <span className="text-xs font-semibold truncate" style={{ color:"var(--brown-dark)" }}>🔍 Поиск слов</span>
+          <div className="flex items-center gap-1.5 shrink-0" onMouseDown={stop} onTouchStart={stop}>
+            <span className="text-xs font-medium tabular-nums" style={{ color:"var(--brown-mid)" }}>
+              {item.foundWords.length}/{item.words.length}
+            </span>
+            {!locked && (
+              <button onClick={resetProgress}
+                className="text-xs font-semibold px-2 py-1 rounded-full"
+                style={{ background:"white", border:"1px solid #e8ddd0", color:"var(--brown-mid)" }}>
+                Сбросить
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="flex-1 flex flex-col items-center overflow-y-auto" style={{ gap:z(10), padding:z(12) }} onMouseDown={stop} onTouchStart={stop}>
+          <div style={{ display:"grid", gridTemplateColumns:`repeat(${item.size}, ${cellSize}px)`, gap:1 }}>
+            {item.grid.map((row, r) => row.map((letter, c) => {
+              const key = `${r},${c}`;
+              const found = foundCellKeys.has(key);
+              const isStart = startCell && startCell[0] === r && startCell[1] === c;
+              const isWrong = wrongCells?.has(key);
+              return (
+                <button key={key} onClick={() => cellClick(r, c)}
+                  className={`flex items-center justify-center font-bold uppercase ${isWrong ? "wordsearch-shake" : ""}`}
+                  style={{
+                    width:cellSize, height:cellSize, fontSize:Math.max(8, cellSize * 0.5),
+                    background: found ? "#d8f5e0" : isStart ? "#eef2ff" : isWrong ? "#fbe9e7" : "white",
+                    color: found ? "#1a7a3a" : "var(--brown-dark)",
+                    border: `1px solid ${found ? "#8fd8a8" : isStart ? "#4a80f0" : "#e8ddd0"}`,
+                  }}>
+                  {letter}
+                </button>
+              );
+            }))}
+          </div>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:z(6), justifyContent:"center" }}>
+            {item.words.map(w => (
+              <span key={w} style={{
+                fontSize:z(12), padding:`${z(2)}px ${z(8)}px`, borderRadius:z(20),
+                background: foundSet.has(w) ? "#d8f5e0" : "#f5ece3",
+                color: foundSet.has(w) ? "#1a7a3a" : "var(--brown-dark)",
+                textDecoration: foundSet.has(w) ? "line-through" : "none",
+              }}>
+                {w}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
       {selected && !locked && (["nw","ne","sw","se"] as const).map(corner => {
         const isRight = corner.endsWith("e"), isBottom = corner.startsWith("s");
         return (
