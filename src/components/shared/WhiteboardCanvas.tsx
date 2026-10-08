@@ -2200,9 +2200,6 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
 
   // ── view helpers ─────────────────────────────────────────────────────────────
   const applyView = useCallback((zoom: number, panX: number, panY: number) => {
-    // TEMP DEBUG — every view change, to check for involuntary pan/zoom
-    // drift during a double-click-to-add-text gesture. Remove after use.
-    console.log("[VIEW-DEBUG]", { zoom, panX, panY, t: Date.now() });
     viewRef.current = { zoom, panX, panY };
     // setVpZoom alone doesn't reliably force a re-render during a pure pan
     // (zoom% unchanged ⇒ React bails out on the identical primitive), which
@@ -2940,7 +2937,6 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     stopInertia();
     if (e.button === 1 || e.button === 2 || spaceRef.current || tool === "hand") {
       const { cx, cy } = clientXY(e);
-      console.log("[CLICK-DEBUG] mousedown → PAN branch", { cx, cy, button: e.button, t: Date.now() });
       panning.current = true;
       panOrigin.current = { cx, cy, vx: viewRef.current.panX, vy: viewRef.current.panY };
       lastPanPt.current = { cx, cy, t: Date.now() };
@@ -2948,7 +2944,6 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     }
     if (e.button !== 0) return;
     const { cx, cy } = clientXY(e);
-    console.log("[CLICK-DEBUG] mousedown", { cx, cy, t: Date.now() });
     const w = s2w(cx, cy);
 
     if (tool === "select") {
@@ -4886,6 +4881,27 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     || showEmojiPicker || showReadingPanel || showGrammarPanel || showTablePicker
     || showFnPanel || showParticipants || showWordSearchPanel;
 
+  // Every DOM-overlay item type (video/audio/table/function/dice/wheel/
+  // grammar_exercise/flower/reading_exercise/word_search) used to render
+  // ALL of them regardless of what's actually on screen — fine for a small
+  // board, but on a board with dozens of videos/audio tracks (seen: 21
+  // video + 12 audio on one real board) every single one mounted and
+  // started loading its source the moment the board opened, which is
+  // exactly what showed up as audio stuck inert ("just the note icon")
+  // and general jank. It also meant every pan-frame re-render (see
+  // applyView's overlayDirtyRef → setPanVer above) had to reconcile every
+  // one of those DOM nodes, not just the ones visible — on a big board
+  // that's real work per frame, which is what showed up as overlays
+  // visibly lagging/dragging behind the cursor while panning. Culling to
+  // the viewport (with padding so nothing pops in right at the edge)
+  // fixes both by the same mechanism: fewer mounted nodes, fewer updates.
+  const { zoom: domZoom, panX: domPanX, panY: domPanY } = viewRef.current;
+  const domPad = 400 / domZoom;
+  const domVw = containerRef.current?.clientWidth ?? 1200, domVh = containerRef.current?.clientHeight ?? 800;
+  const domVx0 = -domPanX / domZoom - domPad, domVy0 = -domPanY / domZoom - domPad;
+  const domVx1 = (domVw - domPanX) / domZoom + domPad, domVy1 = (domVh - domPanY) / domZoom + domPad;
+  const inDomViewport = (it: DrawItem) => itemInViewport(it, domVx0, domVy0, domVx1, domVy1);
+
   return (
     <div className="flex flex-1 overflow-hidden select-none" style={{ touchAction: "none" }}>
 
@@ -5371,7 +5387,6 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           if (textInput || shapeLabelEditId) return;
           const { cx, cy } = clientXY(e as unknown as React.MouseEvent);
           const w = s2w(cx, cy);
-          console.log("[CLICK-DEBUG] dblclick fired", { cx, cy, worldW: w, view: viewRef.current, t: Date.now() });
           const hit = [...itemsRef.current].reverse().find(item => hitTest(item, w.x, w.y));
           // Double-click an existing text item → edit it (previously this
           // hit the plainCanvasTypes gate below and silently did nothing —
@@ -5441,7 +5456,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
         )}
 
         {/* Video overlays */}
-        {itemsRef.current.filter(it => it.type === "video").map(it => {
+        {itemsRef.current.filter(it => it.type === "video" && inDomViewport(it)).map(it => {
           const vi = it as VideoItem;
           const sp = w2s(vi.x, vi.y);
           const ep = w2s(vi.x + vi.w, vi.y + vi.h);
@@ -5560,7 +5575,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
         })}
 
         {/* Audio overlays */}
-        {itemsRef.current.filter(it => it.type === "audio").map(it => {
+        {itemsRef.current.filter(it => it.type === "audio" && inDomViewport(it)).map(it => {
           const ai = it as AudioItem;
           const sp = w2s(ai.x, ai.y);
           const ep = w2s(ai.x + ai.w, ai.y + ai.h);
@@ -5660,7 +5675,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
         })}
 
         {/* Function graph overlays — selection border + resize handles */}
-        {itemsRef.current.filter(it => it.type === "function").map(it => {
+        {itemsRef.current.filter(it => it.type === "function" && inDomViewport(it)).map(it => {
           const fi = it as FunctionItem;
           const sp = w2s(fi.x, fi.y);
           const ep = w2s(fi.x + fi.w, fi.y + fi.h);
@@ -5699,7 +5714,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
         })}
 
         {/* Dice board overlays */}
-        {itemsRef.current.filter(it => it.type === "dice").map(it => {
+        {itemsRef.current.filter(it => it.type === "dice" && inDomViewport(it)).map(it => {
           const di = it as DiceItem;
           const sp = w2s(di.x, di.y);
           const ep = w2s(di.x + di.w, di.y + di.h);
@@ -5713,7 +5728,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
         })}
 
         {/* Wheel board overlays */}
-        {itemsRef.current.filter(it => it.type === "wheel").map(it => {
+        {itemsRef.current.filter(it => it.type === "wheel" && inDomViewport(it)).map(it => {
           const wi = it as WheelItem;
           const sp = w2s(wi.x, wi.y);
           const ep = w2s(wi.x + wi.w, wi.y + wi.h);
@@ -5728,7 +5743,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
         })}
 
         {/* Table board overlays */}
-        {itemsRef.current.filter(it => it.type === "table").map(it => {
+        {itemsRef.current.filter(it => it.type === "table" && inDomViewport(it)).map(it => {
           const ti = it as TableItem;
           const sp = w2s(ti.x, ti.y);
           const ep = w2s(ti.x + ti.w, ti.y + ti.h);
@@ -5753,7 +5768,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
         })}
 
         {/* Grammar exercise overlays */}
-        {itemsRef.current.filter(it => it.type === "grammar_exercise").map(it => {
+        {itemsRef.current.filter(it => it.type === "grammar_exercise" && inDomViewport(it)).map(it => {
           const gi = it as GrammarExerciseBoardItem;
           const sp = w2s(gi.x, gi.y);
           const ep = w2s(gi.x + gi.w, gi.y + gi.h);
@@ -5783,7 +5798,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
         })}
 
         {/* Flower progress-tracker overlays */}
-        {itemsRef.current.filter(it => it.type === "flower").map(it => {
+        {itemsRef.current.filter(it => it.type === "flower" && inDomViewport(it)).map(it => {
           const fi = it as FlowerItem;
           const sp = w2s(fi.x, fi.y);
           const ep = w2s(fi.x + fi.w, fi.y + fi.h);
@@ -5823,7 +5838,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
         })}
 
         {/* Reading exercise overlays */}
-        {itemsRef.current.filter(it => it.type === "reading_exercise").map(it => {
+        {itemsRef.current.filter(it => it.type === "reading_exercise" && inDomViewport(it)).map(it => {
           const ri = it as ReadingExerciseItem;
           const sp = w2s(ri.x, ri.y);
           const ep = w2s(ri.x + ri.w, ri.y + ri.h);
@@ -5845,7 +5860,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
         })}
 
         {/* Word search overlays */}
-        {itemsRef.current.filter(it => it.type === "word_search").map(it => {
+        {itemsRef.current.filter(it => it.type === "word_search" && inDomViewport(it)).map(it => {
           const wi = it as WordSearchItem;
           const sp = w2s(wi.x, wi.y);
           const ep = w2s(wi.x + wi.w, wi.y + wi.h);
