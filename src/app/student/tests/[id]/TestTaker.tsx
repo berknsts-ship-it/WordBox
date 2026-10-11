@@ -10,7 +10,7 @@ import { logActivity } from "@/app/actions/activity";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Section = {
+export type Section = {
   id: string;
   type: string;
   media_type: string | null;
@@ -20,7 +20,7 @@ type Section = {
   test_tasks: Task[];
 };
 
-type Task = {
+export type Task = {
   id: string;
   order_index: number;
   title: string | null;
@@ -28,7 +28,13 @@ type Task = {
   test_questions: Question[];
 };
 
-type Question = {
+// Exported (this + Section/Task above) for reuse by the tutor-side preview
+// (src/app/tutor/tests/[id]/preview) — same question-rendering UI the
+// student sees, just fed answers that never touch the server. Question
+// here still has no correct_answer field (the student-facing fetch never
+// selects it); the preview passes its own richer row shape into these same
+// components, which only read the fields below.
+export type Question = {
   id: string;
   type: string;
   prompt: string | null;
@@ -54,7 +60,7 @@ function getYouTubeEmbed(url: string, hideSubtitles: boolean): string {
 
 // ── Question renderers ────────────────────────────────────────────────────────
 
-function MCQQuestion({ q, answer, onAnswer }: { q: Question; answer?: Record<string, unknown>; onAnswer: (a: Record<string, unknown>) => void }) {
+export function MCQQuestion({ q, answer, onAnswer }: { q: Question; answer?: Record<string, unknown>; onAnswer: (a: Record<string, unknown>) => void }) {
   const choices = (q.options?.choices as string[]) ?? [];
   const selected = answer?.answer as string | undefined;
   return (
@@ -80,7 +86,7 @@ function MCQQuestion({ q, answer, onAnswer }: { q: Question; answer?: Record<str
   );
 }
 
-function TFQuestion({ q, answer, onAnswer }: { q: Question; answer?: Record<string, unknown>; onAnswer: (a: Record<string, unknown>) => void }) {
+export function TFQuestion({ q, answer, onAnswer }: { q: Question; answer?: Record<string, unknown>; onAnswer: (a: Record<string, unknown>) => void }) {
   const selected = answer?.answer as string | undefined;
   return (
     <div className="flex gap-3">
@@ -100,7 +106,7 @@ function TFQuestion({ q, answer, onAnswer }: { q: Question; answer?: Record<stri
   );
 }
 
-function FillInQuestion({ q, answer, onAnswer }: { q: Question; answer?: Record<string, unknown>; onAnswer: (a: Record<string, unknown>) => void }) {
+export function FillInQuestion({ q, answer, onAnswer }: { q: Question; answer?: Record<string, unknown>; onAnswer: (a: Record<string, unknown>) => void }) {
   return (
     <input
       type="text"
@@ -113,7 +119,7 @@ function FillInQuestion({ q, answer, onAnswer }: { q: Question; answer?: Record<
   );
 }
 
-function MatchQuestion({ q, answer, onAnswer }: { q: Question; answer?: Record<string, unknown>; onAnswer: (a: Record<string, unknown>) => void }) {
+export function MatchQuestion({ q, answer, onAnswer }: { q: Question; answer?: Record<string, unknown>; onAnswer: (a: Record<string, unknown>) => void }) {
   const left = (q.options?.left as string[]) ?? [];
   const right = (q.options?.right as string[]) ?? [];
   // Shuffle right side for display (stable shuffle by sort)
@@ -151,7 +157,7 @@ function MatchQuestion({ q, answer, onAnswer }: { q: Question; answer?: Record<s
   );
 }
 
-function GapFillQuestion({ q, answer, onAnswer }: { q: Question; answer?: Record<string, unknown>; onAnswer: (a: Record<string, unknown>) => void }) {
+export function GapFillQuestion({ q, answer, onAnswer }: { q: Question; answer?: Record<string, unknown>; onAnswer: (a: Record<string, unknown>) => void }) {
   const template = (q.options?.template as string) ?? "";
   const parts = template.split("___");
   const gaps = (answer?.gaps as string[]) ?? Array(parts.length - 1).fill("");
@@ -182,7 +188,7 @@ function GapFillQuestion({ q, answer, onAnswer }: { q: Question; answer?: Record
   );
 }
 
-function WritingQuestion({ q, answer, onAnswer }: { q: Question; answer?: Record<string, unknown>; onAnswer: (a: Record<string, unknown>) => void }) {
+export function WritingQuestion({ q, answer, onAnswer }: { q: Question; answer?: Record<string, unknown>; onAnswer: (a: Record<string, unknown>) => void }) {
   return (
     <textarea
       value={(answer?.text as string) ?? ""}

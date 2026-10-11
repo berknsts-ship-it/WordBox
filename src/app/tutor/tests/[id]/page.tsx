@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, Send, RotateCcw, CheckCircle, Pencil } from "lucide-react";
+import { ChevronLeft, Send, RotateCcw, CheckCircle, Pencil, Eye } from "lucide-react";
 import { issueTest, retractTest } from "@/app/actions/tests";
 import TestAssignPanel from "@/components/tutor/TestAssignPanel";
 
@@ -128,6 +128,11 @@ export default async function TestViewPage({ params }: { params: Promise<{ id: s
 
         {/* Actions */}
         <div className="flex gap-3 mt-4 flex-wrap">
+          <Link href={`/tutor/tests/${id}/preview`}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl border text-sm font-medium"
+            style={{ borderColor: "var(--brown-pale)", color: "var(--brown-mid)" }}>
+            <Eye size={13} /> Предпросмотр
+          </Link>
           {test.status === "draft" && (
             <>
               <form action={async () => { "use server"; await issueTest(id); }}>
