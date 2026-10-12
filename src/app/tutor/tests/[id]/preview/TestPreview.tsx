@@ -160,6 +160,11 @@ export default function TestPreview({ title, sections }: { title: string; sectio
                             <span className="text-xs font-semibold" style={{ color: "var(--brown-light)" }}>
                               {qi + 1} · {q.points} б.
                             </span>
+                            {Boolean(q.options?.image_url) && (
+                              <img src={q.options!.image_url as string} alt=""
+                                className="mt-2 rounded-xl border block"
+                                style={{ borderColor: "var(--brown-pale)", maxWidth: 220, maxHeight: 160, objectFit: "cover" }} />
+                            )}
                             {q.prompt && q.type !== "mcq" && q.type !== "fill_in" && (
                               <p className="mt-1 font-medium whitespace-pre-wrap" style={{ color: "var(--brown-dark)" }}>{q.prompt}</p>
                             )}
