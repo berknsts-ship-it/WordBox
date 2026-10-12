@@ -235,13 +235,13 @@ export default async function TestViewPage({ params }: { params: Promise<{ id: s
               )}
 
               <div className="space-y-3">
-                {section.tasksSorted.map((task, taskIdx) => (
+                {section.tasksSorted.map((task) => (
                   <div key={task.id} className="rounded-xl p-3" style={{ background: "#f8f4ee" }}>
                     {(task.title || task.instruction) && (
                       <div className="mb-2">
                         {task.title && (
                           <p className="text-sm font-semibold" style={{ color: "var(--brown-dark)" }}>
-                            Задание {taskIdx + 1}. {task.title}
+                            {task.title}
                           </p>
                         )}
                         {task.instruction && (
@@ -292,6 +292,27 @@ export default async function TestViewPage({ params }: { params: Promise<{ id: s
                                     <p style={{ color: "var(--brown-dark)" }}>
                                       {(ans.answer as { text: string })?.text ?? "—"}
                                     </p>
+                                  </div>
+                                )}
+
+                                {(q.type === "fill_in" || q.type === "gap_fill" || q.type === "true_false") && ans && (
+                                  <div className="mt-2 p-2 rounded-lg text-xs" style={{ background: "#f8f4ee" }}>
+                                    <p style={{ color: "var(--brown-dark)" }}>
+                                      Ответ ученика: <b>{
+                                        q.type === "gap_fill"
+                                          ? ((ans.answer as { gaps?: string[] })?.gaps ?? []).join(", ") || "—"
+                                          : (ans.answer as { answer?: string })?.answer ?? "—"
+                                      }</b>
+                                    </p>
+                                    {!ans.is_correct && (
+                                      <p className="mt-0.5" style={{ color: "#1a7a3a" }}>
+                                        Правильно: {
+                                          q.type === "gap_fill"
+                                            ? ((q.correct_answer as { gaps?: string[] })?.gaps ?? []).join(", ")
+                                            : (q.correct_answer as { answer?: string })?.answer ?? ""
+                                        }
+                                      </p>
+                                    )}
                                   </div>
                                 )}
                               </div>
