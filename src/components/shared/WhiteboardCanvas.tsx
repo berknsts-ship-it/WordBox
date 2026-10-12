@@ -366,6 +366,14 @@ const RULING_OPTIONS: { v: Ruling; title: string }[] = [
 ];
 function isPdf(n: string | null) { return n?.split(".").pop()?.toLowerCase() === "pdf"; }
 function uid() { return Math.random().toString(36).slice(2, 10); }
+// Full JS float precision (15-17 significant digits) per point is wasted —
+// a stroke is rendered on a canvas, nothing needs sub-tenth-pixel accuracy.
+// Rounding here cuts a path's stored/synced size roughly in half with no
+// visible difference, which matters a lot once a board accumulates
+// thousands of pen strokes (a heavily-used board's JSON was ~90% path data).
+function roundedPathPoints(points: Pt[]): Pt[] {
+  return points.map(p => ({ ...p, x: Math.round(p.x * 10) / 10, y: Math.round(p.y * 10) / 10 }));
+}
 function shuffleWords(arr: string[]): string[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -3356,6 +3364,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     }
     if (!livePathRef.current) return;
     const item = livePathRef.current; livePathRef.current = null;
+    item.points = roundedPathPoints(item.points);
     itemsRef.current.push(item); staticValidRef.current = false; render();
     if (ptFlushTimerRef.current) { clearTimeout(ptFlushTimerRef.current); ptFlushTimerRef.current = null; }
     for (const pt of ptBatchRef.current) send({ type:"path-pt", ...pt });
@@ -3616,6 +3625,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     }
     if (e.touches.length === 0 && livePathRef.current) {
       const item = livePathRef.current; livePathRef.current = null;
+      item.points = roundedPathPoints(item.points);
       itemsRef.current.push(item); staticValidRef.current = false; render();
       if (ptFlushTimerRef.current) { clearTimeout(ptFlushTimerRef.current); ptFlushTimerRef.current = null; }
       for (const pt of ptBatchRef.current) send({ type:"path-pt", ...pt });
