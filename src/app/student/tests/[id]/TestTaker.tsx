@@ -63,8 +63,47 @@ function getYouTubeEmbed(url: string, hideSubtitles: boolean): string {
 export function MCQQuestion({ q, answer, onAnswer }: { q: Question; answer?: Record<string, unknown>; onAnswer: (a: Record<string, unknown>) => void }) {
   const choices = (q.options?.choices as string[]) ?? [];
   const selected = answer?.answer as string | undefined;
+  const prompt = q.prompt ?? "";
+  const blankIdx = prompt.indexOf("___");
+
+  // "Circle the correct word" — exactly 2 choices and a "___" placeholder
+  // in the sentence: render the sentence with both words sitting right
+  // where the blank was, same as a worksheet where you'd circle one.
+  if (choices.length === 2 && blankIdx !== -1) {
+    const before = prompt.slice(0, blankIdx);
+    const after = prompt.slice(blankIdx + 3);
+    return (
+      <p className="text-sm font-medium" style={{ color: "var(--brown-dark)", lineHeight: 2.4 }}>
+        {before}
+        {choices.map((c, i) => {
+          const letter = ["A", "B"][i];
+          const isSelected = selected === letter;
+          return (
+            <span key={i}>
+              {i === 1 && <span className="mx-1" style={{ color: "var(--brown-light)" }}>/</span>}
+              <button type="button"
+                onClick={() => onAnswer({ answer: letter })}
+                className="px-3 py-1 rounded-full border-2 transition-all"
+                style={{
+                  borderColor: isSelected ? "var(--brown-dark)" : "var(--brown-pale)",
+                  background: isSelected ? "var(--brown-pale)" : "transparent",
+                  fontWeight: isSelected ? 700 : 400,
+                }}>
+                {c}
+              </button>
+            </span>
+          );
+        })}
+        {after}
+      </p>
+    );
+  }
+
   return (
     <div className="space-y-2">
+      {q.prompt && (
+        <p className="font-medium whitespace-pre-wrap" style={{ color: "var(--brown-dark)" }}>{q.prompt}</p>
+      )}
       {choices.map((c, i) => {
         const letter = ["A", "B", "C", "D"][i];
         return (
@@ -107,15 +146,45 @@ export function TFQuestion({ q, answer, onAnswer }: { q: Question; answer?: Reco
 }
 
 export function FillInQuestion({ q, answer, onAnswer }: { q: Question; answer?: Record<string, unknown>; onAnswer: (a: Record<string, unknown>) => void }) {
+  const prompt = q.prompt ?? "";
+  const value = (answer?.answer as string) ?? "";
+  const blankIdx = prompt.indexOf("___");
+
+  // The blank sits right where "___" was in the sentence, same as a
+  // worksheet line — instead of a separate input box floating below text
+  // that already shows the gap.
+  if (blankIdx !== -1) {
+    const before = prompt.slice(0, blankIdx);
+    const after = prompt.slice(blankIdx + 3);
+    return (
+      <p className="text-sm font-medium" style={{ color: "var(--brown-dark)", lineHeight: 2.4 }}>
+        {before}
+        <input
+          type="text"
+          value={value}
+          onChange={e => onAnswer({ answer: e.target.value })}
+          className="inline-block px-2 py-0.5 rounded-lg border-b-2 outline-none text-sm text-center mx-1"
+          style={{ borderColor: "var(--brown-dark)", background: "transparent", minWidth: 110 }}
+        />
+        {after}
+      </p>
+    );
+  }
+
   return (
-    <input
-      type="text"
-      value={(answer?.answer as string) ?? ""}
-      onChange={e => onAnswer({ answer: e.target.value })}
-      className="w-full px-4 py-3 rounded-xl border-2 outline-none text-sm"
-      style={{ borderColor: "var(--brown-pale)", color: "var(--brown-dark)" }}
-      placeholder="Ваш ответ..."
-    />
+    <div>
+      {q.prompt && (
+        <p className="mb-2 font-medium whitespace-pre-wrap" style={{ color: "var(--brown-dark)" }}>{q.prompt}</p>
+      )}
+      <input
+        type="text"
+        value={value}
+        onChange={e => onAnswer({ answer: e.target.value })}
+        className="w-full px-4 py-3 rounded-xl border-2 outline-none text-sm"
+        style={{ borderColor: "var(--brown-pale)", color: "var(--brown-dark)" }}
+        placeholder="Ваш ответ..."
+      />
+    </div>
   );
 }
 
@@ -479,7 +548,7 @@ export default function TestTaker({
               )}
 
               {/* Tasks */}
-              {tasks.map((task, taskIdx) => {
+              {tasks.map((task) => {
                 const questions = [...task.test_questions].sort((a, b) => a.order_index - b.order_index);
                 return (
                   <div key={task.id} className="rounded-2xl border p-5 space-y-4"
@@ -488,7 +557,7 @@ export default function TestTaker({
                       <div>
                         {task.title && (
                           <p className="font-bold text-sm" style={{ color: "var(--brown-dark)" }}>
-                            Задание {taskIdx + 1}. {task.title}
+                            {task.title}
                           </p>
                         )}
                         {task.instruction && (
@@ -504,7 +573,7 @@ export default function TestTaker({
                             <span className="text-xs font-semibold" style={{ color: "var(--brown-light)" }}>
                               {qi + 1} · {q.points} б.
                             </span>
-                            {q.prompt && (
+                            {q.prompt && q.type !== "mcq" && q.type !== "fill_in" && (
                               <p className="mt-1 font-medium whitespace-pre-wrap" style={{ color: "var(--brown-dark)" }}>{q.prompt}</p>
                             )}
                           </div>

@@ -133,14 +133,14 @@ export default function TestPreview({ title, sections }: { title: string; sectio
               </a>
             )}
 
-            {section.tasksSorted.map((task, taskIdx) => (
+            {section.tasksSorted.map((task) => (
               <div key={task.id} className="rounded-2xl border p-5 space-y-4"
                 style={{ background: "white", borderColor: "var(--brown-pale)", boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
                 {(task.title || task.instruction) && (
                   <div>
                     {task.title && (
                       <p className="font-bold text-sm" style={{ color: "var(--brown-dark)" }}>
-                        Задание {taskIdx + 1}. {task.title}
+                        {task.title}
                       </p>
                     )}
                     {task.instruction && (
@@ -160,7 +160,7 @@ export default function TestPreview({ title, sections }: { title: string; sectio
                             <span className="text-xs font-semibold" style={{ color: "var(--brown-light)" }}>
                               {qi + 1} · {q.points} б.
                             </span>
-                            {q.prompt && (
+                            {q.prompt && q.type !== "mcq" && q.type !== "fill_in" && (
                               <p className="mt-1 font-medium whitespace-pre-wrap" style={{ color: "var(--brown-dark)" }}>{q.prompt}</p>
                             )}
                           </div>
