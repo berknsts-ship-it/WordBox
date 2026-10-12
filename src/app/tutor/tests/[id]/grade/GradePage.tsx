@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
-import GradeForm from "./GradeForm";
+import GradeForm, { type WritingItem } from "./GradeForm";
 
 export default async function GradePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -19,27 +19,44 @@ export default async function GradePage({ params }: { params: Promise<{ id: stri
 
   if (!test) notFound();
 
-  // Get writing section + question
-  const { data: writingSection } = await supabase
+  // Every "writing" question anywhere in the test — not just a dedicated
+  // "Письмо" section — since a sentence-construction exercise can sit
+  // inside an otherwise auto-graded vocabulary/grammar section.
+  const { data: sections } = await supabase
     .from("test_sections")
-    .select("id, test_questions(id, prompt, points)")
-    .eq("test_id", id)
-    .eq("type", "writing")
-    .single();
+    .select("test_tasks(title, order_index, test_questions(id, prompt, points, correct_answer, order_index, type))")
+    .eq("test_id", id);
 
-  const writingQ = writingSection
-    ? (writingSection.test_questions as { id: string; prompt: string | null; points: number }[])?.[0]
-    : null;
+  type QuestionRow = { id: string; prompt: string | null; points: number; correct_answer: Record<string, unknown> | null; order_index: number; type: string };
+  type TaskRow = { title: string | null; order_index: number; test_questions: QuestionRow[] };
+  type SectionRow = { test_tasks: TaskRow[] };
 
-  // Get student's writing answer
-  const { data: writingAnswer } = writingQ
-    ? await supabase
-        .from("test_answers")
-        .select("id, answer, manual_score, tutor_comment")
-        .eq("test_id", id)
-        .eq("question_id", writingQ.id)
-        .single()
-    : { data: null };
+  const writingQuestions = ((sections ?? []) as unknown as SectionRow[])
+    .flatMap(s => s.test_tasks ?? [])
+    .sort((a, b) => a.order_index - b.order_index)
+    .flatMap(t => t.test_questions.filter(q => q.type === "writing").sort((a, b) => a.order_index - b.order_index)
+      .map(q => ({ ...q, taskTitle: t.title })));
+
+  const questionIds = writingQuestions.map(q => q.id);
+  const { data: writingAnswers } = questionIds.length
+    ? await supabase.from("test_answers").select("question_id, answer, manual_score, tutor_comment").eq("test_id", id).in("question_id", questionIds)
+    : { data: [] };
+
+  const items: WritingItem[] = writingQuestions.map(q => {
+    const ans = (writingAnswers ?? []).find(a => a.question_id === q.id);
+    return {
+      questionId: q.id,
+      taskTitle: q.taskTitle,
+      prompt: q.prompt ?? "",
+      maxPoints: q.points,
+      expectedAnswer: (q.correct_answer as { answer?: string } | null)?.answer ?? null,
+      studentText: (ans?.answer as { text?: string; answer?: string } | null)?.text
+        ?? (ans?.answer as { text?: string; answer?: string } | null)?.answer
+        ?? "",
+      initialScore: ans?.manual_score ?? 0,
+      initialComment: ans?.tutor_comment ?? "",
+    };
+  });
 
   const student = (test.students as unknown) as { name: string } | null;
 
@@ -58,21 +75,16 @@ export default async function GradePage({ params }: { params: Promise<{ id: stri
         <p className="text-sm mb-6" style={{ color: "var(--brown-light)" }}>{student.name} · {test.title}</p>
       )}
 
-      {!writingQ ? (
+      {items.length === 0 ? (
         <div className="rounded-2xl border p-8 text-center"
           style={{ background: "white", borderColor: "var(--brown-pale)" }}>
-          <p style={{ color: "var(--brown-light)" }}>В этом тесте нет раздела «Письмо»</p>
+          <p style={{ color: "var(--brown-light)" }}>В этом тесте нет вопросов для ручной проверки</p>
         </div>
       ) : (
         <GradeForm
           testId={id}
-          questionId={writingQ.id}
-          prompt={writingQ.prompt ?? ""}
-          maxPoints={writingQ.points}
+          items={items}
           autoScore={test.auto_score ?? 0}
-          studentText={(writingAnswer?.answer as { text: string } | null)?.text ?? ""}
-          initialScore={writingAnswer?.manual_score ?? 0}
-          initialComment={writingAnswer?.tutor_comment ?? ""}
           score5={test.score_5}
           score4={test.score_4}
           score3={test.score_3}

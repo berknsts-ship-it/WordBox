@@ -165,7 +165,7 @@ export default function TestPreview({ title, sections }: { title: string; sectio
                                 className="mt-2 rounded-xl border block"
                                 style={{ borderColor: "var(--brown-pale)", maxWidth: 220, maxHeight: 160, objectFit: "cover" }} />
                             )}
-                            {q.prompt && q.type !== "mcq" && q.type !== "fill_in" && (
+                            {q.prompt && q.type !== "mcq" && q.type !== "fill_in" && q.type !== "writing" && (
                               <p className="mt-1 font-medium whitespace-pre-wrap" style={{ color: "var(--brown-dark)" }}>{q.prompt}</p>
                             )}
                           </div>

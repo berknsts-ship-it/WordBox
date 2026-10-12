@@ -2,32 +2,41 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { gradeWriting } from "@/app/actions/tests";
+import { gradeWritingBatch } from "@/app/actions/tests";
 
-export default function GradeForm({
-  testId, questionId, prompt, maxPoints, autoScore,
-  studentText, initialScore, initialComment,
-  score5, score4, score3,
-}: {
-  testId: string;
+export type WritingItem = {
   questionId: string;
+  taskTitle: string | null;
   prompt: string;
   maxPoints: number;
-  autoScore: number;
+  expectedAnswer: string | null;
   studentText: string;
   initialScore: number;
   initialComment: string;
+};
+
+export default function GradeForm({
+  testId, items, autoScore, score5, score4, score3,
+}: {
+  testId: string;
+  items: WritingItem[];
+  autoScore: number;
   score5: number | null;
   score4: number | null;
   score3: number | null;
 }) {
   const router = useRouter();
-  const [score, setScore] = useState(String(initialScore));
-  const [comment, setComment] = useState(initialComment);
+  const [scores, setScores] = useState<Record<string, string>>(
+    Object.fromEntries(items.map(i => [i.questionId, String(i.initialScore)]))
+  );
+  const [comments, setComments] = useState<Record<string, string>>(
+    Object.fromEntries(items.map(i => [i.questionId, i.initialComment]))
+  );
   const [saving, setSaving] = useState(false);
 
-  const scoreNum = Math.min(maxPoints, Math.max(0, parseInt(score) || 0));
-  const total = autoScore + scoreNum;
+  const clamped = (i: WritingItem) => Math.min(i.maxPoints, Math.max(0, parseInt(scores[i.questionId]) || 0));
+  const manualTotal = items.reduce((s, i) => s + clamped(i), 0);
+  const total = autoScore + manualTotal;
 
   let previewGrade = 2;
   if (score5 !== null && total >= score5) previewGrade = 5;
@@ -37,7 +46,9 @@ export default function GradeForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    await gradeWriting(testId, questionId, scoreNum, comment);
+    await gradeWritingBatch(testId, items.map(i => ({
+      questionId: i.questionId, score: clamped(i), comment: comments[i.questionId] ?? "",
+    })));
     setSaving(false);
     router.push(`/tutor/tests/${testId}`);
   }
@@ -47,78 +58,69 @@ export default function GradeForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Task */}
-      {prompt && (
-        <div className="rounded-2xl border p-4" style={card}>
-          <p className="text-xs font-semibold uppercase tracking-wide mb-2"
-            style={{ color: "var(--brown-light)" }}>Задание</p>
-          <p className="text-sm" style={{ color: "var(--brown-dark)" }}>{prompt}</p>
-          <p className="text-xs mt-1" style={{ color: "var(--brown-light)" }}>
-            Максимум: {maxPoints} б.
-          </p>
-        </div>
-      )}
+      {items.map((item, idx) => (
+        <div key={item.questionId} className="rounded-2xl border p-4 space-y-3" style={card}>
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              {item.taskTitle && (
+                <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: "var(--brown-light)" }}>
+                  {item.taskTitle}
+                </p>
+              )}
+              <p className="text-sm font-medium whitespace-pre-wrap" style={{ color: "var(--brown-dark)" }}>
+                {idx + 1}. {item.prompt}
+              </p>
+            </div>
+            <span className="text-xs shrink-0" style={{ color: "var(--brown-light)" }}>макс. {item.maxPoints} б.</span>
+          </div>
 
-      {/* Student's text */}
-      <div className="rounded-2xl border p-4" style={card}>
-        <p className="text-xs font-semibold uppercase tracking-wide mb-2"
-          style={{ color: "var(--brown-light)" }}>Ответ ученика</p>
-        {studentText ? (
-          <p className="text-sm whitespace-pre-wrap" style={{ color: "var(--brown-dark)" }}>
-            {studentText}
-          </p>
-        ) : (
-          <p className="text-sm" style={{ color: "var(--brown-light)" }}>Ответ не заполнен</p>
-        )}
-      </div>
+          <div className="rounded-xl p-3" style={{ background: "#f8f4ee" }}>
+            <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: "var(--brown-light)" }}>Ответ ученика</p>
+            {item.studentText ? (
+              <p className="text-sm whitespace-pre-wrap" style={{ color: "var(--brown-dark)" }}>{item.studentText}</p>
+            ) : (
+              <p className="text-sm" style={{ color: "var(--brown-light)" }}>Ответ не заполнен</p>
+            )}
+          </div>
 
-      {/* Grading */}
-      <div className="rounded-2xl border p-4 space-y-4" style={card}>
-        <p className="font-semibold" style={{ color: "var(--brown-dark)" }}>Оценивание</p>
-
-        <div className="flex items-center gap-3 flex-wrap">
-          <label className="text-sm" style={{ color: "var(--brown-dark)" }}>
-            Баллы за письмо:
-          </label>
-          <input type="number" value={score} min={0} max={maxPoints}
-            onChange={e => setScore(e.target.value)}
-            className="px-3 py-2 rounded-xl border outline-none text-sm text-center font-bold"
-            style={{ ...inp, width: 80 }} />
-          <span className="text-sm" style={{ color: "var(--brown-light)" }}>/ {maxPoints}</span>
-        </div>
-
-        <div>
-          <label className="text-xs font-semibold uppercase tracking-wide block mb-1"
-            style={{ color: "var(--brown-light)" }}>Комментарий репетитора</label>
-          <textarea value={comment} onChange={e => setComment(e.target.value)}
-            rows={4} placeholder="Feedback for the student..."
-            className="w-full px-3 py-2 rounded-xl border outline-none text-sm resize-none" style={inp} />
-        </div>
-
-        {/* Score preview */}
-        <div className="p-3 rounded-xl text-sm flex flex-wrap gap-4" style={{ background: "#f8f4ee" }}>
-          <span style={{ color: "var(--brown-mid)" }}>Авто: {autoScore} б.</span>
-          <span style={{ color: "var(--brown-mid)" }}>Письмо: {scoreNum} б.</span>
-          <span className="font-semibold" style={{ color: "var(--brown-dark)" }}>
-            Итого: {total} б.
-          </span>
-          {(score5 || score4 || score3) && (
-            <span className="font-bold px-2 py-0.5 rounded-lg"
-              style={{
-                background: previewGrade >= 4 ? "#d8f5e0" : previewGrade === 3 ? "#fff3cc" : "#ffe0e0",
-                color: previewGrade >= 4 ? "#1a7a3a" : previewGrade === 3 ? "#c07800" : "#cc3030",
-              }}>
-              → оценка {previewGrade}
-            </span>
+          {item.expectedAnswer && (
+            <p className="text-xs" style={{ color: "var(--brown-light)" }}>
+              Ожидаемый ответ (для ориентира): <span style={{ color: "var(--brown-mid)" }}>{item.expectedAnswer}</span>
+            </p>
           )}
-        </div>
-      </div>
 
-      <button type="submit" disabled={saving}
-        className="px-6 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
-        style={{ background: "var(--gradient-primary)" }}>
-        {saving ? "Сохраняю..." : "Сохранить оценку"}
-      </button>
+          <div className="flex items-center gap-3 flex-wrap">
+            <label className="text-sm" style={{ color: "var(--brown-dark)" }}>Баллы:</label>
+            <input
+              type="number" min={0} max={item.maxPoints}
+              value={scores[item.questionId]}
+              onChange={e => setScores(s => ({ ...s, [item.questionId]: e.target.value }))}
+              className="w-20 px-3 py-1.5 rounded-xl border text-sm outline-none"
+              style={inp}
+            />
+            <span className="text-xs" style={{ color: "var(--brown-light)" }}>/ {item.maxPoints}</span>
+            <input
+              type="text" placeholder="Комментарий (необязательно)"
+              value={comments[item.questionId] ?? ""}
+              onChange={e => setComments(c => ({ ...c, [item.questionId]: e.target.value }))}
+              className="flex-1 min-w-[160px] px-3 py-1.5 rounded-xl border text-sm outline-none"
+              style={inp}
+            />
+          </div>
+        </div>
+      ))}
+
+      <div className="rounded-2xl border p-4 flex items-center justify-between flex-wrap gap-3" style={card}>
+        <div className="text-sm" style={{ color: "var(--brown-mid)" }}>
+          Авто: {autoScore} б. + Письмо: {manualTotal} б. = <b style={{ color: "var(--brown-dark)" }}>{total} б.</b>
+          {" "}· Оценка: <b style={{ color: "var(--brown-dark)" }}>{previewGrade}</b>
+        </div>
+        <button type="submit" disabled={saving}
+          className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
+          style={{ background: "var(--gradient-primary)", opacity: saving ? 0.6 : 1 }}>
+          {saving ? "Сохраняю…" : "Сохранить оценку"}
+        </button>
+      </div>
     </form>
   );
 }

@@ -304,22 +304,22 @@ export async function assignTestToStudents(testId: string, studentIds: string[])
   return { created };
 }
 
-export async function gradeWriting(
+// Grades every manually-gradable ("writing") question on a test in one
+// save — a test can have several at once (e.g. a whole "write the question
+// and answer" exercise), not just a single essay-style question.
+export async function gradeWritingBatch(
   testId: string,
-  questionId: string | null,
-  score: number,
-  comment: string
+  items: { questionId: string; score: number; comment: string }[]
 ) {
   const supabase = await createClient();
 
-  if (questionId) {
+  for (const item of items) {
     await supabase.from("test_answers")
-      .update({ manual_score: score, tutor_comment: comment })
+      .update({ manual_score: item.score, tutor_comment: item.comment })
       .eq("test_id", testId)
-      .eq("question_id", questionId);
+      .eq("question_id", item.questionId);
   }
 
-  // Recalculate totals
   const [{ data: answers }, { data: test }] = await Promise.all([
     supabase.from("test_answers").select("auto_score, manual_score").eq("test_id", testId),
     supabase.from("tests").select("auto_score, score_5, score_4, score_3").eq("id", testId).single(),
@@ -335,7 +335,6 @@ export async function gradeWriting(
 
     await supabase.from("tests").update({
       manual_score: manualTotal,
-      writing_comment: comment,
       grade,
       stars,
       status: "graded",
@@ -343,6 +342,7 @@ export async function gradeWriting(
   }
 
   revalidatePath(`/tutor/tests/${testId}/grade`);
+  revalidatePath(`/tutor/tests/${testId}`);
   revalidatePath("/tutor/tests");
 }
 
@@ -434,8 +434,11 @@ export async function submitTest(testId: string, studentId: string, answers: Ans
 
   const autoScore = answerRows.reduce((s, a) => s + (a.auto_score ?? 0), 0);
 
-  const { data: secs } = await db.from("test_sections").select("id, type").eq("test_id", testId);
-  const hasWriting = secs?.some(s => s.type === "writing") ?? false;
+  // Per-question, not per-section — a "writing" question can live inside an
+  // otherwise auto-graded section (e.g. a sentence-construction exercise
+  // mixed into a vocabulary/grammar section), and still needs the test to
+  // stop at "submitted" and wait for a tutor to score it by hand.
+  const hasWriting = questions.some(q => q.type === "writing");
 
   const totalPossible = await totalPossiblePoints(db, testId);
 

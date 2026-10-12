@@ -290,7 +290,12 @@ export default async function TestViewPage({ params }: { params: Promise<{ id: s
                                 {q.type === "writing" && ans && (
                                   <div className="mt-2 p-2 rounded-lg" style={{ background: "#f8f4ee" }}>
                                     <p style={{ color: "var(--brown-dark)" }}>
-                                      {(ans.answer as { text: string })?.text ?? "—"}
+                                      {/* A question graded under the old fill_in rules and later
+                                          converted to "writing" stored its answer as {answer}, not
+                                          {text} — fall back so history doesn't disappear. */}
+                                      {(ans.answer as { text?: string; answer?: string })?.text
+                                        ?? (ans.answer as { text?: string; answer?: string })?.answer
+                                        ?? "—"}
                                     </p>
                                   </div>
                                 )}

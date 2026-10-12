@@ -258,15 +258,45 @@ export function GapFillQuestion({ q, answer, onAnswer }: { q: Question; answer?:
 }
 
 export function WritingQuestion({ q, answer, onAnswer }: { q: Question; answer?: Record<string, unknown>; onAnswer: (a: Record<string, unknown>) => void }) {
+  const prompt = q.prompt ?? "";
+  const value = (answer?.text as string) ?? "";
+  const blankIdx = prompt.indexOf("___");
+
+  // A short "complete the sentence" writing question (manually graded, but
+  // still just one blank in a sentence) gets the same inline treatment as
+  // fill_in — a full textarea only makes sense for an open-ended prompt.
+  if (blankIdx !== -1) {
+    const before = prompt.slice(0, blankIdx);
+    const after = prompt.slice(blankIdx + 3);
+    return (
+      <p className="text-sm font-medium" style={{ color: "var(--brown-dark)", lineHeight: 2.4 }}>
+        {before}
+        <input
+          type="text"
+          value={value}
+          onChange={e => onAnswer({ text: e.target.value })}
+          className="inline-block px-2 py-0.5 rounded-lg border-b-2 outline-none text-sm text-center mx-1"
+          style={{ borderColor: "var(--brown-dark)", background: "transparent", minWidth: 140 }}
+        />
+        {after}
+      </p>
+    );
+  }
+
   return (
-    <textarea
-      value={(answer?.text as string) ?? ""}
-      onChange={e => onAnswer({ text: e.target.value })}
-      rows={8}
-      className="w-full px-4 py-3 rounded-xl border-2 outline-none text-sm resize-none"
-      style={{ borderColor: "var(--brown-pale)", color: "var(--brown-dark)" }}
-      placeholder="Пишите здесь..."
-    />
+    <div>
+      {q.prompt && (
+        <p className="mb-2 font-medium whitespace-pre-wrap" style={{ color: "var(--brown-dark)" }}>{q.prompt}</p>
+      )}
+      <textarea
+        value={value}
+        onChange={e => onAnswer({ text: e.target.value })}
+        rows={8}
+        className="w-full px-4 py-3 rounded-xl border-2 outline-none text-sm resize-none"
+        style={{ borderColor: "var(--brown-pale)", color: "var(--brown-dark)" }}
+        placeholder="Пишите здесь..."
+      />
+    </div>
   );
 }
 
@@ -578,7 +608,7 @@ export default function TestTaker({
                                 className="mt-2 rounded-xl border block"
                                 style={{ borderColor: "var(--brown-pale)", maxWidth: 220, maxHeight: 160, objectFit: "cover" }} />
                             )}
-                            {q.prompt && q.type !== "mcq" && q.type !== "fill_in" && (
+                            {q.prompt && q.type !== "mcq" && q.type !== "fill_in" && q.type !== "writing" && (
                               <p className="mt-1 font-medium whitespace-pre-wrap" style={{ color: "var(--brown-dark)" }}>{q.prompt}</p>
                             )}
                           </div>
