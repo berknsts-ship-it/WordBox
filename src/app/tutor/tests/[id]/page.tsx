@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ChevronLeft, Send, RotateCcw, CheckCircle, Pencil, Eye } from "lucide-react";
 import { issueTest, retractTest } from "@/app/actions/tests";
 import TestAssignPanel from "@/components/tutor/TestAssignPanel";
+import TestRewardIcons from "@/components/student/TestRewardIcons";
 
 const SECTION_LABEL: Record<string, string> = {
   listening: "Аудирование",
@@ -37,7 +38,7 @@ export default async function TestViewPage({ params }: { params: Promise<{ id: s
 
   const { data: test } = await supabase
     .from("tests")
-    .select("*, students(name, access_code)")
+    .select("*, students(name, access_code, theme)")
     .eq("id", id)
     .eq("tutor_id", user.id)
     .single();
@@ -82,7 +83,7 @@ export default async function TestViewPage({ params }: { params: Promise<{ id: s
       .sort((a, b) => a.order_index - b.order_index),
   }));
 
-  const student = (test.students as unknown) as { name: string; access_code: string } | null;
+  const student = (test.students as unknown) as { name: string; access_code: string; theme: string | null } | null;
   const totalPoints = sectionsWithTasks
     .flatMap(s => s.tasksSorted)
     .flatMap(t => t.questionsSorted)
@@ -177,23 +178,34 @@ export default async function TestViewPage({ params }: { params: Promise<{ id: s
         </div>
 
         {/* Results */}
-        {test.status === "graded" && (
-          <div className="mt-4 p-4 rounded-xl" style={{ background: "#f8f4ee" }}>
-            <p className="text-sm font-semibold mb-2" style={{ color: "var(--brown-dark)" }}>Результат</p>
-            <div className="flex gap-6 flex-wrap text-sm" style={{ color: "var(--brown-mid)" }}>
-              <span>Авто: {test.auto_score ?? 0} б.</span>
-              <span>Письмо: {test.manual_score ?? 0} б.</span>
-              <span>Итого: {(test.auto_score ?? 0) + (test.manual_score ?? 0)} б.</span>
-              {test.grade && (
-                <span className="font-bold text-base px-2 py-0.5 rounded-lg"
-                  style={{ background: test.grade >= 4 ? "#d8f5e0" : test.grade === 3 ? "#fff3cc" : "#ffe0e0",
-                           color: test.grade >= 4 ? "#1a7a3a" : test.grade === 3 ? "#c07800" : "#cc3030" }}>
-                  Оценка: {test.grade}
-                </span>
+        {test.status === "graded" && (() => {
+          const earned = (test.auto_score ?? 0) + (test.manual_score ?? 0);
+          const pct = totalPoints > 0 ? Math.round((earned / totalPoints) * 100) : 0;
+          return (
+            <div className="mt-4 p-4 rounded-xl flex items-center justify-between flex-wrap gap-4" style={{ background: "#f8f4ee" }}>
+              <div>
+                <p className="text-sm font-semibold mb-1" style={{ color: "var(--brown-dark)" }}>Результат</p>
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  <span className="text-3xl font-bold" style={{ color: "var(--brown-dark)" }}>{pct}%</span>
+                  <span className="text-sm" style={{ color: "var(--brown-mid)" }}>
+                    {earned} из {totalPoints} б.
+                    {test.manual_score != null && <> (авто {test.auto_score ?? 0} + письмо {test.manual_score})</>}
+                  </span>
+                  {test.grade && (
+                    <span className="font-bold text-sm px-2 py-0.5 rounded-lg ml-1"
+                      style={{ background: test.grade >= 4 ? "#d8f5e0" : test.grade === 3 ? "#fff3cc" : "#ffe0e0",
+                               color: test.grade >= 4 ? "#1a7a3a" : test.grade === 3 ? "#c07800" : "#cc3030" }}>
+                      Оценка: {test.grade}
+                    </span>
+                  )}
+                </div>
+              </div>
+              {test.stars && (
+                <TestRewardIcons stars={test.stars} themeId={student?.theme ?? "default"} size={40} />
               )}
             </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
 
       {/* Sections, tasks and questions */}

@@ -447,8 +447,11 @@ export default function TestTaker({
               <h2 className="text-xl font-bold mb-2" style={{ color: "var(--brown-dark)" }}>
                 Работа проверена!
               </h2>
-              <p className="text-lg font-semibold mb-3" style={{ color: "var(--brown-mid)" }}>
-                {result.autoScore} / {totalPoints} баллов
+              <p className="text-3xl font-bold mb-1" style={{ color: "var(--brown-dark)" }}>
+                {totalPoints > 0 ? Math.round(((result.autoScore ?? 0) / totalPoints) * 100) : 0}%
+              </p>
+              <p className="text-sm font-medium mb-3" style={{ color: "var(--brown-mid)" }}>
+                {result.autoScore} из {totalPoints} баллов
               </p>
               {result.grade && (
                 <span className="inline-block px-4 py-1.5 rounded-full text-sm font-bold mb-5"

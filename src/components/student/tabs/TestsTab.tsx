@@ -42,6 +42,22 @@ export default async function TestsTab({
     .neq("status", "draft")
     .order("created_at", { ascending: false });
 
+  // One bulk query for every test's max possible points, instead of one
+  // query per test — needed to show a percentage, not just raw points.
+  const testIds = (tests ?? []).map(t => t.id);
+  const totalPointsByTest = new Map<string, number>();
+  if (testIds.length > 0) {
+    const { data: secs } = await db
+      .from("test_sections")
+      .select("test_id, test_tasks(test_questions(points))")
+      .in("test_id", testIds);
+    for (const s of secs ?? []) {
+      const sum = (s.test_tasks ?? []).reduce((a: number, t: { test_questions: { points: number }[] }) =>
+        a + t.test_questions.reduce((b: number, q: { points: number }) => b + (q.points ?? 0), 0), 0);
+      totalPointsByTest.set(s.test_id, (totalPointsByTest.get(s.test_id) ?? 0) + sum);
+    }
+  }
+
   if (!tests || tests.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
@@ -58,6 +74,8 @@ export default async function TestsTab({
     <div className="space-y-3">
       {tests.map(t => {
         const total = (t.auto_score ?? 0) + (t.manual_score ?? 0);
+        const maxPoints = totalPointsByTest.get(t.id) ?? 0;
+        const pct = maxPoints > 0 ? Math.round((total / maxPoints) * 100) : null;
         const canTake = t.status === "issued" || t.status === "in_progress";
 
         return (
@@ -71,12 +89,18 @@ export default async function TestsTab({
                   style={{ background: STATUS_BG[t.status] ?? "#f1f5f9", color: STATUS_COLOR[t.status] ?? "#94a3b8" }}>
                   {STATUS_LABEL[t.status] ?? t.status}
                 </span>
-                {t.grade && (
+                {t.status === "graded" && pct !== null && (
                   <span className="text-sm font-bold px-2 py-0.5 rounded-full"
                     style={{
-                      background: t.grade >= 4 ? "#d8f5e0" : t.grade === 3 ? "#fff3cc" : "#ffe0e0",
-                      color: t.grade >= 4 ? "#1a7a3a" : t.grade === 3 ? "#c07800" : "#cc3030",
+                      background: pct >= 85 ? "#d8f5e0" : pct >= 60 ? "#fff3cc" : "#ffe0e0",
+                      color: pct >= 85 ? "#1a7a3a" : pct >= 60 ? "#c07800" : "#cc3030",
                     }}>
+                    {pct}%
+                  </span>
+                )}
+                {t.grade && (
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                    style={{ background: "#f1f5f9", color: "var(--brown-mid)" }}>
                     Оценка: {t.grade}
                   </span>
                 )}
@@ -88,7 +112,7 @@ export default async function TestsTab({
                   </span>
                 )}
                 {t.time_limit_min && <span>{t.time_limit_min} мин.</span>}
-                {t.status === "graded" && <span>{total} б.</span>}
+                {t.status === "graded" && <span>{total} из {maxPoints} б.</span>}
               </div>
             </div>
 
