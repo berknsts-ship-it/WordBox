@@ -2453,7 +2453,12 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
       const doc = await pdfjsLib.getDocument({ url }).promise;
       const page = await doc.getPage(pageNum);
       const vp0 = page.getViewport({ scale: 1 });
-      const scale = Math.min(1600 / vp0.width, 900 / vp0.height);
+      // This bitmap is drawn at 1 world-unit = 1 source pixel, then the
+      // whole board canvas is scaled up by zoom × devicePixelRatio — so a
+      // low cap here goes visibly soft the moment anyone zooms in or views
+      // on a retina/phone screen. 3200×1800 stays sharp at a few board-zoom
+      // levels in, costs ~23MB of canvas memory client-side, which is fine.
+      const scale = Math.min(3200 / vp0.width, 1800 / vp0.height);
       const vpPdf = page.getViewport({ scale });
       const tmp = document.createElement("canvas");
       tmp.width = Math.round(vpPdf.width); tmp.height = Math.round(vpPdf.height);
