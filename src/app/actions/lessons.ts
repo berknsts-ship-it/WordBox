@@ -164,7 +164,8 @@ export async function updateLessonStatusForm(formData: FormData) {
   const id        = formData.get("id") as string;
   const status    = formData.get("status") as string;
   const studentId = formData.get("studentId") as string;
-  await supabase.from("lessons").update({ status }).eq("id", id);
+  const { error } = await supabase.from("lessons").update({ status }).eq("id", id);
+  if (error) throw new Error(error.message);
   if (status === "completed" || status === "missed") await deductIfNeeded(id);
   else await refundIfNeeded(id);
   if (studentId) revalidatePath(`/tutor/students/${studentId}`);

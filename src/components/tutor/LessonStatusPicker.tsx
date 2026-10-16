@@ -8,7 +8,7 @@ export const STATUS_CONFIG = {
   completed:   { label: "Проведён",      color: "bg-[#e6efea] text-[#4a7a5e]", dot: "bg-[#6ea882]" },
   rescheduled: { label: "Перенесён",     color: "bg-[#e8eff5] text-[#4a6580]",       dot: "bg-[#7a9ab8]" },
   cancelled:   { label: "Отменён",       color: "bg-stone-100 text-stone-500",    dot: "bg-stone-300" },
-  burnt:       { label: "Сгорел",        color: "bg-red-50 text-red-600",         dot: "bg-red-400" },
+  missed:      { label: "Сгорел",        color: "bg-red-50 text-red-600",         dot: "bg-red-400" },
 } as const;
 
 type Status = keyof typeof STATUS_CONFIG;

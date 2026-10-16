@@ -104,9 +104,10 @@ export default function LessonCard({ lesson, subscriptions = [] }: { lesson: Les
       s === "cancelled" ? "Отменить урок?" : "Отметить как сгоревший?"
     )) return;
     setLoading(true);
-    await updateLessonStatus(lesson.id, s);
-    setStatus(s);
+    const result = await updateLessonStatus(lesson.id, s);
     setLoading(false);
+    if (result?.error) { showToast(`Не сохранилось: ${result.error}`); return; }
+    setStatus(s);
     showToast(`Статус: ${STATUS_CONFIG[s].label}`);
   };
 
