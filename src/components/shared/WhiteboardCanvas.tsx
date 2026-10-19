@@ -146,7 +146,7 @@ type FlowerItem = {
   petals: FlowerPetal[];
   locked?: boolean; pdfPage?: number;
 };
-export type ReadingExerciseMode = "build" | "read_aloud" | "fill_letter" | "alphabet" | "match_case";
+export type ReadingExerciseMode = "build" | "read_aloud" | "fill_letter" | "write" | "alphabet" | "match_case";
 export type ReadingWordConfig = {
   word: string;
   emoji: string;
@@ -4240,6 +4240,12 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
         const blankIndex = Math.floor(c.word.length / 2);
         words.push({ word: c.word, emoji: c.emoji, blankIndex, blankOptions: shuffleWords([c.word[blankIndex], ...extra]) });
       }
+    } else if (readingMode === "write") {
+      // Same picture-first bank as "build" — only the answer differs (typed
+      // in full instead of assembled from tiles), so no letters to fix here.
+      const source = readingSyllable === "open" ? READING_BUILD_WORDS_OPEN : READING_BUILD_WORDS;
+      source.forEach((w, i) => { if (readingSelected.has(i)) words.push({ word: w.word, emoji: w.emoji }); });
+      for (const c of readingCustom) words.push({ word: c.word, emoji: c.emoji });
     } else if (readingMode === "alphabet") {
       // Always the full alphabet, in order — that's the whole point of
       // "click along to the song," so there's nothing to pick here.
@@ -7193,7 +7199,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
         {/* Reading exercise panel */}
         {showReadingPanel && (() => {
           const bankFor = (m: ReadingExerciseMode, syl: "closed" | "open") =>
-            m === "build" ? (syl === "open" ? READING_BUILD_WORDS_OPEN : READING_BUILD_WORDS)
+            m === "build" || m === "write" ? (syl === "open" ? READING_BUILD_WORDS_OPEN : READING_BUILD_WORDS)
             : m === "read_aloud" ? (syl === "open" ? READING_ALOUD_WORDS_OPEN : READING_ALOUD_WORDS)
             : m === "fill_letter" ? (syl === "open" ? READING_FILL_WORDS_OPEN : READING_FILL_WORDS)
             : ALPHABET_BANK;
@@ -7212,7 +7218,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
             setReadingSelected(new Set(bankFor(readingMode, syl).map((_, i) => i)));
           };
           const totalCount = readingMode === "alphabet" ? 26 : readingSelected.size + readingCustom.length;
-          const usesWordBank = readingMode === "build" || readingMode === "read_aloud" || readingMode === "fill_letter";
+          const usesWordBank = readingMode === "build" || readingMode === "read_aloud" || readingMode === "fill_letter" || readingMode === "write";
           return (
             <div className="fixed inset-0 z-[250] flex items-start justify-center pt-16 px-4"
               data-no-prevent style={{ background:"rgba(0,0,0,0.25)" }}
@@ -7232,6 +7238,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                       { v:"build" as const,       label:"Собери слово",     hint:"картинка видна сразу, собери буквы по порядку" },
                       { v:"read_aloud" as const,  label:"Прочитай вслух",   hint:"картинка появляется как проверка после чтения" },
                       { v:"fill_letter" as const, label:"Вставь букву",     hint:"звук + картинка помогают выбрать букву" },
+                      { v:"write" as const,       label:"Напиши слово",     hint:"по картинке напечатать слово целиком" },
                       { v:"alphabet" as const,    label:"Алфавит",          hint:"все буквы A-Z по порядку — кликать под песенку" },
                       { v:"match_case" as const,  label:"Большая и маленькая", hint:"соединить заглавную букву со строчной" },
                     ]).map(o => (
@@ -7313,7 +7320,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                       className="flex-1 rounded-lg px-2 py-1.5 text-sm"
                       style={{ background:"var(--cream)", border:"1.5px solid var(--brown-pale)", color:"var(--brown-dark)" }}/>
                   </div>
-                  {readingMode !== "read_aloud" && (
+                  {readingMode !== "read_aloud" && readingMode !== "write" && (
                     <input value={readingCustomExtra} onChange={e=>setReadingCustomExtra(e.target.value)}
                       placeholder={readingMode==="build" ? "2 буквы-отвлекалки, напр. o d" : "2 неверные буквы, напр. o e"}
                       className="w-full rounded-lg px-2 py-1.5 text-sm mb-1.5"
@@ -8318,7 +8325,7 @@ function GrammarExerciseOverlay({ item, sp, sw, sh, selected, onAnswer, onCheck,
 // the next word), never a continuous gesture.
 const READING_MODE_LABEL: Record<ReadingExerciseMode, string> = {
   build: "Собери слово", read_aloud: "Прочитай вслух", fill_letter: "Вставь букву",
-  alphabet: "Алфавит", match_case: "Большая и маленькая",
+  write: "Напиши слово", alphabet: "Алфавит", match_case: "Большая и маленькая",
 };
 
 function remainingLetterPool(letters: string[], placed: string[]): string[] {
@@ -8399,6 +8406,22 @@ function ReadingExerciseOverlay({ item, sp, sw, sh, selected, zoom, onUpdate, on
     } else {
       setWrongOption(opt);
       shakeTimer.current = setTimeout(() => setWrongOption(null), 450);
+    }
+  };
+
+  // "write" — the typed text stays local (synced only once it's checked
+  // correct), same reasoning as every other keystroke on the board.
+  const [typed, setTyped] = useState("");
+  useEffect(() => { setTyped(""); }, [item.currentIndex]);
+  const checkWritten = () => {
+    if (locked || solved || !typed.trim()) return;
+    const norm = (t: string) => t.trim().toLowerCase().replace(/\s+/g, " ").replace(/[‐-―]/g, "-");
+    if (norm(typed) === norm(cur.word)) {
+      onUpdate({ ...item, solvedWords: item.solvedWords.map((s, i) => i === item.currentIndex ? true : s) });
+      onSpeak(cur.word);
+    } else {
+      setShake(true);
+      shakeTimer.current = setTimeout(() => setShake(false), 450);
     }
   };
 
@@ -8586,6 +8609,34 @@ function ReadingExerciseOverlay({ item, sp, sw, sh, selected, zoom, onUpdate, on
                       {opt}
                     </button>
                   ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {item.mode === "write" && (
+            <>
+              <div className="font-bold" style={{ fontSize:z(48), color:"var(--brown-dark)", lineHeight:1.1 }}>{cur.emoji}</div>
+              {solved ? (
+                <div className="font-bold tracking-wide" style={{ color:"#2f6b45", fontSize:z(24) }}>{cur.word} ✓</div>
+              ) : (
+                <div className={`flex items-center ${shake ? "reading-shake" : ""}`} style={{ gap:z(8) }}>
+                  <input value={typed} disabled={locked}
+                    onChange={e=>setTyped(e.target.value)}
+                    onKeyDown={e=>{ e.stopPropagation(); if (e.key === "Enter") checkWritten(); }}
+                    autoCapitalize="none" autoCorrect="off" spellCheck={false}
+                    placeholder="напиши слово"
+                    className="font-bold text-center"
+                    style={{
+                      width:z(170), height:z(40), fontSize:z(18), borderRadius:z(8),
+                      background:"white", border:`${z(2)}px solid ${shake ? "#cc3030" : "#c0b8b0"}`,
+                      color:"var(--brown-dark)", outline:"none",
+                    }}/>
+                  <button onClick={checkWritten}
+                    className="rounded-xl font-semibold text-white whitespace-nowrap"
+                    style={{ background:"var(--gradient-primary)", padding:`${z(8)}px ${z(12)}px`, fontSize:z(13), borderRadius:z(10) }}>
+                    ✓
+                  </button>
                 </div>
               )}
             </>
