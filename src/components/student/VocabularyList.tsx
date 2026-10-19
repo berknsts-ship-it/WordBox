@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { Search, Volume2, Plus, Pencil, Trash2, X, Check, LayoutGrid, Rows3 } from "lucide-react";
 import { addStudentWord, updateStudentWord, deleteStudentWord } from "@/app/actions/student-vocabulary";
+import { speakEnglish } from "@/lib/speak";
 
 export type VocabWord = {
   id: string;
@@ -25,12 +26,7 @@ const STATUS_META: Record<"queue" | "learning" | "mastered", { label: string; co
 };
 
 function speak(text: string) {
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
-  window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = "en-GB";
-  u.rate = 0.85;
-  window.speechSynthesis.speak(u);
+  speakEnglish(text);
 }
 
 const card = { background: "var(--theme-card-bg)", borderColor: "var(--theme-card-border)" };

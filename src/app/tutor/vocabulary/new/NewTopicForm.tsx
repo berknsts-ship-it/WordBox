@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Plus, X, Volume2 } from "lucide-react";
 import { createTopic } from "@/app/actions/vocabulary";
+import { speakEnglish } from "@/lib/speak";
 
 interface Student { id: string; name: string; }
 
@@ -16,12 +17,7 @@ interface WordRow {
 }
 
 function speak(text: string) {
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
-  window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = "en-US";
-  u.rate = 0.85;
-  window.speechSynthesis.speak(u);
+  speakEnglish(text);
 }
 
 const EMPTY_ROW: WordRow = { english: "", russian: "", example: "", sentence: "", bracketSentence: "", bracketAnswer: "" };

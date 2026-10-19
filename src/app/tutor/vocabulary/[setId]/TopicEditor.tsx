@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Plus, Trash2, Volume2, Check, X, Pencil } from "lucide-react";
 import { addWord, updateWord, deleteWord, updateTopicName, setVocabularyAssignments } from "@/app/actions/vocabulary";
+import { speakEnglish } from "@/lib/speak";
 
 interface Word {
   id: string;
@@ -28,12 +29,7 @@ interface Props {
 }
 
 function speak(text: string) {
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
-  window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = "en-US";
-  u.rate = 0.85;
-  window.speechSynthesis.speak(u);
+  speakEnglish(text);
 }
 
 export default function TopicEditor({ setId, initialName, initialWords, allStudents, assignedIds, studentNames = {} }: Props) {

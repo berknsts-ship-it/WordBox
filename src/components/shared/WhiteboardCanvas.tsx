@@ -7,6 +7,7 @@ import { saveBoardState, loadBoardState, saveBoardRuling } from "@/app/actions/b
 import { checkGrammarBoardItems, type ExerciseType } from "@/app/actions/grammar";
 import { ItemInput, TYPE_LABELS, type GrammarItem } from "@/components/shared/GrammarItemInput";
 import { setCorgiHiddenForEditing } from "@/lib/corgi-events";
+import { speakEnglish } from "@/lib/speak";
 import {
   Pencil, Eraser, Trash2, Type, Highlighter, MousePointer2,
   BookOpen, ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut,
@@ -4304,13 +4305,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     setWordSearchInput("");
   };
 
-  const speakWord = useCallback((word: string, rate = 0.85) => {
-    if (!("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel();
-    const utt = new SpeechSynthesisUtterance(word);
-    utt.lang = "en-GB"; utt.rate = rate;
-    window.speechSynthesis.speak(utt);
-  }, []);
+  const speakWord = useCallback((word: string, rate = 0.85) => speakEnglish(word, rate), []);
 
   const flipCard = useCallback((id: string) => {
     const idx = itemsRef.current.findIndex(i => i.id === id);

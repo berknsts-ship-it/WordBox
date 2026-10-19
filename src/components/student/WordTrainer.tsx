@@ -5,6 +5,7 @@ import Link from "next/link";
 import { upsertWordProgress } from "@/app/actions/trainer";
 import { sayCorgi } from "@/lib/corgi-events";
 import { logActivity } from "@/app/actions/activity";
+import { speakEnglish } from "@/lib/speak";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -27,12 +28,7 @@ type SingleCardType = "flash" | "selfcheck" | "fillblank" | "openbrackets";
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function speak(text: string) {
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
-  window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = "en-US";
-  u.rate = 0.85;
-  window.speechSynthesis.speak(u);
+  speakEnglish(text);
 }
 
 function shuffle<T>(arr: T[]): T[] {
