@@ -9,7 +9,7 @@ import { sayCorgi } from "@/lib/corgi-events";
 import { logActivity } from "@/app/actions/activity";
 
 type Item = { id: string; points: number; options: string[] | null; question: string | null };
-type Block = { id: string; type: ExerciseType; instruction: string | null; items: Item[] };
+type Block = { id: string; type: ExerciseType; instruction: string | null; image_url?: string | null; items: Item[] };
 type AnswerMap = Record<string, string>;
 type ResultData = { score: number; maxScore: number; results: Record<string, GrammarItemResult> };
 
@@ -92,6 +92,7 @@ export default function GrammarPractice({
               </span>
             </div>
             {block.instruction && <p className="text-sm mb-3 italic" style={{ color: "var(--brown-mid)" }}>{block.instruction}</p>}
+            {block.image_url && <BlockImage src={block.image_url} />}
             <div className="space-y-2">
               {block.items.map((item, i) => {
                 const r = result.results[item.id];
@@ -172,6 +173,7 @@ export default function GrammarPractice({
                 </span>
               </div>
               {block.instruction && <p className="text-sm mt-1" style={{ color: "var(--brown-mid)" }}>{block.instruction}</p>}
+              {block.image_url && <BlockImage src={block.image_url} />}
             </div>
             <div className="space-y-4">
               {block.items.map((item, i) => (
@@ -194,5 +196,15 @@ export default function GrammarPractice({
         </button>
       </div>
     </div>
+  );
+}
+
+// Картинка к упражнению (например, таблица из учебника) — по ней отвечают
+// на все пункты ниже, поэтому показываем крупно и целиком.
+function BlockImage({ src }: { src: string }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={src} alt="" className="w-full max-w-lg rounded-xl border mt-3 mb-1"
+      style={{ borderColor: "var(--brown-pale)" }} />
   );
 }

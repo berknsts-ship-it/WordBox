@@ -11,7 +11,7 @@ type ItemRow = {
   options: string[] | null; points: number; explanation: string | null;
 };
 type ExerciseRow = {
-  id: string; order_index: number; type: ExerciseType; instruction: string | null;
+  id: string; order_index: number; type: ExerciseType; instruction: string | null; image_url: string | null;
   grammar_exercise_items: ItemRow[];
 };
 
@@ -33,7 +33,7 @@ export default async function EditGrammarSetPage({ params }: { params: Promise<{
 
   const { data: exercises } = await db
     .from("grammar_exercises")
-    .select("id, order_index, type, instruction, grammar_exercise_items(id, order_index, question, correct_answer, options, points, explanation)")
+    .select("id, order_index, type, instruction, image_url, grammar_exercise_items(id, order_index, question, correct_answer, options, points, explanation)")
     .eq("set_id", setId)
     .order("order_index");
 
@@ -46,6 +46,7 @@ export default async function EditGrammarSetPage({ params }: { params: Promise<{
         _id: ex.id,
         type: ex.type,
         instruction: ex.instruction ?? "",
+        image_url: ex.image_url ?? null,
         items: [...(ex.grammar_exercise_items ?? [])]
           .sort((a, b) => a.order_index - b.order_index)
           .map(it => ({

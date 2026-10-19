@@ -1,7 +1,9 @@
 import type { ExerciseType } from "@/app/actions/grammar";
 
 function normalize(s: string): string {
-  return s.trim().toLowerCase().replace(/\s+/g, " ").replace(/[.!?,;:]+$/g, "");
+  // ’ ‘ ` → ' : phones auto-insert curly apostrophes (doesn’t), which must
+  // still match an answer key typed with a straight one.
+  return s.trim().toLowerCase().replace(/[’‘`]/g, "'").replace(/\s+/g, " ").replace(/[.!?,;:]+$/g, "");
 }
 
 // Автопроверка: регистронезависимо, с учётом нескольких вариантов ответа

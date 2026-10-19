@@ -18,6 +18,7 @@ export type ItemInput = {
 export type ExerciseBlockInput = {
   type: ExerciseType;
   instruction: string | null;
+  image_url?: string | null;
   items: ItemInput[];
 };
 
@@ -39,6 +40,7 @@ async function insertExercises(
       order_index: i,
       type: block.type,
       instruction: block.instruction,
+      image_url: block.image_url ?? null,
     }).select("id").single();
     if (exErr || !ex) return { error: exErr?.message ?? "Не удалось сохранить упражнение" };
 

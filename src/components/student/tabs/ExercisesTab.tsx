@@ -7,7 +7,7 @@ type ItemRow = {
   id: string; order_index: number; question: string; options: string[] | null; points: number;
   correct_answer: string; explanation: string | null;
 };
-type ExerciseRow = { id: string; order_index: number; type: ExerciseType; instruction: string | null; grammar_exercise_items: ItemRow[] };
+type ExerciseRow = { id: string; order_index: number; type: ExerciseType; instruction: string | null; image_url: string | null; grammar_exercise_items: ItemRow[] };
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -47,7 +47,7 @@ export default async function ExercisesTab({
 
     const { data: exercises } = await db
       .from("grammar_exercises")
-      .select("id, order_index, type, instruction, grammar_exercise_items(id, order_index, question, options, points, correct_answer, explanation)")
+      .select("id, order_index, type, instruction, image_url, grammar_exercise_items(id, order_index, question, options, points, correct_answer, explanation)")
       .eq("set_id", assignment.set_id)
       .order("order_index");
 
@@ -67,6 +67,7 @@ export default async function ExercisesTab({
         id: ex.id,
         type: ex.type,
         instruction: ex.instruction,
+        image_url: ex.image_url,
         items: [...(ex.grammar_exercise_items ?? [])]
           .sort((a, b) => a.order_index - b.order_index)
           .map(item => {

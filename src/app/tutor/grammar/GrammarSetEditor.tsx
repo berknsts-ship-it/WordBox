@@ -6,7 +6,7 @@ import { Plus, Trash2, GripVertical, CheckCircle2, ChevronUp, ChevronDown } from
 import { createGrammarSet, updateGrammarSet, type ItemInput, type ExerciseType } from "@/app/actions/grammar";
 
 type Item = ItemInput & { _id: string };
-type ExerciseBlock = { _id: string; type: ExerciseType; instruction: string; items: Item[] };
+type ExerciseBlock = { _id: string; type: ExerciseType; instruction: string; image_url?: string | null; items: Item[] };
 
 const TYPE_LABELS: Record<ExerciseType, string> = {
   bracket: "Раскрыть скобки",
@@ -262,6 +262,36 @@ function ExerciseBlockCard({
   onDragEnd: () => void;
 }) {
   const [dragItemIdx, setDragItemIdx] = useState<number | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  // Картинка к упражнению (таблица/иллюстрация из учебника) — тот же
+  // signed-upload в board-images, что и у конструктора домашки.
+  async function uploadImage(file: File) {
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+      const res = await fetch("/api/homework/upload-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ext }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setUploadError(err.error ?? "Ошибка загрузки");
+        return;
+      }
+      const { signedUrl, publicUrl, contentType } = await res.json();
+      const put = await fetch(signedUrl, { method: "PUT", headers: { "Content-Type": contentType }, body: file });
+      if (!put.ok) throw new Error(String(put.status));
+      onChange({ ...block, image_url: publicUrl });
+    } catch {
+      setUploadError("Не удалось загрузить картинку");
+    } finally {
+      setUploading(false);
+    }
+  }
 
   const changeType = (type: ExerciseType) => {
     onChange({ ...block, type, items: block.items.map(() => emptyItem(type)) });
@@ -327,6 +357,27 @@ function ExerciseBlockCard({
           placeholder="Например: Раскрой скобки, поставь глагол в правильную форму"
           className="w-full px-3 py-2 rounded-xl border outline-none text-sm" style={inputStyle}
         />
+      </div>
+
+      <div>
+        {block.image_url ? (
+          <div className="flex items-start gap-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={block.image_url} alt="" className="max-h-40 rounded-lg border" style={{ borderColor: "var(--brown-pale)" }} />
+            <button type="button" onClick={() => onChange({ ...block, image_url: null })}
+              className="text-xs px-2 py-1 rounded-lg border" style={{ borderColor: "var(--brown-pale)", color: "var(--brown-mid)" }}>
+              Убрать картинку
+            </button>
+          </div>
+        ) : (
+          <label className="text-xs cursor-pointer inline-block px-3 py-1.5 rounded-lg border"
+            style={{ borderColor: "var(--brown-pale)", color: "var(--brown-mid)" }}>
+            {uploading ? "Загружаем..." : "🖼 Добавить картинку (необязательно)"}
+            <input type="file" accept="image/*" className="hidden" disabled={uploading}
+              onChange={e => { const f = e.target.files?.[0]; if (f) uploadImage(f); e.target.value = ""; }} />
+          </label>
+        )}
+        {uploadError && <p className="text-xs mt-1" style={{ color: "#cc3030" }}>{uploadError}</p>}
       </div>
 
       <div className="space-y-2 pl-2">
