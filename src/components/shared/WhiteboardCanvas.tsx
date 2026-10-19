@@ -8766,7 +8766,16 @@ function WordSearchOverlay({ item, sp, sw, sh, selected, zoom, onUpdate, onResiz
 
   const resetProgress = () => { setStartCell(null); onUpdate({ ...item, foundWords: [] }); };
 
-  const cellSize = z((sw - 24) / item.size);
+  // sw is already in screen px (zoom applied once) — only the padding needs
+  // z(). Wrapping the whole thing in z() scaled the grid by zoom twice, so it
+  // ballooned out of its frame when zooming in and shrank inside it when
+  // zooming out, instead of staying fitted to the box like other widgets.
+  // Fit both ways: a wide-but-short frame must not push the grid past its
+  // bottom edge. Height budget = frame minus header (~37px, not zoomed),
+  // padding, gap, and room for the word chips underneath.
+  const cellByW = (sw - 2 * z(12)) / item.size - 1;
+  const cellByH = (sh - 37 - 2 * z(12) - z(10) - z(60)) / item.size - 1;
+  const cellSize = Math.max(4, Math.min(cellByW, cellByH));
 
   return (
     <div data-no-prevent className="absolute select-none" style={{ left:sp.x, top:sp.y, width:sw, height:sh, zIndex:20 }}>
