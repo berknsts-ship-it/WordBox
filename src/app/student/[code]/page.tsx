@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { EARLIER_IN_SERIES, slugifyTextbookName } from "@/lib/textbookSlug";
 import { notFound } from "next/navigation";
 import TabNav from "@/components/student/TabNav";
 import ScheduleTab from "@/components/student/tabs/ScheduleTab";
@@ -38,6 +40,23 @@ export default async function StudentCabinetPage({
     .single();
 
   if (!student) notFound();
+
+  // Earlier books in the same series the student actually went through
+  // (judged by that book's vocabulary folder being assigned to them) — their
+  // grammar reference stays visible below the current one as revision.
+  let earlierTextbooks: string[] = [];
+  const candidates = EARLIER_IN_SERIES[student.textbook ?? ""] ?? [];
+  if (activeTab === "grammar" && candidates.length > 0) {
+    const admin = createAdminClient();
+    const { data: rows } = await admin.from("set_assignments")
+      .select("vocabulary_sets!inner(vocabulary_folders!inner(name))")
+      .eq("student_id", student.id);
+    const assigned = new Set((rows ?? []).map(r => {
+      const set = r.vocabulary_sets as unknown as { vocabulary_folders: { name: string } };
+      return slugifyTextbookName(set.vocabulary_folders.name);
+    }));
+    earlierTextbooks = candidates.filter(b => assigned.has(b));
+  }
 
   const [
     { count: pendingCount },
@@ -109,7 +128,7 @@ export default async function StudentCabinetPage({
               <TrainerTab studentId={student.id} code={code} activeSetId={set} activeSub={sub === "exercises" ? "exercises" : "lexicon"} activeAssignmentId={assignment} />
             )}
             {activeTab === "vocabulary" && <VocabularyTab studentId={student.id} />}
-            {activeTab === "grammar"   && <GrammarTab textbook={student.textbook ?? null} />}
+            {activeTab === "grammar"   && <GrammarTab textbook={student.textbook ?? null} earlier={earlierTextbooks} />}
             {activeTab === "tests"     && <TestsTab studentId={student.id} accessCode={code} themeId={student.theme} />}
           </div>
         </div>

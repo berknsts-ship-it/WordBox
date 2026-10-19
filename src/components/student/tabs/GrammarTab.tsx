@@ -146,10 +146,12 @@ function Table2({ headers, rows }: { headers: string[]; rows: string[][] }) {
   );
 }
 
-function Section({ emoji, title, unit, children, open, onToggle }: {
+function Section({ emoji, title, unit, children, open, onToggle, hidden }: {
   emoji: string; title: string; unit: string;
   children: React.ReactNode; open: boolean; onToggle: () => void;
+  hidden?: boolean;
 }) {
+  if (hidden) return null;
   return (
     <div className="rounded-3xl border overflow-hidden" style={{ background: "var(--theme-card-bg)", borderColor: "var(--theme-card-border)" }}>
       <button onClick={onToggle} className="w-full flex items-center gap-3 p-5 text-left">
@@ -444,10 +446,10 @@ function SolutionsElementary({ o, toggle }: { o: (id: string) => boolean; toggle
 // ─── Go Getter 1 ───────────────────────────────────────────────────────────
 // По реальному оглавлению Student's Book (8 юнитов), сверено по тексту PDF.
 
-function GoGetter1({ o, toggle }: { o: (id: string) => boolean; toggle: (id: string) => void }) {
+function GoGetter1({ o, toggle, hide }: { o: (id: string) => boolean; toggle: (id: string) => void; hide?: Set<string> }) {
   return (
     <>
-      <Section emoji="🙂" title="to be, притяжательный 's" unit="Unit 1 — Family and friends" open={o("gg1_u1")} onToggle={() => toggle("gg1_u1")}>
+      <Section emoji="🙂" title="to be, притяжательный 's" unit="Unit 1 — Family and friends" hidden={hide?.has("gg1_u1")} open={o("gg1_u1")} onToggle={() => toggle("gg1_u1")}>
         <Tip>I → am, he/she/it → is, you/we/they → are.</Tip>
         <div className="space-y-1.5 mt-2">
           <Ex en="I am (I'm) ten." ru="Мне десять лет." />
@@ -460,7 +462,7 @@ function GoGetter1({ o, toggle }: { o: (id: string) => boolean; toggle: (id: str
         <Ex en="It's Luke's cake." ru="Это торт Люка." />
       </Section>
 
-      <Section emoji="👕" title="this/that/these/those, to be — вопросы" unit="Unit 2 — My things" open={o("gg1_u2")} onToggle={() => toggle("gg1_u2")}>
+      <Section emoji="👕" title="this/that/these/those, to be — вопросы" unit="Unit 2 — My things" hidden={hide?.has("gg1_u2")} open={o("gg1_u2")} onToggle={() => toggle("gg1_u2")}>
         <Table2
           headers={["Слово", "Когда"]}
           rows={[
@@ -477,7 +479,7 @@ function GoGetter1({ o, toggle }: { o: (id: string) => boolean; toggle: (id: str
         </div>
       </Section>
 
-      <Section emoji="🏠" title="there is / there are" unit="Unit 3 — In the house" open={o("gg1_u3")} onToggle={() => toggle("gg1_u3")}>
+      <Section emoji="🏠" title="there is / there are" unit="Unit 3 — In the house" hidden={hide?.has("gg1_u3")} open={o("gg1_u3")} onToggle={() => toggle("gg1_u3")}>
         <div className="space-y-1.5 mt-2">
           <Ex en="There's a phone on the sofa." ru="На диване телефон." />
           <Ex en="There are two DVDs behind the sofa." ru="За диваном два DVD." />
@@ -488,7 +490,7 @@ function GoGetter1({ o, toggle }: { o: (id: string) => boolean; toggle: (id: str
         </div>
       </Section>
 
-      <Section emoji="🙋" title="have got / has got, its/our/your/their" unit="Unit 4 — About me" open={o("gg1_u4")} onToggle={() => toggle("gg1_u4")}>
+      <Section emoji="🙋" title="have got / has got, its/our/your/their" unit="Unit 4 — About me" hidden={hide?.has("gg1_u4")} open={o("gg1_u4")} onToggle={() => toggle("gg1_u4")}>
         <Tip>I/you/we/they → 've got, he/she/it → 's got.</Tip>
         <div className="space-y-1.5 mt-2">
           <Ex en="I've got long arms." ru="У меня длинные руки." />
@@ -501,7 +503,7 @@ function GoGetter1({ o, toggle }: { o: (id: string) => boolean; toggle: (id: str
         <Tip>Притяжательные: it → its, we → our, you → your, they → their.</Tip>
       </Section>
 
-      <Section emoji="🏃" title="Can (умение)" unit="Unit 5 — Things I can do" open={o("gg1_u5")} onToggle={() => toggle("gg1_u5")}>
+      <Section emoji="🏃" title="Can (умение)" unit="Unit 5 — Things I can do" hidden={hide?.has("gg1_u5")} open={o("gg1_u5")} onToggle={() => toggle("gg1_u5")}>
         <Tip>Can не меняется по лицам: I can, he can, they can — всегда одинаково.</Tip>
         <div className="space-y-1.5 mt-2">
           <Ex en="I can jump." ru="Я умею прыгать." />
@@ -510,7 +512,7 @@ function GoGetter1({ o, toggle }: { o: (id: string) => boolean; toggle: (id: str
         </div>
       </Section>
 
-      <Section emoji="⏰" title="Present Simple, наречия частотности" unit="Unit 6 — My day" open={o("gg1_u6")} onToggle={() => toggle("gg1_u6")}>
+      <Section emoji="⏰" title="Present Simple, наречия частотности" unit="Unit 6 — My day" hidden={hide?.has("gg1_u6")} open={o("gg1_u6")} onToggle={() => toggle("gg1_u6")}>
         <Tip>He/she/it добавляет -s (или -es, -ies): get→gets, watch→watches, tidy→tidies, have→has, go→goes.</Tip>
         <div className="space-y-1.5 mt-2">
           <Ex en="I get up early. Alex gets up late." ru="Я встаю рано. Алекс встаёт поздно." />
@@ -520,7 +522,7 @@ function GoGetter1({ o, toggle }: { o: (id: string) => boolean; toggle: (id: str
         <Ex en="He always has breakfast at home. They never get up late." ru="Он всегда завтракает дома. Они никогда не встают поздно." />
       </Section>
 
-      <Section emoji="🐾" title="Present Simple — отрицание и вопросы" unit="Unit 7 — Animals" open={o("gg1_u7")} onToggle={() => toggle("gg1_u7")}>
+      <Section emoji="🐾" title="Present Simple — отрицание и вопросы" unit="Unit 7 — Animals" hidden={hide?.has("gg1_u7")} open={o("gg1_u7")} onToggle={() => toggle("gg1_u7")}>
         <Tip>Отрицание: I/you/we/they → don't, he/she/it → doesn't.</Tip>
         <div className="space-y-1.5 mt-2">
           <Ex en="I don't like cats." ru="Мне не нравятся кошки." />
@@ -531,7 +533,7 @@ function GoGetter1({ o, toggle }: { o: (id: string) => boolean; toggle: (id: str
         <Ex en="Does Max watch DVDs? Yes, he does." ru="Макс смотрит DVD? Да." />
       </Section>
 
-      <Section emoji="⚽" title="love/like/hate + -ing, местоимения, вопросительные слова" unit="Unit 8 — I like that!" open={o("gg1_u8")} onToggle={() => toggle("gg1_u8")}>
+      <Section emoji="⚽" title="love/like/hate + -ing, местоимения, вопросительные слова" unit="Unit 8 — I like that!" hidden={hide?.has("gg1_u8")} open={o("gg1_u8")} onToggle={() => toggle("gg1_u8")}>
         <Tip>После love/like/don't like/hate глагол ставится в форме -ing.</Tip>
         <div className="space-y-1.5 mt-2">
           <Ex en="I love eating. I hate cooking." ru="Я обожаю есть. Я ненавижу готовить." />
@@ -546,10 +548,10 @@ function GoGetter1({ o, toggle }: { o: (id: string) => boolean; toggle: (id: str
   );
 }
 
-function GoGetter2({ o, toggle }: { o: (id: string) => boolean; toggle: (id: string) => void }) {
+function GoGetter2({ o, toggle, hide }: { o: (id: string) => boolean; toggle: (id: string) => void; hide?: Set<string> }) {
   return (
     <>
-      <Section emoji="🏫" title="Present Simple, наречия частотности" unit="Unit 1 — Classmates" open={o("gg2_u1")} onToggle={() => toggle("gg2_u1")}>
+      <Section emoji="🏫" title="Present Simple, наречия частотности" unit="Unit 1 — Classmates" hidden={hide?.has("gg2_u1")} open={o("gg2_u1")} onToggle={() => toggle("gg2_u1")}>
         <Tip>He/she/it добавляет -s (или -es, -ies): play→plays, watch→watches, study→studies. Отрицание: don't/doesn't. Вопросы: Do/Does…?</Tip>
         <div className="space-y-1.5 mt-2">
           <Ex en="She plays the piano. He doesn't like Maths." ru="Она играет на пианино. Ему не нравится математика." />
@@ -559,7 +561,7 @@ function GoGetter2({ o, toggle }: { o: (id: string) => boolean; toggle: (id: str
         <Ex en="I never listen to music at school. She is always happy." ru="Я никогда не слушаю музыку в школе. Она всегда счастлива." />
       </Section>
 
-      <Section emoji="🍎" title="some/any, How much/How many, a lot of" unit="Unit 2 — Fun with food" open={o("gg2_u2")} onToggle={() => toggle("gg2_u2")}>
+      <Section emoji="🍎" title="some/any, How much/How many, a lot of" unit="Unit 2 — Fun with food" hidden={hide?.has("gg2_u2")} open={o("gg2_u2")} onToggle={() => toggle("gg2_u2")}>
         <Tip>Исчисляемые (an egg, two lemons) и неисчисляемые (sugar, milk) существительные. Some — в утверждении, any — в отрицании и вопросах.</Tip>
         <div className="space-y-1.5 mt-2">
           <Ex en="There are some sausages. There isn't any milk." ru="Есть сосиски. Молока нет." />
@@ -569,7 +571,7 @@ function GoGetter2({ o, toggle }: { o: (id: string) => boolean; toggle: (id: str
         <Ex en="How much water is there? How many apples are there? There's a lot of juice." ru="Сколько воды? Сколько яблок? Сока много." />
       </Section>
 
-      <Section emoji="💻" title="Present Continuous" unit="Unit 3 — Technology for all" open={o("gg2_u3")} onToggle={() => toggle("gg2_u3")}>
+      <Section emoji="💻" title="Present Continuous" unit="Unit 3 — Technology for all" hidden={hide?.has("gg2_u3")} open={o("gg2_u3")} onToggle={() => toggle("gg2_u3")}>
         <Tip>am/is/are + глагол-ing — для действий, происходящих сейчас.</Tip>
         <div className="space-y-1.5 mt-2">
           <Ex en="She is chatting online. They aren't playing football." ru="Она общается онлайн. Они не играют в футбол." />
@@ -577,7 +579,7 @@ function GoGetter2({ o, toggle }: { o: (id: string) => boolean; toggle: (id: str
         </div>
       </Section>
 
-      <Section emoji="🌍" title="Сравнительная и превосходная степень" unit="Unit 4 — Big world" open={o("gg2_u4")} onToggle={() => toggle("gg2_u4")}>
+      <Section emoji="🌍" title="Сравнительная и превосходная степень" unit="Unit 4 — Big world" hidden={hide?.has("gg2_u4")} open={o("gg2_u4")} onToggle={() => toggle("gg2_u4")}>
         <Tip>Короткие прилагательные: +er/+est. Длинные: more/most. Исключения: good→better→best, bad→worse→worst.</Tip>
         <div className="space-y-1.5 mt-2">
           <Ex en="This mountain is higher than that one." ru="Эта гора выше той." />
@@ -585,7 +587,7 @@ function GoGetter2({ o, toggle }: { o: (id: string) => boolean; toggle: (id: str
         </div>
       </Section>
 
-      <Section emoji="🏙️" title="Past Simple глагола to be" unit="Unit 5 — Around town" open={o("gg2_u5")} onToggle={() => toggle("gg2_u5")}>
+      <Section emoji="🏙️" title="Past Simple глагола to be" unit="Unit 5 — Around town" hidden={hide?.has("gg2_u5")} open={o("gg2_u5")} onToggle={() => toggle("gg2_u5")}>
         <Tip>was/were, отрицание wasn't/weren't, вопросы Was/Were…?</Tip>
         <div className="space-y-1.5 mt-2">
           <Ex en="There was a post office in 1900." ru="В 1900 году здесь была почта." />
@@ -593,14 +595,14 @@ function GoGetter2({ o, toggle }: { o: (id: string) => boolean; toggle: (id: str
         </div>
       </Section>
 
-      <Section emoji="💼" title="Past Simple — правильные и неправильные глаголы" unit="Unit 6 — Just the job" open={o("gg2_u6")} onToggle={() => toggle("gg2_u6")}>
+      <Section emoji="💼" title="Past Simple — правильные и неправильные глаголы" unit="Unit 6 — Just the job" hidden={hide?.has("gg2_u6")} open={o("gg2_u6")} onToggle={() => toggle("gg2_u6")}>
         <Tip>Правильные глаголы: +ed (walk→walked). Неправильные меняются полностью (buy→bought, go→went) — их нужно запоминать.</Tip>
         <div className="space-y-1.5 mt-2">
           <Ex en="She walked the dog. I bought a new bag." ru="Она выгуляла собаку. Я купил новую сумку." />
         </div>
       </Section>
 
-      <Section emoji="🧳" title="Past Simple — отрицание и вопросы" unit="Unit 7 — Going places" open={o("gg2_u7")} onToggle={() => toggle("gg2_u7")}>
+      <Section emoji="🧳" title="Past Simple — отрицание и вопросы" unit="Unit 7 — Going places" hidden={hide?.has("gg2_u7")} open={o("gg2_u7")} onToggle={() => toggle("gg2_u7")}>
         <Tip>Отрицание: didn't + глагол в начальной форме. Вопросы: Did…?</Tip>
         <div className="space-y-1.5 mt-2">
           <Ex en="I didn't take a tent." ru="Я не взял палатку." />
@@ -608,7 +610,7 @@ function GoGetter2({ o, toggle }: { o: (id: string) => boolean; toggle: (id: str
         </div>
       </Section>
 
-      <Section emoji="🎉" title="be going to, повторение вопросов" unit="Unit 8 — Having fun" open={o("gg2_u8")} onToggle={() => toggle("gg2_u8")}>
+      <Section emoji="🎉" title="be going to, повторение вопросов" unit="Unit 8 — Having fun" hidden={hide?.has("gg2_u8")} open={o("gg2_u8")} onToggle={() => toggle("gg2_u8")}>
         <Tip>am/is/are + going to + глагол — для планов на будущее.</Tip>
         <div className="space-y-1.5 mt-2">
           <Ex en="We are going to go to a concert." ru="Мы собираемся пойти на концерт." />
@@ -696,7 +698,19 @@ const TEXTBOOK_LABELS: Record<string, string> = {
   go_getter_3:             "Go Getter 3",
 };
 
-export default function GrammarTab({ textbook }: { textbook: string | null }) {
+// Темы более раннего учебника, которые заново и полнее разобраны в следующем
+// учебнике серии — в блоке «повторение» их не показываем, чтобы не дублировать.
+const COVERED_LATER: Record<string, string[]> = {
+  go_getter_1: ["gg1_u6", "gg1_u7"],          // Present Simple целиком — в GG2 Unit 1
+  go_getter_2: ["gg2_u3", "gg2_u6", "gg2_u7"], // Present Continuous, Past Simple — в GG3 Units 1, 3
+};
+
+export default function GrammarTab({ textbook, earlier = [] }: {
+  textbook: string | null;
+  // Предыдущие учебники, которые ученик проходил: их справочник остаётся
+  // ниже текущего как повторение, без тем, повторяющихся в текущем.
+  earlier?: string[];
+}) {
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const toggle = (id: string) => setOpen((p) => ({ ...p, [id]: !p[id] }));
   const o = (id: string) => !!open[id];
@@ -721,6 +735,19 @@ export default function GrammarTab({ textbook }: { textbook: string | null }) {
       {textbook === "go_getter_1"             && <GoGetter1            o={o} toggle={toggle} />}
       {textbook === "go_getter_2"             && <GoGetter2            o={o} toggle={toggle} />}
       {textbook === "go_getter_3"             && <GoGetter3            o={o} toggle={toggle} />}
+
+      {earlier.map(book => {
+        const hide = new Set(COVERED_LATER[book] ?? []);
+        return (
+          <div key={book} className="space-y-3 pt-4">
+            <p className="text-xs font-semibold pb-1" style={{ color: "var(--brown-light)" }}>
+              {TEXTBOOK_LABELS[book] ?? book} — повторение
+            </p>
+            {book === "go_getter_1" && <GoGetter1 o={o} toggle={toggle} hide={hide} />}
+            {book === "go_getter_2" && <GoGetter2 o={o} toggle={toggle} hide={hide} />}
+          </div>
+        );
+      })}
     </div>
   );
 }

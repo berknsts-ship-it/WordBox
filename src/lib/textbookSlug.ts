@@ -6,3 +6,10 @@
 export function slugifyTextbookName(name: string): string {
   return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
 }
+
+// Предыдущие учебники той же серии, ближайший первым. Справочник по ним
+// показывается ученику как повторение, если он их проходил.
+export const EARLIER_IN_SERIES: Record<string, string[]> = {
+  go_getter_2: ["go_getter_1"],
+  go_getter_3: ["go_getter_2", "go_getter_1"],
+};
