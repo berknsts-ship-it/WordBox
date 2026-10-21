@@ -2028,6 +2028,17 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Safety-net expiry for a remote "I'm editing this text" hide: if their
+  // text_editing_end never arrives (dropped packet, tab closed mid-edit),
+  // the original reappears instead of staying invisible forever.
+  const expireRemoteHide = (id: string) => {
+    remoteHiddenIdsRef.current.delete(id);
+    remoteHideTimers.current.delete(id);
+    remoteDraftsRef.current.delete(id);
+    staticValidRef.current = false;
+    render();
+  };
+
   const scheduleRender = useCallback(() => {
     if (rafPendingRef.current) return;
     rafPendingRef.current = true;
@@ -2590,16 +2601,21 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           // expiry pattern already used for remote cursors below.
           const existingTimer = remoteHideTimers.current.get(id);
           if (existingTimer) clearTimeout(existingTimer);
-          remoteHideTimers.current.set(id, setTimeout(() => {
-            remoteHiddenIdsRef.current.delete(id);
-            remoteHideTimers.current.delete(id);
-            remoteDraftsRef.current.delete(id);
-            render();
-          }, 8000));
+          remoteHideTimers.current.set(id, setTimeout(() => expireRemoteHide(id), 8000));
+          staticValidRef.current = false; // the cached bitmap still has this item
           render(); return;
         }
         if (payload.type === "text_typing") {
           remoteDraftsRef.current.set(payload.item.id, { item: payload.item, color: payload.senderColor });
+          // Every keystroke proves they're still editing: push the safety-net
+          // expiry out again. Before, it fired 8s after editing STARTED, so
+          // anyone typing for longer saw the old text pop back underneath
+          // their live draft — two overlapping copies.
+          if (remoteHiddenIdsRef.current.has(payload.item.id)) {
+            const t = remoteHideTimers.current.get(payload.item.id);
+            if (t) clearTimeout(t);
+            remoteHideTimers.current.set(payload.item.id, setTimeout(() => expireRemoteHide(payload.item.id), 8000));
+          }
           render(); return;
         }
         if (payload.type === "text_editing_end") {
@@ -2607,6 +2623,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           if (t) { clearTimeout(t); remoteHideTimers.current.delete(payload.id); }
           remoteHiddenIdsRef.current.delete(payload.id);
           remoteDraftsRef.current.delete(payload.id);
+          staticValidRef.current = false;
           render(); return;
         }
         if (payload.type === "path") {
@@ -2846,6 +2863,11 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     setBold(ti.bold); setItalic(ti.italic); setAlign(ti.align); setFontSize(ti.fontSize);
     const fi = FONTS.findIndex(f => f.family === ti.font); setFontIdx(fi >= 0 ? fi : 0);
     send({ type: "text_editing_start", id: ti.id }); // hide it for everyone else while I edit
+    // render() only invalidates the static cache AFTER blitting it, so on its
+    // own it would repaint the cached bitmap that still contains this text —
+    // the original then stayed visible under the textarea (two overlapping
+    // copies) until something else happened to trigger another render.
+    staticValidRef.current = false;
     render(); // hide original from canvas immediately
     setTimeout(() => {
       const ta = textRef.current; if (!ta) return;
