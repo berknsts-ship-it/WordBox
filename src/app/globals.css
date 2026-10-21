@@ -218,3 +218,7 @@ h1, h2, h3, h4 {
     );
   background-size: 100% 28px, 100% 100%, 100% 100%;
 }
+
+/* Scrollable strips that should still scroll but never show a bar (e.g. the board text toolbar on macOS with "always show scrollbars"). */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }

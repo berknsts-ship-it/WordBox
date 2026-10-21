@@ -6312,18 +6312,24 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           // whatever you were editing. Still readable/usable, just smaller.
           const TOOLBAR_H = 34;
           const TOOLBAR_W = 310;
-          const TOOLBAR_GAP = 4;
+          const TOOLBAR_GAP = 12;
           const containerH = containerRef.current?.clientHeight ?? 600;
           const containerW = containerRef.current?.clientWidth ?? 800;
           // Prefer just above the text; if there isn't room (text near the
           // top of the viewport), drop it below the text box instead of
           // clamping in place — clamping was what let the toolbar land on
           // top of the very text you're writing.
-          const textBoxH = textRef.current?.getBoundingClientRect().height ?? (fontSize * viewRef.current.zoom * 1.6 + 16);
-          const fitsAbove = textScr.y - 4 >= TOOLBAR_H + TOOLBAR_GAP;
+          // Measure the textarea's REAL box: it's nudged up from the click
+          // point (textScr.y) so the first line sits on it, so anchoring the
+          // toolbar to textScr.y put it on top of the box's upper edge.
+          const taRect = textRef.current?.getBoundingClientRect();
+          const cRect = containerRef.current?.getBoundingClientRect();
+          const textBoxTop = taRect && cRect ? taRect.top - cRect.top : textScr.y - fontSize * viewRef.current.zoom;
+          const textBoxH = taRect?.height ?? (fontSize * viewRef.current.zoom * 1.6 + 16);
+          const fitsAbove = textBoxTop - 4 >= TOOLBAR_H + TOOLBAR_GAP;
           const toolbarTop = fitsAbove
-            ? textScr.y - TOOLBAR_H - TOOLBAR_GAP
-            : Math.min(textScr.y + textBoxH + TOOLBAR_GAP, containerH - TOOLBAR_H - 4);
+            ? textBoxTop - TOOLBAR_H - TOOLBAR_GAP
+            : Math.min(textBoxTop + textBoxH + TOOLBAR_GAP, containerH - TOOLBAR_H - 4);
           const toolbarLeft = Math.max(4, Math.min(textScr.x - TOOLBAR_W / 2, containerW - TOOLBAR_W - 4));
           const iconBtn = "w-6 h-6 rounded-full flex items-center justify-center transition-colors shrink-0";
           return (
@@ -6355,7 +6361,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
                     scrollable sibling here instead of a whole extra row,
                     since height is the one thing this floating pill can't
                     spend more of. */}
-                <div className="flex items-center gap-0.5 overflow-x-auto" style={{ minWidth:0, flex:"1 1 auto" }}>
+                <div className="flex items-center gap-0.5 overflow-x-auto overflow-y-hidden no-scrollbar" style={{ minWidth:0, flex:"1 1 auto", scrollbarWidth:"none" }}>
                 {/* Font — compact, borderless trigger. Each option previews in its
                     own face so you can see what it looks like before picking it,
                     not just read its name; the closed trigger does the same for
