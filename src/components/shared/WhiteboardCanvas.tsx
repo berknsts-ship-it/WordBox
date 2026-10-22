@@ -845,13 +845,53 @@ const PEN_MIN_WIDTH_FACTOR = 0.6;
 const PEN_MAX_WIDTH_FACTOR = 1.3;
 const PEN_SPEED_REF_PX_MS  = 1.1;
 
-function renderPath(ctx: CanvasRenderingContext2D, item: PathItem) {
+// Translucent pen strokes and the highlighter behave like a real marker:
+// the whole stroke is first drawn fully opaque on a scratch canvas, then laid
+// onto the board ONCE with "multiply". White paper takes the colour, black
+// outlines of a picture underneath stay black (colouring-book style), and
+// the overlapping per-segment round caps no longer stack into darker blobs
+// the way per-segment globalAlpha did.
+let markerScratch: HTMLCanvasElement | null = null;
+function renderMarkerPath(ctx: CanvasRenderingContext2D, item: PathItem, alpha: number) {
+  const pts = item.points;
+  const pad = Math.max(item.highlight ? Math.max(item.size, 20) : item.size, 1) * PEN_MAX_WIDTH_FACTOR;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const p of pts) { if (p.x < x0) x0 = p.x; if (p.y < y0) y0 = p.y; if (p.x > x1) x1 = p.x; if (p.y > y1) y1 = p.y; }
+  const m = ctx.getTransform();
+  // Device-space bounds of the stroke (transform is scale + translate only).
+  const dx0 = Math.floor(m.a * (x0 - pad) + m.e), dy0 = Math.floor(m.d * (y0 - pad) + m.f);
+  const dx1 = Math.ceil(m.a * (x1 + pad) + m.e),  dy1 = Math.ceil(m.d * (y1 + pad) + m.f);
+  // Clip to the target canvas so a huge zoom never allocates a giant bitmap.
+  const cx0 = Math.max(0, dx0), cy0 = Math.max(0, dy0);
+  const cx1 = Math.min(ctx.canvas.width, dx1), cy1 = Math.min(ctx.canvas.height, dy1);
+  const w = cx1 - cx0, h = cy1 - cy0;
+  if (w <= 0 || h <= 0) return;
+  if (!markerScratch) markerScratch = document.createElement("canvas");
+  const sc = markerScratch;
+  if (sc.width < w) sc.width = w;
+  if (sc.height < h) sc.height = h;
+  const sctx = sc.getContext("2d")!;
+  sctx.setTransform(1, 0, 0, 1, 0, 0);
+  sctx.clearRect(0, 0, w, h);
+  sctx.setTransform(m.a, m.b, m.c, m.d, m.e - cx0, m.f - cy0);
+  renderPath(sctx, { ...item, highlight: item.highlight, opacity: undefined }, true);
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = alpha;
+  ctx.globalCompositeOperation = "multiply";
+  ctx.drawImage(sc, 0, 0, w, h, cx0, cy0, w, h);
+  ctx.restore();
+}
+
+function renderPath(ctx: CanvasRenderingContext2D, item: PathItem, opaque = false) {
   const pts = item.points;
   if (pts.length === 0) return;
+  if (!opaque && !item.eraser && (item.highlight || (item.opacity !== undefined && item.opacity < 100))) {
+    renderMarkerPath(ctx, item, item.highlight ? 0.55 : (item.opacity ?? 100) / 100);
+    return;
+  }
   ctx.save();
-  if (item.eraser)         { ctx.globalCompositeOperation = "destination-out"; }
-  else if (item.highlight) { ctx.globalAlpha = 0.38; }
-  else if (item.opacity !== undefined && item.opacity < 100) { ctx.globalAlpha = item.opacity / 100; }
+  if (item.eraser) { ctx.globalCompositeOperation = "destination-out"; }
   ctx.strokeStyle = item.color;
   ctx.lineCap     = item.highlight ? "square" : "round";
   ctx.lineJoin    = "round";
@@ -4653,6 +4693,12 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
     : "crosshair";
 
   // ── small UI helpers ──────────────────────────────────────────────────────────
+  // Called as a plain function ({ColorPalette({...})}), NOT as <ColorPalette/>:
+  // a component defined inside this render body is a brand-new type on every
+  // render, so React unmounted and remounted its <input type="color"> each
+  // time the board re-rendered (constantly on a student's screen — remote
+  // cursors, sync). The native colour dialog got detached mid-pick and the
+  // chosen custom colour never applied.
   const ColorPalette = ({ colors, active, onPick }: { colors:string[]; active:string; onPick:(c:string)=>void }) => (
     <div className="flex gap-1.5 items-center flex-wrap">
       {colors.map(c => (
@@ -5159,7 +5205,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
           <div className="w-px h-5 shrink-0" style={{ background:"var(--brown-pale)" }}/>
 
           {/* Left: tool-specific options */}
-          {tool === "highlight" && <ColorPalette colors={HIGHLIGHT_COLORS} active={hlColor} onPick={setHlColor} />}
+          {tool === "highlight" && ColorPalette({ colors: HIGHLIGHT_COLORS, active: hlColor, onPick: setHlColor })}
           {(tool === "select" || tool === "laser" || tool === "hand") && (
             <span className="text-xs" style={{ color:"var(--brown-light)" }}>
               {tool==="select" ? "Клик — выбрать · Тащить — переместить · Двойной клик на фрейме — редактировать" : tool==="hand" ? "Тащи или Пробел" : "Указка исчезает через 2.5с"}
@@ -5216,7 +5262,7 @@ function WhiteboardCanvas({ roomId, role = "student", materials = [], myName }, 
               <span className="text-xs w-6 tabular-nums" style={{ color:"var(--brown-mid)" }}>{size}</span>
             </div>
           )}
-          {(tool === "pen" || tool === "shape") && <ColorPalette colors={COLORS} active={color} onPick={setColor}/>}
+          {(tool === "pen" || tool === "shape") && ColorPalette({ colors: COLORS, active: color, onPick: setColor })}
           {(tool === "pen" || tool === "highlight" || tool === "shape") && (<><Sep/>
             <div className="flex items-center gap-1.5">
               <span className="text-xs" style={{ color:"var(--brown-light)" }}>Прозр.</span>
